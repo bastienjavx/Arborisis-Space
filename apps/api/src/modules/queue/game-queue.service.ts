@@ -7,8 +7,10 @@ import {
   CONSTRUCTION_QUEUE,
   EXPEDITION_QUEUE,
   FINALIZE_JOB,
+  GAME_EVENT_QUEUE,
   RESEARCH_QUEUE,
   SHIP_PRODUCTION_QUEUE,
+  TRIGGER_EVENT_JOB,
   type FinalizeJobData,
 } from './queue.constants';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -28,6 +30,7 @@ export class GameQueueService {
     @InjectQueue(COLONIZATION_QUEUE) private readonly colonization: Queue<FinalizeJobData>,
     @InjectQueue(SHIP_PRODUCTION_QUEUE) private readonly shipProduction: Queue<FinalizeJobData>,
     @InjectQueue(EXPEDITION_QUEUE) private readonly expedition: Queue<FinalizeJobData>,
+    @InjectQueue(GAME_EVENT_QUEUE) private readonly eventQueue: Queue,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -61,6 +64,17 @@ export class GameQueueService {
 
   async scheduleShipProduction(jobId: string, finishesAt: Date): Promise<void> {
     await this.safeAdd(this.shipProduction, jobId, finishesAt);
+  }
+
+  async scheduleNextEvent(): Promise<void> {
+    const delayMs = (4 + Math.random() * 4) * 3_600_000;
+    await this.eventQueue.add(TRIGGER_EVENT_JOB, {}, {
+      delay: delayMs,
+      removeOnComplete: true,
+      removeOnFail: 10,
+      attempts: 3,
+      backoff: { type: 'exponential' as const, delay: 5_000 },
+    });
   }
 
   async scheduleExpedition(jobId: string, phase: string, finishesAt: Date): Promise<void> {

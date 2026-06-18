@@ -30,6 +30,18 @@ enum BuildingType {
 enum ShipType {
   SPORAL_SCOUT
   SYMBIOTIC_HARVESTER
+  MYCELIAL_TENDRIL
+  CHITIN_FREIGHTER
+  BIOLUMINESCENT_CRUISER
+  SPOROGENESIS_TITAN
+}
+
+enum PlanetType {
+  VERDANT
+  MINERAL
+  SAP_RICH
+  SPORE_NEBULA
+  BARREN
 }
 
 enum ExpeditionPhase {
@@ -44,6 +56,41 @@ enum ExpeditionOutcome {
   DERELICT_SHIP
   INCIDENT
   ANOMALY
+  ANCIENT_ARCHIVE
+  VOID_ECHO
+  CONVERGENCE_BLOOM
+}
+
+enum GalacticEventType {
+  SPORE_BLOOM
+  STELLAR_STORM
+  ANCIENT_SIGNAL
+  MYCOTOXIN_OUTBREAK
+  CONVERGENCE_PULSE
+  VOID_RIFT
+}
+
+enum AchievementType {
+  FIRST_SPROUT
+  RESEARCH_PIONEER
+  COSMIC_TRAVELER
+  COLONIAL_FUNGUS
+  FLEET_COMMANDER
+  SPORE_MASTER
+  ANCIENT_DISCOVERY
+  GALACTIC_HIVE
+  MASTER_BUILDER
+  SCHOLAR
+  TITAN_BREEDER
+  HUNDRED_SHIPS
+  CONVERGENCE_HERALD
+  EVENT_SURVIVOR
+  DEEP_SPACE
+  RESOURCE_BARON
+  SPEED_BUILDER
+  PEACEFUL_EXPLORER
+  SPORAL_SAGE
+  THE_CONVERGENCE
 }
 
 enum ResearchType {
@@ -72,6 +119,8 @@ model User {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  artifactCount     Int      @default(0)
+
   planets           Planet[]
   researchLevels    ResearchLevel[]
   researchJobs      ResearchJob[]
@@ -79,6 +128,7 @@ model User {
   sessions          Session[]
   expeditions       ExpeditionMission[]
   expeditionReports ExpeditionReport[]
+  achievements      PlayerAchievement[]
 
   @@map("users")
 }
@@ -99,11 +149,12 @@ model Session {
 }
 
 model Planet {
-  id          String  @id @default(uuid())
+  id          String     @id @default(uuid())
   name        String
   ownerId     String
-  owner       User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  isHomeworld Boolean @default(false)
+  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  isHomeworld Boolean    @default(false)
+  planetType  PlanetType @default(VERDANT)
 
   // Coordonnées galactiques (unicité d'emplacement).
   galaxy   Int
@@ -174,6 +225,10 @@ model ExpeditionMission {
   phase          ExpeditionPhase   @default(OUTBOUND)
   scoutCount     Int
   harvesterCount Int
+  tenderilCount  Int               @default(0)
+  freighterCount Int               @default(0)
+  cruiserCount   Int               @default(0)
+  titanCount     Int               @default(0)
   startedAt      DateTime          @default(now())
   arrivesAt      DateTime
   returnsAt      DateTime
@@ -201,6 +256,10 @@ model ExpeditionReport {
   rewardSpores     Float             @default(0)
   lostScouts       Int               @default(0)
   lostHarvesters   Int               @default(0)
+  lostTendrils     Int               @default(0)
+  lostFreighters   Int               @default(0)
+  lostCruisers     Int               @default(0)
+  lostTitans       Int               @default(0)
   overflowBiomass  Float             @default(0)
   overflowSap      Float             @default(0)
   overflowMinerals Float             @default(0)
@@ -265,6 +324,29 @@ model ResearchJob {
   @@index([userId, status])
   @@index([status, finishesAt])
   @@map("research_jobs")
+}
+
+model GalacticEvent {
+  id        String            @id @default(uuid())
+  type      GalacticEventType
+  startAt   DateTime          @default(now())
+  endsAt    DateTime
+  processed Boolean           @default(false)
+
+  @@index([endsAt])
+  @@map("galactic_events")
+}
+
+model PlayerAchievement {
+  id         String          @id @default(uuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       AchievementType
+  unlockedAt DateTime        @default(now())
+
+  @@unique([userId, type])
+  @@index([userId])
+  @@map("player_achievements")
 }
 
 model ColonizationJob {

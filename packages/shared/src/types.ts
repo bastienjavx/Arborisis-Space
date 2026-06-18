@@ -4,10 +4,13 @@
  */
 import { ResourceBundle } from './constants';
 import {
+  AchievementType,
   BuildingType,
   ExpeditionOutcome,
   ExpeditionPhase,
+  GalacticEventType,
   JobKind,
+  PlanetType,
   ResearchType,
   ResourceType,
   ShipType,
@@ -77,6 +80,7 @@ export interface PlanetSummary {
   isHomeworld: boolean;
   usedFields: number;
   maxFields: number;
+  planetType: PlanetType;
 }
 
 export interface PlanetDetail extends PlanetSummary {
@@ -153,4 +157,28 @@ export interface ExpeditionReportView {
   isRead: boolean;
   occurredAt: string;
   returnedAt: string | null;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  username: string;
+  score: number;
+  colonies: number;
+  ships: number;
+  lastActive: string;
+}
+
+export interface ActiveEventView {
+  type: GalacticEventType;
+  name: string;
+  effectDescription: string;
+  endsAt: string;
+}
+
+export interface AchievementView {
+  type: AchievementType;
+  name: string;
+  description: string;
+  rewardText: string;
+  unlockedAt: string | null;
 }

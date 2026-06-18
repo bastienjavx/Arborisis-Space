@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Nav } from '@/components/Nav';
 import { PlanetProvider } from '@/components/PlanetContext';
+import { EventBanner } from '@/components/EventBanner';
 import { useMe } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -47,6 +48,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
       </div>
       <Nav username={user.username} />
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-6">
+        <div className="mb-4">
+          <EventBanner />
+        </div>
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}

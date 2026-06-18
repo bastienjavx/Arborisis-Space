@@ -14,6 +14,9 @@ import type {
   ProduceShipsDto,
   StartExpeditionDto,
   ShipProductionJobView,
+  LeaderboardEntry,
+  ActiveEventView,
+  AchievementView,
 } from '@arborisis/shared';
 
 const BASE = '/api';
@@ -120,4 +123,9 @@ export const api = {
   expeditionReports: () => request<ExpeditionReportView[]>('/expeditions/reports'),
   markReportRead: (id: string) =>
     request<ExpeditionReportView>(`/expeditions/reports/${id}/read`, { method: 'PATCH' }),
+
+  // ── Classement / événements / succès ──
+  leaderboard: () => request<LeaderboardEntry[]>('/leaderboard'),
+  activeEvent: () => request<ActiveEventView | null>('/events/active'),
+  achievements: () => request<AchievementView[]>('/achievements'),
 };

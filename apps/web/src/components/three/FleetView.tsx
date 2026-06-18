@@ -9,6 +9,10 @@ import { SHIP_TYPES, ShipType, type ShipCounts } from '@arborisis/shared';
 const SHIP_COLORS: Record<ShipType, string> = {
   [ShipType.SPORAL_SCOUT]: '#16bf6c',
   [ShipType.SYMBIOTIC_HARVESTER]: '#7b66f0',
+  [ShipType.MYCELIAL_TENDRIL]: '#22d3ee',
+  [ShipType.CHITIN_FREIGHTER]: '#f59e0b',
+  [ShipType.BIOLUMINESCENT_CRUISER]: '#a78bfa',
+  [ShipType.SPOROGENESIS_TITAN]: '#f97316',
 };
 
 interface BioShipProps {

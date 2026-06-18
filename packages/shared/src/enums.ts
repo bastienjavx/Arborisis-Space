@@ -65,9 +65,62 @@ export const RESEARCH_TYPES = Object.values(ResearchType);
 export enum ShipType {
   SPORAL_SCOUT = 'SPORAL_SCOUT',
   SYMBIOTIC_HARVESTER = 'SYMBIOTIC_HARVESTER',
+  MYCELIAL_TENDRIL = 'MYCELIAL_TENDRIL',
+  CHITIN_FREIGHTER = 'CHITIN_FREIGHTER',
+  BIOLUMINESCENT_CRUISER = 'BIOLUMINESCENT_CRUISER',
+  SPOROGENESIS_TITAN = 'SPOROGENESIS_TITAN',
 }
 
 export const SHIP_TYPES = Object.values(ShipType);
+
+/** Types de planètes avec bonus de production. */
+export enum PlanetType {
+  VERDANT = 'VERDANT',
+  MINERAL = 'MINERAL',
+  SAP_RICH = 'SAP_RICH',
+  SPORE_NEBULA = 'SPORE_NEBULA',
+  BARREN = 'BARREN',
+}
+
+export const PLANET_TYPES = Object.values(PlanetType);
+
+/** Types d'événements galactiques périodiques. */
+export enum GalacticEventType {
+  SPORE_BLOOM = 'SPORE_BLOOM',
+  STELLAR_STORM = 'STELLAR_STORM',
+  ANCIENT_SIGNAL = 'ANCIENT_SIGNAL',
+  MYCOTOXIN_OUTBREAK = 'MYCOTOXIN_OUTBREAK',
+  CONVERGENCE_PULSE = 'CONVERGENCE_PULSE',
+  VOID_RIFT = 'VOID_RIFT',
+}
+
+export const GALACTIC_EVENT_TYPES = Object.values(GalacticEventType);
+
+/** Achievements débloquables par le joueur (20 médailles). */
+export enum AchievementType {
+  FIRST_SPROUT = 'FIRST_SPROUT',
+  RESEARCH_PIONEER = 'RESEARCH_PIONEER',
+  COSMIC_TRAVELER = 'COSMIC_TRAVELER',
+  COLONIAL_FUNGUS = 'COLONIAL_FUNGUS',
+  FLEET_COMMANDER = 'FLEET_COMMANDER',
+  SPORE_MASTER = 'SPORE_MASTER',
+  ANCIENT_DISCOVERY = 'ANCIENT_DISCOVERY',
+  GALACTIC_HIVE = 'GALACTIC_HIVE',
+  MASTER_BUILDER = 'MASTER_BUILDER',
+  SCHOLAR = 'SCHOLAR',
+  TITAN_BREEDER = 'TITAN_BREEDER',
+  HUNDRED_SHIPS = 'HUNDRED_SHIPS',
+  CONVERGENCE_HERALD = 'CONVERGENCE_HERALD',
+  EVENT_SURVIVOR = 'EVENT_SURVIVOR',
+  DEEP_SPACE = 'DEEP_SPACE',
+  RESOURCE_BARON = 'RESOURCE_BARON',
+  SPEED_BUILDER = 'SPEED_BUILDER',
+  PEACEFUL_EXPLORER = 'PEACEFUL_EXPLORER',
+  SPORAL_SAGE = 'SPORAL_SAGE',
+  THE_CONVERGENCE = 'THE_CONVERGENCE',
+}
+
+export const ACHIEVEMENT_TYPES = Object.values(AchievementType);
 
 export enum ExpeditionPhase {
   OUTBOUND = 'OUTBOUND',
@@ -81,6 +134,9 @@ export enum ExpeditionOutcome {
   DERELICT_SHIP = 'DERELICT_SHIP',
   INCIDENT = 'INCIDENT',
   ANOMALY = 'ANOMALY',
+  ANCIENT_ARCHIVE = 'ANCIENT_ARCHIVE',
+  VOID_ECHO = 'VOID_ECHO',
+  CONVERGENCE_BLOOM = 'CONVERGENCE_BLOOM',
 }
 
 /** Nature d'un job temporisé (file de construction / recherche / essaimage). */

@@ -7,6 +7,7 @@ import { ConstructionProcessor } from './processors/construction.processor';
 import { ResearchProcessor } from './processors/research.processor';
 import { ShipProductionProcessor } from './processors/ship-production.processor';
 import { ExpeditionProcessor } from './processors/expedition.processor';
+import { EventProcessor } from './processors/event.processor';
 import { GameQueueService } from './game-queue.service';
 import { ExpeditionsService } from '../game/expeditions.service';
 
@@ -23,6 +24,7 @@ import { ExpeditionsService } from '../game/expeditions.service';
     ColonizationProcessor,
     ShipProductionProcessor,
     ExpeditionProcessor,
+    EventProcessor,
   ],
 })
 export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -40,6 +42,7 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     await this.finalization.sweepAllDue();
     await this.expeditions.sweepAllDue();
     await this.queues.reconcilePending();
+    await this.queues.scheduleNextEvent().catch(() => void 0);
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
         this.logger.error(error, 'Échec du cycle de réconciliation.'),

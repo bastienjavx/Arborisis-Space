@@ -71,11 +71,16 @@ export const startExpeditionSchema = z.object({
     galaxy: z.number().int().min(1),
     system: z.number().int().min(1),
   }),
-  ships: z
-    .object({
-      [ShipType.SPORAL_SCOUT]: z.number().int().min(1).max(10_000),
-      [ShipType.SYMBIOTIC_HARVESTER]: z.number().int().min(0).max(10_000),
-    })
-    .strict(),
+  ships: z.object({
+    [ShipType.SPORAL_SCOUT]: z.number().int().min(0).max(10_000),
+    [ShipType.SYMBIOTIC_HARVESTER]: z.number().int().min(0).max(10_000),
+    [ShipType.MYCELIAL_TENDRIL]: z.number().int().min(0).max(10_000).default(0),
+    [ShipType.CHITIN_FREIGHTER]: z.number().int().min(0).max(10_000).default(0),
+    [ShipType.BIOLUMINESCENT_CRUISER]: z.number().int().min(0).max(10_000).default(0),
+    [ShipType.SPOROGENESIS_TITAN]: z.number().int().min(0).max(10_000).default(0),
+  }).refine(
+    (ships) => Object.values(ships).some((v) => v > 0),
+    { message: 'Au moins un vaisseau doit être envoyé.' },
+  ),
 });
 export type StartExpeditionDto = z.infer<typeof startExpeditionSchema>;

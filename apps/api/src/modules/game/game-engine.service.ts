@@ -1,11 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import type { Planet, PlanetBuilding, Prisma, ResearchLevel } from '@prisma/client';
+import type { GalacticEvent, Planet, PlanetBuilding, Prisma, ResearchLevel } from '@prisma/client';
 import {
+  BASE_PLANET_FIELDS,
   BuildingType,
   computeProduction,
+  computeStabilityDecay,
+  FIELDS_PER_TERRAFORMATION,
+  GalacticEventType,
+  PlanetType,
   ProductionResult,
   ResearchType,
   ResourceType,
+  STABILITY_MAX,
+  STABILITY_MIN,
+  STABILITY_SYMBIOSIS_BONUS,
   storageCap,
   type ResourceState,
 } from '@arborisis/shared';
@@ -70,7 +78,22 @@ export class GameEngineService {
 
     const buildings = this.buildingLevelsOf(planet.buildings);
     const research = this.researchLevelsOf(researchLevels);
-    const production = computeProduction({ buildings, research, stability: planet.stability });
+
+    // Check for active galactic events affecting production
+    const activeEvent = await this.getActiveEvent(db);
+    const production = computeProduction({
+      buildings,
+      research,
+      stability: planet.stability,
+      planetType: planet.planetType as PlanetType,
+    });
+
+    // Apply SPORE_BLOOM event: +50% production
+    if (activeEvent?.type === GalacticEventType.SPORE_BLOOM) {
+      for (const r of Object.values(ResourceType)) {
+        production.perHour[r] = Math.round(production.perHour[r] * 1.5 * 100) / 100;
+      }
+    }
 
     const elapsedMs = Math.max(0, now.getTime() - planet.lastResourceUpdate.getTime());
     const hours = elapsedMs / 3_600_000;
@@ -83,6 +106,19 @@ export class GameEngineService {
       next[r] = amounts[r] > cap ? amounts[r] : Math.min(cap, amounts[r] + gained);
     }
 
+    // Compute stability decay
+    const sporrangeLevel = buildings[BuildingType.SPORANGE] ?? 0;
+    const usedFields = planet.buildings.reduce((sum, b) => sum + (b.level > 0 ? 1 : 0), 0);
+    const terraform = research[ResearchType.TERRAFORMATION] ?? 0;
+    const maxFields = BASE_PLANET_FIELDS + terraform * FIELDS_PER_TERRAFORMATION;
+    const decayPerHour = computeStabilityDecay(usedFields, maxFields, sporrangeLevel);
+    const symbiosis = research[ResearchType.SYMBIOSIS] ?? 0;
+    const stabilityMax = STABILITY_MAX + symbiosis * STABILITY_SYMBIOSIS_BONUS;
+    const newStability = Math.min(
+      stabilityMax,
+      Math.max(STABILITY_MIN, planet.stability - decayPerHour * hours),
+    );
+
     const updated = await db.planet.update({
       where: { id: planetId },
       data: {
@@ -90,6 +126,7 @@ export class GameEngineService {
         sap: next[ResourceType.SAP],
         minerals: next[ResourceType.MINERALS],
         spores: next[ResourceType.SPORES],
+        stability: newStability,
         lastResourceUpdate: now,
       },
       include: { buildings: true },
@@ -117,6 +154,17 @@ export class GameEngineService {
       energyRatio: Math.round(production.energyRatio * 100) / 100,
       stability: planet.stability,
     };
+  }
+
+  /** Retourne l'événement galactique actif (endsAt > now), ou null. */
+  async getActiveEvent(
+    db?: Prisma.TransactionClient,
+  ): Promise<GalacticEvent | null> {
+    const client = db ?? this.prisma;
+    return client.galacticEvent.findFirst({
+      where: { endsAt: { gt: new Date() } },
+      orderBy: { startAt: 'desc' },
+    });
   }
 
   /** Débite un coût en ressources d'une planète déjà settlée. */

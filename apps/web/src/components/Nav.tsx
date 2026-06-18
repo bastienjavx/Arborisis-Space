@@ -15,6 +15,8 @@ const LINKS = [
   { href: '/galaxy', label: 'Galaxie' },
   { href: '/fleets', label: 'Flottes' },
   { href: '/reports', label: 'Rapports' },
+  { href: '/leaderboard', label: 'Classement' },
+  { href: '/achievements', label: 'Succès' },
 ];
 
 export function Nav({ username }: { username: string }) {

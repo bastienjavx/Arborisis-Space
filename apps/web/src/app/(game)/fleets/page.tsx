@@ -36,10 +36,18 @@ export default function FleetsPage() {
   const [quantities, setQuantities] = useState<Record<ShipType, number>>({
     [ShipType.SPORAL_SCOUT]: 1,
     [ShipType.SYMBIOTIC_HARVESTER]: 1,
+    [ShipType.MYCELIAL_TENDRIL]: 1,
+    [ShipType.CHITIN_FREIGHTER]: 1,
+    [ShipType.BIOLUMINESCENT_CRUISER]: 1,
+    [ShipType.SPOROGENESIS_TITAN]: 1,
   });
   const [ships, setShips] = useState<ShipCounts>({
     [ShipType.SPORAL_SCOUT]: 0,
     [ShipType.SYMBIOTIC_HARVESTER]: 0,
+    [ShipType.MYCELIAL_TENDRIL]: 0,
+    [ShipType.CHITIN_FREIGHTER]: 0,
+    [ShipType.BIOLUMINESCENT_CRUISER]: 0,
+    [ShipType.SPOROGENESIS_TITAN]: 0,
   });
   const [galaxy, setGalaxy] = useState(1);
   const [system, setSystem] = useState(1);
@@ -53,10 +61,12 @@ export default function FleetsPage() {
     return <p className="text-canopy-100/50">Croissance du hangar…</p>;
 
   const dockedShips: ShipCounts = {
-    [ShipType.SPORAL_SCOUT]:
-      fleet.ships.find((s) => s.type === ShipType.SPORAL_SCOUT)?.available ?? 0,
-    [ShipType.SYMBIOTIC_HARVESTER]:
-      fleet.ships.find((s) => s.type === ShipType.SYMBIOTIC_HARVESTER)?.available ?? 0,
+    [ShipType.SPORAL_SCOUT]: fleet.ships.find((s) => s.type === ShipType.SPORAL_SCOUT)?.available ?? 0,
+    [ShipType.SYMBIOTIC_HARVESTER]: fleet.ships.find((s) => s.type === ShipType.SYMBIOTIC_HARVESTER)?.available ?? 0,
+    [ShipType.MYCELIAL_TENDRIL]: fleet.ships.find((s) => s.type === ShipType.MYCELIAL_TENDRIL)?.available ?? 0,
+    [ShipType.CHITIN_FREIGHTER]: fleet.ships.find((s) => s.type === ShipType.CHITIN_FREIGHTER)?.available ?? 0,
+    [ShipType.BIOLUMINESCENT_CRUISER]: fleet.ships.find((s) => s.type === ShipType.BIOLUMINESCENT_CRUISER)?.available ?? 0,
+    [ShipType.SPOROGENESIS_TITAN]: fleet.ships.find((s) => s.type === ShipType.SPOROGENESIS_TITAN)?.available ?? 0,
   };
 
   function message(reason: unknown) {

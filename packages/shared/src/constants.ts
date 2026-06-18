@@ -9,7 +9,16 @@
  * Le serveur reste la seule autorité : le client n'utilise ces valeurs que pour
  * prévisualiser, jamais pour décider.
  */
-import { BuildingType, ResearchType, ResourceType, ShipType } from './enums';
+import {
+  AchievementType,
+  BuildingType,
+  ExpeditionOutcome,
+  GalacticEventType,
+  PlanetType,
+  ResearchType,
+  ResourceType,
+  ShipType,
+} from './enums';
 
 /** Quantité par ressource. Partielle = ressources absentes valent 0. */
 export type ResourceBundle = Partial<Record<ResourceType, number>>;
@@ -141,7 +150,7 @@ export const COLONIZATION_BASE_TIME_SECONDS = 1_800;
 export const COLONIES_PER_PROPULSION_LEVEL = 1;
 
 /** Version persistée dans chaque rapport pour rendre les tirages auditables. */
-export const EXPEDITION_RULESET_VERSION = 1;
+export const EXPEDITION_RULESET_VERSION = 2;
 export const EXPEDITION_MIN_TRAVEL_SECONDS = 30;
 export const EXPEDITION_SECONDS_PER_DISTANCE = 60;
 
@@ -252,6 +261,270 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   },
 };
 
+/** Stabilité écologique : décroissance et régénération. */
+export const STABILITY_DECAY_THRESHOLD = 0.7;
+export const STABILITY_DECAY_RATE = 2;
+export const STABILITY_SPORANGE_REGEN = 0.5;
+export const STABILITY_SYMBIOSIS_BONUS = 5;
+
+export interface PlanetTypeConfig {
+  type: PlanetType;
+  name: string;
+  description: string;
+  /** Bonus multiplicatif par ressource (1.0 = pas de bonus). */
+  productionBonus: Partial<Record<ResourceType, number>>;
+  /** Multiplicateur sur le coût de Terraformation (1.0 = normal). */
+  terraformCostFactor: number;
+}
+
+export const PLANET_TYPES_CONFIG: Record<PlanetType, PlanetTypeConfig> = {
+  [PlanetType.VERDANT]: {
+    type: PlanetType.VERDANT,
+    name: 'Monde Verdoyant',
+    description: 'Planète luxuriante gorgée de biomasse primordiale.',
+    productionBonus: { [ResourceType.BIOMASS]: 1.25 },
+    terraformCostFactor: 1.0,
+  },
+  [PlanetType.MINERAL]: {
+    type: PlanetType.MINERAL,
+    name: 'Noyau Minéral',
+    description: 'Monde rocheux aux veines cristallines exceptionnelles.',
+    productionBonus: { [ResourceType.MINERALS]: 1.3 },
+    terraformCostFactor: 0.8,
+  },
+  [PlanetType.SAP_RICH]: {
+    type: PlanetType.SAP_RICH,
+    name: 'Marécage de Sève',
+    description: 'Planète humide où la sève suinte de chaque pore de la roche.',
+    productionBonus: { [ResourceType.SAP]: 1.25 },
+    terraformCostFactor: 1.0,
+  },
+  [PlanetType.SPORE_NEBULA]: {
+    type: PlanetType.SPORE_NEBULA,
+    name: 'Nébuleuse Sporale',
+    description: 'Environnement chargé de spores stellaires, propice à la connaissance.',
+    productionBonus: {
+      [ResourceType.SPORES]: 1.4,
+      [ResourceType.BIOMASS]: 0.9,
+      [ResourceType.SAP]: 0.9,
+      [ResourceType.MINERALS]: 0.9,
+    },
+    terraformCostFactor: 1.0,
+  },
+  [PlanetType.BARREN]: {
+    type: PlanetType.BARREN,
+    name: 'Monde Désolé',
+    description: 'Planète hostile mais dont la désolation cache un potentiel inexploité.',
+    productionBonus: {
+      [ResourceType.BIOMASS]: 0.85,
+      [ResourceType.SAP]: 0.85,
+      [ResourceType.MINERALS]: 0.85,
+      [ResourceType.SPORES]: 0.85,
+    },
+    terraformCostFactor: 0.5,
+  },
+};
+
+export interface GalacticEventConfig {
+  type: GalacticEventType;
+  name: string;
+  description: string;
+  durationHours: number;
+  effectDescription: string;
+}
+
+export const GALACTIC_EVENTS: Record<GalacticEventType, GalacticEventConfig> = {
+  [GalacticEventType.SPORE_BLOOM]: {
+    type: GalacticEventType.SPORE_BLOOM,
+    name: 'Floraison Sporale',
+    description: 'Un nuage de spores cosmiques fertilise toute la galaxie.',
+    durationHours: 2,
+    effectDescription: 'Production × 1.5 pendant 2h',
+  },
+  [GalacticEventType.STELLAR_STORM]: {
+    type: GalacticEventType.STELLAR_STORM,
+    name: 'Tempête Stellaire',
+    description: "Les vents ioniques perturbent les routes d'expédition.",
+    durationHours: 3,
+    effectDescription: "Temps d'expédition × 2 pendant 3h",
+  },
+  [GalacticEventType.ANCIENT_SIGNAL]: {
+    type: GalacticEventType.ANCIENT_SIGNAL,
+    name: 'Signal Ancien',
+    description: 'Un écho du Réseau Mycélial perdu résonne à travers la galaxie.',
+    durationHours: 1,
+    effectDescription: '+500 Spores pour chaque commandant actif',
+  },
+  [GalacticEventType.MYCOTOXIN_OUTBREAK]: {
+    type: GalacticEventType.MYCOTOXIN_OUTBREAK,
+    name: 'Épidémie Mycotoxique',
+    description: 'Une neurotoxine fongique ravage les écosystèmes planétaires.',
+    durationHours: 1,
+    effectDescription: 'Stabilité -20 sur toutes les planètes',
+  },
+  [GalacticEventType.CONVERGENCE_PULSE]: {
+    type: GalacticEventType.CONVERGENCE_PULSE,
+    name: 'Pulsion de Convergence',
+    description: "La mémoire collective des Tisserands amplifie les esprits chercheurs.",
+    durationHours: 4,
+    effectDescription: 'Temps de recherche × 0.7 pendant 4h',
+  },
+  [GalacticEventType.VOID_RIFT]: {
+    type: GalacticEventType.VOID_RIFT,
+    name: 'Fissure du Vide',
+    description: 'Une déchirure dans le tissu galactique révèle des anomalies cachées.',
+    durationHours: 2,
+    effectDescription: 'Chance ANOMALY × 3 pendant 2h',
+  },
+};
+
+export interface AchievementConfig {
+  type: AchievementType;
+  name: string;
+  description: string;
+  rewardText: string;
+}
+
+export const ACHIEVEMENTS: Record<AchievementType, AchievementConfig> = {
+  [AchievementType.FIRST_SPROUT]: {
+    type: AchievementType.FIRST_SPROUT,
+    name: 'Première Pousse',
+    description: 'Améliorer un premier bâtiment.',
+    rewardText: "L'éveil commence. Chapitre I débloqué.",
+  },
+  [AchievementType.RESEARCH_PIONEER]: {
+    type: AchievementType.RESEARCH_PIONEER,
+    name: 'Pionnier de la Recherche',
+    description: 'Terminer une première recherche.',
+    rewardText: 'Les souvenirs des Tisserands refluent.',
+  },
+  [AchievementType.COSMIC_TRAVELER]: {
+    type: AchievementType.COSMIC_TRAVELER,
+    name: 'Voyageur Cosmique',
+    description: 'Lancer une première expédition.',
+    rewardText: 'Le Réseau Mycélial attend.',
+  },
+  [AchievementType.COLONIAL_FUNGUS]: {
+    type: AchievementType.COLONIAL_FUNGUS,
+    name: 'Fonge Coloniale',
+    description: 'Fonder une première colonie.',
+    rewardText: "L'essaimage reprend. Chapitre II débloqué.",
+  },
+  [AchievementType.FLEET_COMMANDER]: {
+    type: AchievementType.FLEET_COMMANDER,
+    name: 'Commandant de Flotte',
+    description: 'Posséder 10 vaisseaux au total.',
+    rewardText: 'La flotte prend vie.',
+  },
+  [AchievementType.SPORE_MASTER]: {
+    type: AchievementType.SPORE_MASTER,
+    name: 'Maître des Spores',
+    description: 'Atteindre Sporanges niveau 5.',
+    rewardText: 'Les spores obéissent à votre volonté.',
+  },
+  [AchievementType.ANCIENT_DISCOVERY]: {
+    type: AchievementType.ANCIENT_DISCOVERY,
+    name: 'Découverte Ancienne',
+    description: "Obtenir le résultat ANOMALIE lors d'une expédition.",
+    rewardText: 'Un artefact des Tisserands trouvé. Chapitre III débloqué.',
+  },
+  [AchievementType.GALACTIC_HIVE]: {
+    type: AchievementType.GALACTIC_HIVE,
+    name: 'Ruche Galactique',
+    description: 'Posséder 5 colonies.',
+    rewardText: "L'empire organique prend forme.",
+  },
+  [AchievementType.MASTER_BUILDER]: {
+    type: AchievementType.MASTER_BUILDER,
+    name: 'Grand Architecte',
+    description: 'Atteindre 50 niveaux de bâtiments au total.',
+    rewardText: 'La mémoire architecturale est restaurée.',
+  },
+  [AchievementType.SCHOLAR]: {
+    type: AchievementType.SCHOLAR,
+    name: 'Érudit',
+    description: 'Débloquer les 6 types de recherche (≥ niveau 1).',
+    rewardText: 'Toutes les branches du savoir sont explorées.',
+  },
+  [AchievementType.TITAN_BREEDER]: {
+    type: AchievementType.TITAN_BREEDER,
+    name: 'Éleveur de Titans',
+    description: 'Posséder un Titan Sporogenèse.',
+    rewardText: 'Le plus grand organisme interstellaire est né.',
+  },
+  [AchievementType.HUNDRED_SHIPS]: {
+    type: AchievementType.HUNDRED_SHIPS,
+    name: 'Centurion Stellaire',
+    description: 'Posséder 100 vaisseaux au total.',
+    rewardText: 'La flotte est une force de nature.',
+  },
+  [AchievementType.CONVERGENCE_HERALD]: {
+    type: AchievementType.CONVERGENCE_HERALD,
+    name: 'Héraut de la Convergence',
+    description: '3 artefacts arborisiens récupérés.',
+    rewardText: 'La Convergence se rapproche. Vitesse de recherche +15%.',
+  },
+  [AchievementType.EVENT_SURVIVOR]: {
+    type: AchievementType.EVENT_SURVIVOR,
+    name: 'Survivant',
+    description: 'Traverser une Épidémie Mycotoxique.',
+    rewardText: 'Ce qui ne tue pas rend plus fort.',
+  },
+  [AchievementType.DEEP_SPACE]: {
+    type: AchievementType.DEEP_SPACE,
+    name: 'Explorateur des Profondeurs',
+    description: 'Lancer une expédition à distance ≥ 20.',
+    rewardText: 'Les confins de la galaxie vous appellent.',
+  },
+  [AchievementType.RESOURCE_BARON]: {
+    type: AchievementType.RESOURCE_BARON,
+    name: 'Baron des Ressources',
+    description: 'Stocker 100 000 Biomasse.',
+    rewardText: "L'abondance organique est maîtrisée.",
+  },
+  [AchievementType.SPEED_BUILDER]: {
+    type: AchievementType.SPEED_BUILDER,
+    name: 'Bâtisseur Éclair',
+    description: 'Construire un bâtiment en moins de 10 secondes.',
+    rewardText: "Le temps n'a plus de prise sur vous.",
+  },
+  [AchievementType.PEACEFUL_EXPLORER]: {
+    type: AchievementType.PEACEFUL_EXPLORER,
+    name: 'Explorateur Pacifique',
+    description: '50 expéditions sans incident.',
+    rewardText: 'La chance sourit aux prudents.',
+  },
+  [AchievementType.SPORAL_SAGE]: {
+    type: AchievementType.SPORAL_SAGE,
+    name: 'Sage Sporique',
+    description: 'Atteindre Propulsion Sporale niveau 10.',
+    rewardText: 'Le cosmos entier s\'ouvre à votre essaimage.',
+  },
+  [AchievementType.THE_CONVERGENCE]: {
+    type: AchievementType.THE_CONVERGENCE,
+    name: 'La Convergence',
+    description: 'Posséder 10 colonies actives.',
+    rewardText: "Vous avez reconstitué l'empire des Tisserands. Titre : Tisserand Ressuscité.",
+  },
+};
+
+export interface ExpeditionOutcomeConfig {
+  outcome: ExpeditionOutcome;
+  minRoll: number;
+  maxRoll: number;
+}
+
+export const EXPEDITION_OUTCOME_TABLE: ExpeditionOutcomeConfig[] = [
+  { outcome: ExpeditionOutcome.RESOURCE_CACHE,    minRoll: 0,    maxRoll: 4999 },
+  { outcome: ExpeditionOutcome.RARE_SPORES,       minRoll: 5000, maxRoll: 6499 },
+  { outcome: ExpeditionOutcome.DERELICT_SHIP,     minRoll: 6500, maxRoll: 7499 },
+  { outcome: ExpeditionOutcome.INCIDENT,          minRoll: 7500, maxRoll: 8499 },
+  { outcome: ExpeditionOutcome.ANOMALY,           minRoll: 8500, maxRoll: 9099 },
+  { outcome: ExpeditionOutcome.ANCIENT_ARCHIVE,   minRoll: 9100, maxRoll: 9499 },
+  { outcome: ExpeditionOutcome.VOID_ECHO,         minRoll: 9500, maxRoll: 9799 },
+  { outcome: ExpeditionOutcome.CONVERGENCE_BLOOM, minRoll: 9800, maxRoll: 9999 },
+];
+
 export const SHIPS: Record<ShipType, ShipConfig> = {
   [ShipType.SPORAL_SCOUT]: {
     type: ShipType.SPORAL_SCOUT,
@@ -281,6 +554,65 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     cargo: 1_000,
     speed: 6,
     requiresNurseryLevel: 2,
+  },
+  [ShipType.MYCELIAL_TENDRIL]: {
+    type: ShipType.MYCELIAL_TENDRIL,
+    name: 'Filament Mycélial',
+    description: 'Filament ultra-rapide qui sonde les anomalies à la vitesse du spore.',
+    cost: {
+      [ResourceType.BIOMASS]: 150,
+      [ResourceType.MINERALS]: 80,
+      [ResourceType.SPORES]: 15,
+    },
+    baseTimeSeconds: 120,
+    cargo: 50,
+    speed: 20,
+    requiresNurseryLevel: 1,
+  },
+  [ShipType.CHITIN_FREIGHTER]: {
+    type: ShipType.CHITIN_FREIGHTER,
+    name: 'Frégat de Chitine',
+    description: 'Mastodonte de transport blindé par une carapace chitineuse.',
+    cost: {
+      [ResourceType.BIOMASS]: 1_200,
+      [ResourceType.MINERALS]: 800,
+      [ResourceType.SAP]: 400,
+      [ResourceType.SPORES]: 80,
+    },
+    baseTimeSeconds: 720,
+    cargo: 3_000,
+    speed: 4,
+    requiresNurseryLevel: 3,
+  },
+  [ShipType.BIOLUMINESCENT_CRUISER]: {
+    type: ShipType.BIOLUMINESCENT_CRUISER,
+    name: 'Croiseur Bioluminescent',
+    description: 'Organisme intermédiaire aux filaments phosphorescents, polyvalent et redoutable.',
+    cost: {
+      [ResourceType.BIOMASS]: 900,
+      [ResourceType.MINERALS]: 500,
+      [ResourceType.SAP]: 300,
+      [ResourceType.SPORES]: 100,
+    },
+    baseTimeSeconds: 540,
+    cargo: 500,
+    speed: 8,
+    requiresNurseryLevel: 4,
+  },
+  [ShipType.SPOROGENESIS_TITAN]: {
+    type: ShipType.SPOROGENESIS_TITAN,
+    name: 'Titan Sporogenèse',
+    description: 'Léviathan organique capable de transporter une civilisation entière entre les étoiles.',
+    cost: {
+      [ResourceType.BIOMASS]: 5_000,
+      [ResourceType.MINERALS]: 3_000,
+      [ResourceType.SAP]: 2_000,
+      [ResourceType.SPORES]: 500,
+    },
+    baseTimeSeconds: 2_400,
+    cargo: 8_000,
+    speed: 2,
+    requiresNurseryLevel: 6,
   },
 };
 

@@ -89,6 +89,10 @@ export class ExpeditionsService {
             targetSystem: dto.target.system,
             scoutCount: ships[ShipType.SPORAL_SCOUT],
             harvesterCount: ships[ShipType.SYMBIOTIC_HARVESTER],
+            tenderilCount: ships[ShipType.MYCELIAL_TENDRIL] ?? 0,
+            freighterCount: ships[ShipType.CHITIN_FREIGHTER] ?? 0,
+            cruiserCount: ships[ShipType.BIOLUMINESCENT_CRUISER] ?? 0,
+            titanCount: ships[ShipType.SPOROGENESIS_TITAN] ?? 0,
             startedAt: now,
             arrivesAt,
             returnsAt,
@@ -173,19 +177,35 @@ export class ExpeditionsService {
       if (mission.phase === ExpeditionPhase.OUTBOUND) {
         if (mission.arrivesAt > now) return 'waiting' as const;
         const roll = randomInt(0, 10_000);
-        const outcome = expeditionOutcomeFromRoll(roll);
+        // Check for active VOID_RIFT event
+        const activeEvent = await this.engine.getActiveEvent(tx);
+        const voidRiftActive = activeEvent?.type === 'VOID_RIFT';
+        const outcome = expeditionOutcomeFromRoll(roll, voidRiftActive);
         const distance = expeditionDistance(mission.planet, {
           galaxy: mission.targetGalaxy,
           system: mission.targetSystem,
         });
-        const cargo = fleetCargo({
+        const allShips = {
           [ShipType.SPORAL_SCOUT]: mission.scoutCount,
           [ShipType.SYMBIOTIC_HARVESTER]: mission.harvesterCount,
-        });
+          [ShipType.MYCELIAL_TENDRIL]: mission.tenderilCount,
+          [ShipType.CHITIN_FREIGHTER]: mission.freighterCount,
+          [ShipType.BIOLUMINESCENT_CRUISER]: mission.cruiserCount,
+          [ShipType.SPOROGENESIS_TITAN]: mission.titanCount,
+        };
+        const cargo = fleetCargo(allShips);
         let scouts = mission.scoutCount;
         let harvesters = mission.harvesterCount;
+        let tendrils = mission.tenderilCount;
+        let freighters = mission.freighterCount;
+        let cruisers = mission.cruiserCount;
+        let titans = mission.titanCount;
         let lostScouts = 0;
         let lostHarvesters = 0;
+        let lostTendrils = 0;
+        let lostFreighters = 0;
+        let lostCruisers = 0;
+        let lostTitans = 0;
         let biomass = 0;
         let sap = 0;
         let minerals = 0;
@@ -202,12 +222,46 @@ export class ExpeditionsService {
           scouts += 1;
         } else if (outcome === ExpeditionOutcome.INCIDENT) {
           const loss = expeditionIncidentLossPercent(roll) / 100;
-          lostScouts = Math.min(scouts, Math.max(1, Math.floor(scouts * loss)));
-          lostHarvesters =
-            harvesters > 0 ? Math.min(harvesters, Math.max(1, Math.floor(harvesters * loss))) : 0;
+          lostScouts = Math.min(scouts, Math.max(scouts > 0 ? 1 : 0, Math.floor(scouts * loss)));
+          lostHarvesters = harvesters > 0 ? Math.min(harvesters, Math.max(1, Math.floor(harvesters * loss))) : 0;
+          lostTendrils = tendrils > 0 ? Math.min(tendrils, Math.max(1, Math.floor(tendrils * loss))) : 0;
+          lostFreighters = freighters > 0 ? Math.min(freighters, Math.max(1, Math.floor(freighters * loss))) : 0;
+          lostCruisers = cruisers > 0 ? Math.min(cruisers, Math.max(1, Math.floor(cruisers * loss))) : 0;
+          lostTitans = titans > 0 ? Math.min(titans, Math.max(1, Math.floor(titans * loss))) : 0;
           scouts -= lostScouts;
           harvesters -= lostHarvesters;
+          tendrils -= lostTendrils;
+          freighters -= lostFreighters;
+          cruisers -= lostCruisers;
+          titans -= lostTitans;
+        } else if (outcome === ExpeditionOutcome.ANOMALY) {
+          // Artefact arborisien : +5% vitesse de recherche permanente (max 3)
+          const user = await tx.user.findUnique({ where: { id: mission.userId }, select: { artifactCount: true } });
+          if ((user?.artifactCount ?? 0) < 3) {
+            await tx.user.update({ where: { id: mission.userId }, data: { artifactCount: { increment: 1 } } });
+          }
+        } else if (outcome === ExpeditionOutcome.ANCIENT_ARCHIVE) {
+          // +200 spores + réduit recherche active de 10%
+          spores = 200;
+          const activeResearch = await tx.researchJob.findFirst({
+            where: { userId: mission.userId, status: 'PENDING' },
+          });
+          if (activeResearch) {
+            const remaining = activeResearch.finishesAt.getTime() - now.getTime();
+            const newFinishMs = now.getTime() + Math.max(5000, remaining * 0.9);
+            await tx.researchJob.update({
+              where: { id: activeResearch.id },
+              data: { finishesAt: new Date(newFinishMs) },
+            });
+          }
+        } else if (outcome === ExpeditionOutcome.CONVERGENCE_BLOOM) {
+          // Un scout évolue en croiseur
+          if (scouts > 0) {
+            scouts -= 1;
+            cruisers += 1;
+          }
         }
+        // VOID_ECHO: pas de récompense, juste stocker le résultat pour affichage
 
         await tx.expeditionReport.create({
           data: {
@@ -222,6 +276,10 @@ export class ExpeditionsService {
             rewardSpores: spores,
             lostScouts,
             lostHarvesters,
+            lostTendrils,
+            lostFreighters,
+            lostCruisers,
+            lostTitans,
             occurredAt: now,
           },
         });
@@ -231,6 +289,10 @@ export class ExpeditionsService {
             phase: ExpeditionPhase.RETURNING,
             scoutCount: scouts,
             harvesterCount: harvesters,
+            tenderilCount: tendrils,
+            freighterCount: freighters,
+            cruiserCount: cruisers,
+            titanCount: titans,
           },
         });
         scheduleReturn = mission.returnsAt;
@@ -265,7 +327,11 @@ export class ExpeditionsService {
       for (const [type, quantity] of [
         [ShipType.SPORAL_SCOUT, mission.scoutCount],
         [ShipType.SYMBIOTIC_HARVESTER, mission.harvesterCount],
-      ] as const) {
+        [ShipType.MYCELIAL_TENDRIL, mission.tenderilCount],
+        [ShipType.CHITIN_FREIGHTER, mission.freighterCount],
+        [ShipType.BIOLUMINESCENT_CRUISER, mission.cruiserCount],
+        [ShipType.SPOROGENESIS_TITAN, mission.titanCount],
+      ] as [ShipType, number][]) {
         if (quantity > 0) {
           await tx.planetShip.upsert({
             where: { planetId_type: { planetId: mission.planetId, type } },
@@ -311,6 +377,10 @@ export class ExpeditionsService {
     phase: string;
     scoutCount: number;
     harvesterCount: number;
+    tenderilCount: number;
+    freighterCount: number;
+    cruiserCount: number;
+    titanCount: number;
     arrivesAt: Date;
     returnsAt: Date;
     planet: { galaxy: number; system: number; position: number };
@@ -328,6 +398,10 @@ export class ExpeditionsService {
       ships: {
         [ShipType.SPORAL_SCOUT]: mission.scoutCount,
         [ShipType.SYMBIOTIC_HARVESTER]: mission.harvesterCount,
+        [ShipType.MYCELIAL_TENDRIL]: mission.tenderilCount,
+        [ShipType.CHITIN_FREIGHTER]: mission.freighterCount,
+        [ShipType.BIOLUMINESCENT_CRUISER]: mission.cruiserCount,
+        [ShipType.SPOROGENESIS_TITAN]: mission.titanCount,
       },
       arrivesAt: mission.arrivesAt.toISOString(),
       returnsAt: mission.returnsAt.toISOString(),
@@ -346,6 +420,10 @@ export class ExpeditionsService {
     rewardSpores: number;
     lostScouts: number;
     lostHarvesters: number;
+    lostTendrils: number;
+    lostFreighters: number;
+    lostCruisers: number;
+    lostTitans: number;
     overflowBiomass: number;
     overflowSap: number;
     overflowMinerals: number;
@@ -369,6 +447,10 @@ export class ExpeditionsService {
       losses: {
         [ShipType.SPORAL_SCOUT]: report.lostScouts,
         [ShipType.SYMBIOTIC_HARVESTER]: report.lostHarvesters,
+        [ShipType.MYCELIAL_TENDRIL]: report.lostTendrils,
+        [ShipType.CHITIN_FREIGHTER]: report.lostFreighters,
+        [ShipType.BIOLUMINESCENT_CRUISER]: report.lostCruisers,
+        [ShipType.SPOROGENESIS_TITAN]: report.lostTitans,
       },
       overflow: {
         [ResourceType.BIOMASS]: report.overflowBiomass,

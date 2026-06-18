@@ -4,6 +4,7 @@ import {
   BUILDING_TYPES,
   COLONY_STARTING_RESOURCES,
   GALAXY_COUNT,
+  PlanetType,
   POSITIONS_PER_SYSTEM,
   RESEARCH_TYPES,
   ResourceType,
@@ -40,6 +41,7 @@ export class WorldFactoryService {
           name: 'Noyau-Monde',
           ownerId: userId,
           isHomeworld: true,
+          planetType: PlanetType.VERDANT,
           galaxy: coords.galaxy,
           system: coords.system,
           position: coords.position,
@@ -74,6 +76,7 @@ export class WorldFactoryService {
         name,
         ownerId: userId,
         isHomeworld: false,
+        planetType: this.randomPlanetType(),
         galaxy: coords.galaxy,
         system: coords.system,
         position: coords.position,
@@ -89,6 +92,15 @@ export class WorldFactoryService {
       data: BUILDING_TYPES.map((type) => ({ planetId: planet.id, type, level: 0 })),
     });
     return planet.id;
+  }
+
+  private randomPlanetType(): PlanetType {
+    const rand = Math.random();
+    if (rand < 0.30) return PlanetType.VERDANT;
+    if (rand < 0.55) return PlanetType.MINERAL;
+    if (rand < 0.80) return PlanetType.SAP_RICH;
+    if (rand < 0.90) return PlanetType.SPORE_NEBULA;
+    return PlanetType.BARREN;
   }
 
   private async pickFreeCoordinates(

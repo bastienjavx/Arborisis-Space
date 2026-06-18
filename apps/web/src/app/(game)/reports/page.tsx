@@ -12,7 +12,10 @@ const TITLES: Record<ExpeditionOutcome, string> = {
   [ExpeditionOutcome.RARE_SPORES]: 'Spores rares récoltées',
   [ExpeditionOutcome.DERELICT_SHIP]: 'Bio-vaisseau abandonné réveillé',
   [ExpeditionOutcome.INCIDENT]: 'Incident dans le vide',
-  [ExpeditionOutcome.ANOMALY]: 'Anomalie silencieuse',
+  [ExpeditionOutcome.ANOMALY]: 'Artefact arborisien découvert',
+  [ExpeditionOutcome.ANCIENT_ARCHIVE]: 'Archive ancienne des Tisserands',
+  [ExpeditionOutcome.VOID_ECHO]: 'Écho du Vide détecté',
+  [ExpeditionOutcome.CONVERGENCE_BLOOM]: 'Floraison de Convergence',
 };
 
 export default function ReportsPage() {

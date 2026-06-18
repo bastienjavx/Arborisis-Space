@@ -17,6 +17,12 @@ import { ShipsController } from './ships.controller';
 import { ShipsService } from './ships.service';
 import { ExpeditionsController } from './expeditions.controller';
 import { ExpeditionsService } from './expeditions.service';
+import { LeaderboardController } from './leaderboard.controller';
+import { LeaderboardService } from './leaderboard.service';
+import { EventsController } from './events.controller';
+import { EventsService } from './events.service';
+import { AchievementsController } from './achievements.controller';
+import { AchievementsService } from './achievements.service';
 
 @Module({
   imports: [QueueModule],
@@ -28,6 +34,9 @@ import { ExpeditionsService } from './expeditions.service';
     ColonizationController,
     ShipsController,
     ExpeditionsController,
+    LeaderboardController,
+    EventsController,
+    AchievementsController,
   ],
   providers: [
     GameEngineService,
@@ -40,7 +49,10 @@ import { ExpeditionsService } from './expeditions.service';
     ColonizationService,
     ShipsService,
     ExpeditionsService,
+    LeaderboardService,
+    EventsService,
+    AchievementsService,
   ],
-  exports: [WorldFactoryService, FinalizationService, ExpeditionsService],
+  exports: [WorldFactoryService, FinalizationService, ExpeditionsService, EventsService],
 })
 export class GameModule {}

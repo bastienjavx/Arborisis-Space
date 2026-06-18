@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { JobStatus } from '@prisma/client';
 import {
   planetFields,
+  PlanetType,
   ResearchType,
   type PlanetDetail,
   type PlanetSummary,
@@ -42,6 +43,7 @@ export class PlanetsService {
       name: p.name,
       coordinates: planetCoordinates(p),
       isHomeworld: p.isHomeworld,
+      planetType: p.planetType as PlanetType,
       usedFields: p.buildings.reduce((sum, b) => sum + b.level, 0),
       maxFields: planetFields(terraform),
     }));
@@ -70,6 +72,7 @@ export class PlanetsService {
       name: settled.planet.name,
       coordinates: planetCoordinates(settled.planet),
       isHomeworld: settled.planet.isHomeworld,
+      planetType: settled.planet.planetType as PlanetType,
       usedFields,
       maxFields: planetFields(terraform),
       resources,

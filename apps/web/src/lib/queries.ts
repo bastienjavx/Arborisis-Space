@@ -21,6 +21,9 @@ export const keys = {
   fleet: (planetId: string) => ['fleet', planetId] as const,
   expeditions: ['expeditions'] as const,
   expeditionReports: ['expedition-reports'] as const,
+  leaderboard: ['leaderboard'] as const,
+  activeEvent: ['active-event'] as const,
+  achievements: ['achievements'] as const,
 };
 
 export function useMe() {
@@ -168,5 +171,29 @@ export function useMarkReportRead() {
   return useMutation({
     mutationFn: (id: string) => api.markReportRead(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.expeditionReports }),
+  });
+}
+
+export function useLeaderboard() {
+  return useQuery({
+    queryKey: keys.leaderboard,
+    queryFn: () => api.leaderboard(),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useActiveEvent() {
+  return useQuery({
+    queryKey: keys.activeEvent,
+    queryFn: () => api.activeEvent(),
+    refetchInterval: 120_000,
+  });
+}
+
+export function useAchievements() {
+  return useQuery({
+    queryKey: keys.achievements,
+    queryFn: () => api.achievements(),
+    refetchInterval: 60_000,
   });
 }

@@ -16,17 +16,22 @@ import {
   COLONIZATION_BASE_COST,
   COLONIZATION_BASE_TIME_SECONDS,
   COLONIZATION_COST_FACTOR,
+  EXPEDITION_MIN_TRAVEL_SECONDS,
+  EXPEDITION_OUTCOME_TABLE,
+  EXPEDITION_SECONDS_PER_DISTANCE,
   FIELDS_PER_TERRAFORMATION,
   GENETIC_ENGINEERING_BONUS,
-  EXPEDITION_MIN_TRAVEL_SECONDS,
-  EXPEDITION_SECONDS_PER_DISTANCE,
   PASSIVE_PRODUCTION,
+  PLANET_TYPES_CONFIG,
   RESEARCHES,
-  SHIPS,
   RESEARCH_NEXUS_SPEEDUP,
   ResourceBundle,
+  SHIPS,
+  STABILITY_DECAY_RATE,
+  STABILITY_DECAY_THRESHOLD,
   STABILITY_MAX,
   STABILITY_PRODUCTION_FLOOR,
+  STABILITY_SPORANGE_REGEN,
   STORAGE_FACTOR,
   SYSTEMS_PER_GALAXY,
   UNIVERSE_SPEED,
@@ -34,6 +39,7 @@ import {
 import {
   BuildingType,
   ExpeditionOutcome,
+  PlanetType,
   ResearchType,
   ResourceType,
   RESOURCE_TYPES,
@@ -148,6 +154,7 @@ export interface ProductionInput {
   buildings: Partial<Record<BuildingType, number>>;
   research: Partial<Record<ResearchType, number>>;
   stability: number;
+  planetType?: PlanetType;
 }
 
 export interface ProductionResult {
@@ -165,7 +172,7 @@ function buildingLevel(input: ProductionInput, type: BuildingType): number {
 
 /**
  * Calcule la production horaire d'une planète.
- * Modificateurs : énergie (ratio), stabilité écologique, Génie génétique.
+ * Modificateurs : énergie (ratio), stabilité écologique, Génie génétique, type de planète.
  */
 export function computeProduction(input: ProductionInput): ProductionResult {
   const advPhoto = input.research[ResearchType.ADVANCED_PHOTOSYNTHESIS] ?? 0;
@@ -182,6 +189,7 @@ export function computeProduction(input: ProductionInput): ProductionResult {
 
   const stab = stabilityFactor(input.stability);
   const geneticBonus = 1 + GENETIC_ENGINEERING_BONUS * genetic;
+  const planetBonus = input.planetType ? PLANET_TYPES_CONFIG[input.planetType].productionBonus : {};
 
   const perHour = {} as Record<ResourceType, number>;
   for (const r of RESOURCE_TYPES) {
@@ -193,9 +201,29 @@ export function computeProduction(input: ProductionInput): ProductionResult {
     const raw = buildingBaseProduction(type, buildingLevel(input, type));
     perHour[cfg.producesResource] += raw * geneticBonus * stab * energyRatio * UNIVERSE_SPEED;
   }
-  for (const r of RESOURCE_TYPES) perHour[r] = Math.round(perHour[r] * 100) / 100;
+  for (const r of RESOURCE_TYPES) {
+    perHour[r] = Math.round(perHour[r] * (planetBonus[r] ?? 1) * 100) / 100;
+  }
 
   return { perHour, energyProduced, energyConsumed, energyRatio };
+}
+
+/** Décroissance nette de stabilité par heure (0 si pas de pression écologique). */
+export function computeStabilityDecay(
+  usedFields: number,
+  maxFields: number,
+  sporrangeLevel: number,
+): number {
+  const occupancyRatio = maxFields > 0 ? usedFields / maxFields : 0;
+  const decay = Math.max(0, (occupancyRatio - STABILITY_DECAY_THRESHOLD) * STABILITY_DECAY_RATE);
+  const regen = sporrangeLevel * STABILITY_SPORANGE_REGEN;
+  return Math.max(0, decay - regen);
+}
+
+/** Réduit le temps de recherche selon le nombre d'artefacts arborisiens (max 3, -5% chacun). */
+export function computeResearchTimeWithArtifacts(baseSeconds: number, artifactCount: number): number {
+  const reduction = Math.min(3, Math.max(0, artifactCount)) * 0.05;
+  return Math.max(BUILD_TIME_MIN_SECONDS, Math.round(baseSeconds * (1 - reduction)));
 }
 
 // ──────────────────────────── Stockage ───────────────────────────────────────
@@ -305,14 +333,21 @@ export function expeditionTravelTimeSeconds(
   );
 }
 
-/** Table v1 : 55% ressources, 20% spores, 10% épave, 10% incident, 5% anomalie. */
-export function expeditionOutcomeFromRoll(roll: number): ExpeditionOutcome {
+/** Table v2 : 8 résultats possibles. VOID_RIFT triple la zone ANOMALY. */
+export function expeditionOutcomeFromRoll(roll: number, voidRiftActive = false): ExpeditionOutcome {
   const normalized = Math.max(0, Math.min(9_999, Math.floor(roll)));
-  if (normalized < 5_500) return ExpeditionOutcome.RESOURCE_CACHE;
-  if (normalized < 7_500) return ExpeditionOutcome.RARE_SPORES;
-  if (normalized < 8_500) return ExpeditionOutcome.DERELICT_SHIP;
-  if (normalized < 9_500) return ExpeditionOutcome.INCIDENT;
-  return ExpeditionOutcome.ANOMALY;
+  if (voidRiftActive) {
+    if (normalized < 5_000) return ExpeditionOutcome.RESOURCE_CACHE;
+    if (normalized < 6_500) return ExpeditionOutcome.RARE_SPORES;
+    if (normalized < 7_500) return ExpeditionOutcome.DERELICT_SHIP;
+    if (normalized < 8_000) return ExpeditionOutcome.INCIDENT;
+    if (normalized < 9_800) return ExpeditionOutcome.ANOMALY;
+    return ExpeditionOutcome.CONVERGENCE_BLOOM;
+  }
+  for (const entry of EXPEDITION_OUTCOME_TABLE) {
+    if (normalized >= entry.minRoll && normalized <= entry.maxRoll) return entry.outcome;
+  }
+  return ExpeditionOutcome.CONVERGENCE_BLOOM;
 }
 
 export function expeditionIncidentLossPercent(roll: number): number {

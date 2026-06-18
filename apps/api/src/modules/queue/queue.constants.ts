@@ -3,8 +3,10 @@ export const RESEARCH_QUEUE = 'research';
 export const COLONIZATION_QUEUE = 'colonization';
 export const SHIP_PRODUCTION_QUEUE = 'ship-production';
 export const EXPEDITION_QUEUE = 'expedition';
+export const GAME_EVENT_QUEUE = 'game-events';
 
 export const FINALIZE_JOB = 'finalize';
+export const TRIGGER_EVENT_JOB = 'TRIGGER_EVENT';
 
 /** Données portées par un job de file : l'identifiant du job métier à finaliser. */
 export interface FinalizeJobData {
