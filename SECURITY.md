@@ -22,6 +22,10 @@ Le client est considéré comme **non fiable**. Règles fondamentales :
 - Les **minuteries** passent par BullMQ. La finalisation est **idempotente** (vérifie
   statut + échéance), doublée d'une finalisation paresseuse à la lecture et d'un balayage
   de récupération au démarrage : impossible de finaliser deux fois ou en avance.
+- Les bio-vaisseaux sont débités dans la même transaction sérialisable que la création
+  de mission. Une contrainte partielle limite chaque planète à une expédition active.
+- Les gains ne sont crédités qu'au retour, une seule fois. Le tirage cryptographique,
+  la version des règles, les pertes et les dépassements de stockage restent auditables.
 
 ## Authentification & sessions
 
@@ -62,5 +66,5 @@ Le client est considéré comme **non fiable**. Règles fondamentales :
 
 ## Périmètre non couvert (itérations futures)
 
-Flottes & combat, alliances, classement, messagerie/diplomatie. Toute extension devra
+Combat PvP, transport, espionnage, alliances, classement, messagerie/diplomatie. Toute extension devra
 respecter le principe d'autorité serveur décrit ci-dessus.

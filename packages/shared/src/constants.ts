@@ -9,7 +9,7 @@
  * Le serveur reste la seule autorité : le client n'utilise ces valeurs que pour
  * prévisualiser, jamais pour décider.
  */
-import { BuildingType, ResearchType, ResourceType } from './enums';
+import { BuildingType, ResearchType, ResourceType, ShipType } from './enums';
 
 /** Quantité par ressource. Partielle = ressources absentes valent 0. */
 export type ResourceBundle = Partial<Record<ResourceType, number>>;
@@ -51,6 +51,17 @@ export interface ResearchConfig {
   baseTimeSeconds: number;
   timeFactor: number;
   requires?: Requirements;
+}
+
+export interface ShipConfig {
+  type: ShipType;
+  name: string;
+  description: string;
+  cost: ResourceBundle;
+  baseTimeSeconds: number;
+  cargo: number;
+  speed: number;
+  requiresNurseryLevel: number;
 }
 
 /** Vitesse globale de l'univers (multiplie production & divise les temps). */
@@ -128,6 +139,11 @@ export const COLONIZATION_COST_FACTOR = 1.75;
 export const COLONIZATION_BASE_TIME_SECONDS = 1_800;
 /** Nombre maximum de colonies = 1 + niveau de Propulsion sporale. */
 export const COLONIES_PER_PROPULSION_LEVEL = 1;
+
+/** Version persistée dans chaque rapport pour rendre les tirages auditables. */
+export const EXPEDITION_RULESET_VERSION = 1;
+export const EXPEDITION_MIN_TRAVEL_SECONDS = 30;
+export const EXPEDITION_SECONDS_PER_DISTANCE = 60;
 
 export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   [BuildingType.BIOMASS_SYNTHESIZER]: {
@@ -220,6 +236,51 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
     baseCost: { [ResourceType.BIOMASS]: 400, [ResourceType.MINERALS]: 120 },
     costFactor: 1.5,
     maxLevel: 30,
+  },
+  [BuildingType.ORBITAL_NURSERY]: {
+    type: BuildingType.ORBITAL_NURSERY,
+    name: 'Berceau Orbital',
+    description: 'Fait éclore les organismes capables de survivre entre les mondes.',
+    baseCost: {
+      [ResourceType.BIOMASS]: 800,
+      [ResourceType.MINERALS]: 500,
+      [ResourceType.SAP]: 250,
+    },
+    costFactor: 1.8,
+    maxLevel: 20,
+    requires: { research: { [ResearchType.SPORAL_PROPULSION]: 1 } },
+  },
+};
+
+export const SHIPS: Record<ShipType, ShipConfig> = {
+  [ShipType.SPORAL_SCOUT]: {
+    type: ShipType.SPORAL_SCOUT,
+    name: 'Éclaireur sporique',
+    description: 'Organisme rapide dont les filaments sondent les anomalies galactiques.',
+    cost: {
+      [ResourceType.BIOMASS]: 250,
+      [ResourceType.MINERALS]: 150,
+      [ResourceType.SPORES]: 25,
+    },
+    baseTimeSeconds: 180,
+    cargo: 100,
+    speed: 10,
+    requiresNurseryLevel: 1,
+  },
+  [ShipType.SYMBIOTIC_HARVESTER]: {
+    type: ShipType.SYMBIOTIC_HARVESTER,
+    name: 'Moissonneur symbiotique',
+    description: 'Large organisme de collecte conçu pour ramener les découvertes.',
+    cost: {
+      [ResourceType.BIOMASS]: 600,
+      [ResourceType.MINERALS]: 300,
+      [ResourceType.SAP]: 200,
+      [ResourceType.SPORES]: 50,
+    },
+    baseTimeSeconds: 360,
+    cargo: 1_000,
+    speed: 6,
+    requiresNurseryLevel: 2,
   },
 };
 

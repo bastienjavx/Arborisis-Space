@@ -110,6 +110,9 @@ docker compose up --build
 4. On lance des **recherches** (empire-wide) qui débloquent bonus et structures.
 5. Une fois la **Propulsion sporale** recherchée, on **essaime** vers un emplacement
    libre de la galaxie pour fonder une **colonie**.
+6. Le **Berceau Orbital** produit des Éclaireurs sporiques et des Moissonneurs
+   symbiotiques. Une flotte peut partir en expédition PvE, rencontrer un événement
+   auditable puis rapatrier gains et survivants.
 
 Équilibrage entièrement centralisé dans `packages/shared/src/constants.ts`.
 
@@ -126,6 +129,18 @@ docker compose up --build
   et des contraintes uniques partielles : deux requêtes concurrentes ne peuvent pas
   dépenser ou démarrer deux fois la même action.
 - Validation **Zod** stricte de toutes les entrées, rate limiting, cookies httpOnly.
+- Les expéditions utilisent un tirage cryptographique serveur (`0..9999`) dont la valeur,
+  la version des règles, les gains et les pertes restent enregistrés dans le rapport.
+
+### API flottes et exploration
+
+| Route                                     | Usage                                 |
+| ----------------------------------------- | ------------------------------------- |
+| `GET /api/fleets/:planetId`               | Inventaire et production active       |
+| `POST /api/ships`                         | Lance une production de bio-vaisseaux |
+| `GET/POST /api/expeditions`               | Liste ou lance une expédition         |
+| `GET /api/expeditions/reports`            | Rapports persistants                  |
+| `PATCH /api/expeditions/reports/:id/read` | Marque un rapport comme lu            |
 
 Détails dans [`SECURITY.md`](./SECURITY.md).
 

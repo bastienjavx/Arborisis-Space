@@ -1,5 +1,5 @@
 import { BASE_STORAGE, PASSIVE_PRODUCTION, STORAGE_FACTOR } from './constants';
-import { BuildingType, ResearchType, ResourceType } from './enums';
+import { BuildingType, ExpeditionOutcome, ResearchType, ResourceType, ShipType } from './enums';
 import {
   bundleAdd,
   bundleSubtract,
@@ -16,6 +16,13 @@ import {
   storageCap,
   unmetBuildingRequirements,
   unmetResearchRequirements,
+  expeditionDistance,
+  expeditionIncidentLossPercent,
+  expeditionOutcomeFromRoll,
+  expeditionTravelTimeSeconds,
+  fleetCargo,
+  shipCost,
+  shipProductionTimeSeconds,
 } from './formulas';
 
 describe('buildingCost', () => {
@@ -194,5 +201,42 @@ describe('prérequis', () => {
       research: { [ResearchType.BIOENGINEERING]: 1 },
     });
     expect(unmet.some((u) => u.type === ResearchType.BIOENGINEERING)).toBe(true);
+  });
+});
+
+describe('flottes et expéditions', () => {
+  const fleet = {
+    [ShipType.SPORAL_SCOUT]: 2,
+    [ShipType.SYMBIOTIC_HARVESTER]: 1,
+  };
+
+  it('multiplie les coûts et réduit le temps avec le Berceau Orbital', () => {
+    expect(shipCost(ShipType.SPORAL_SCOUT, 2)[ResourceType.BIOMASS]).toBe(500);
+    expect(shipProductionTimeSeconds(ShipType.SPORAL_SCOUT, 5, 3)).toBeLessThan(
+      shipProductionTimeSeconds(ShipType.SPORAL_SCOUT, 5, 1),
+    );
+  });
+
+  it('calcule cargaison, distance et trajet depuis la flotte la plus lente', () => {
+    expect(fleetCargo(fleet)).toBe(1_200);
+    expect(expeditionDistance({ galaxy: 1, system: 1 }, { galaxy: 1, system: 5 })).toBe(4);
+    expect(
+      expeditionTravelTimeSeconds({ galaxy: 1, system: 1 }, { galaxy: 1, system: 5 }, fleet),
+    ).toBeGreaterThanOrEqual(30);
+  });
+
+  it('respecte exactement les bornes de la table de tirage v1', () => {
+    expect(expeditionOutcomeFromRoll(0)).toBe(ExpeditionOutcome.RESOURCE_CACHE);
+    expect(expeditionOutcomeFromRoll(5_499)).toBe(ExpeditionOutcome.RESOURCE_CACHE);
+    expect(expeditionOutcomeFromRoll(5_500)).toBe(ExpeditionOutcome.RARE_SPORES);
+    expect(expeditionOutcomeFromRoll(7_500)).toBe(ExpeditionOutcome.DERELICT_SHIP);
+    expect(expeditionOutcomeFromRoll(8_500)).toBe(ExpeditionOutcome.INCIDENT);
+    expect(expeditionOutcomeFromRoll(9_500)).toBe(ExpeditionOutcome.ANOMALY);
+  });
+
+  it('borne les pertes d’incident entre 10 et 30 pour cent', () => {
+    expect(expeditionIncidentLossPercent(0)).toBe(10);
+    expect(expeditionIncidentLossPercent(20)).toBe(30);
+    expect(expeditionIncidentLossPercent(21)).toBe(10);
   });
 });

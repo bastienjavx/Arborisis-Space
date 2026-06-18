@@ -5,7 +5,10 @@ import { QueueModule } from './queue.module';
 import { ColonizationProcessor } from './processors/colonization.processor';
 import { ConstructionProcessor } from './processors/construction.processor';
 import { ResearchProcessor } from './processors/research.processor';
+import { ShipProductionProcessor } from './processors/ship-production.processor';
+import { ExpeditionProcessor } from './processors/expedition.processor';
 import { GameQueueService } from './game-queue.service';
+import { ExpeditionsService } from '../game/expeditions.service';
 
 /**
  * Workers BullMQ. Importe GameModule (logique de finalisation) et QueueModule
@@ -14,7 +17,13 @@ import { GameQueueService } from './game-queue.service';
  */
 @Module({
   imports: [QueueModule, GameModule],
-  providers: [ConstructionProcessor, ResearchProcessor, ColonizationProcessor],
+  providers: [
+    ConstructionProcessor,
+    ResearchProcessor,
+    ColonizationProcessor,
+    ShipProductionProcessor,
+    ExpeditionProcessor,
+  ],
 })
 export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(ProcessorsModule.name);
@@ -24,10 +33,12 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
   constructor(
     private readonly finalization: FinalizationService,
     private readonly queues: GameQueueService,
+    private readonly expeditions: ExpeditionsService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
     await this.finalization.sweepAllDue();
+    await this.expeditions.sweepAllDue();
     await this.queues.reconcilePending();
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
@@ -46,6 +57,7 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     this.reconciling = true;
     try {
       await this.finalization.sweepAllDue();
+      await this.expeditions.sweepAllDue();
       await this.queues.reconcilePending();
     } finally {
       this.reconciling = false;

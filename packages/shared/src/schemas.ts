@@ -4,7 +4,7 @@
  * pour la validation de formulaire et l'inférence de types.
  */
 import { z } from 'zod';
-import { BuildingType, ResearchType } from './enums';
+import { BuildingType, ResearchType, ShipType } from './enums';
 
 export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 
@@ -57,3 +57,25 @@ export const colonizeSchema = z.object({
   target: coordinatesSchema,
 });
 export type ColonizeDto = z.infer<typeof colonizeSchema>;
+
+export const produceShipsSchema = z.object({
+  planetId: z.string().uuid(),
+  type: z.nativeEnum(ShipType),
+  quantity: z.number().int().min(1).max(100),
+});
+export type ProduceShipsDto = z.infer<typeof produceShipsSchema>;
+
+export const startExpeditionSchema = z.object({
+  planetId: z.string().uuid(),
+  target: z.object({
+    galaxy: z.number().int().min(1),
+    system: z.number().int().min(1),
+  }),
+  ships: z
+    .object({
+      [ShipType.SPORAL_SCOUT]: z.number().int().min(1).max(10_000),
+      [ShipType.SYMBIOTIC_HARVESTER]: z.number().int().min(0).max(10_000),
+    })
+    .strict(),
+});
+export type StartExpeditionDto = z.infer<typeof startExpeditionSchema>;

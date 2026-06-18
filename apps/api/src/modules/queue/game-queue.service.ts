@@ -5,8 +5,10 @@ import { Queue } from 'bullmq';
 import {
   COLONIZATION_QUEUE,
   CONSTRUCTION_QUEUE,
+  EXPEDITION_QUEUE,
   FINALIZE_JOB,
   RESEARCH_QUEUE,
+  SHIP_PRODUCTION_QUEUE,
   type FinalizeJobData,
 } from './queue.constants';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -24,6 +26,8 @@ export class GameQueueService {
     @InjectQueue(CONSTRUCTION_QUEUE) private readonly construction: Queue<FinalizeJobData>,
     @InjectQueue(RESEARCH_QUEUE) private readonly research: Queue<FinalizeJobData>,
     @InjectQueue(COLONIZATION_QUEUE) private readonly colonization: Queue<FinalizeJobData>,
+    @InjectQueue(SHIP_PRODUCTION_QUEUE) private readonly shipProduction: Queue<FinalizeJobData>,
+    @InjectQueue(EXPEDITION_QUEUE) private readonly expedition: Queue<FinalizeJobData>,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -55,20 +59,40 @@ export class GameQueueService {
     await this.safeAdd(this.colonization, jobId, finishesAt);
   }
 
+  async scheduleShipProduction(jobId: string, finishesAt: Date): Promise<void> {
+    await this.safeAdd(this.shipProduction, jobId, finishesAt);
+  }
+
+  async scheduleExpedition(jobId: string, phase: string, finishesAt: Date): Promise<void> {
+    // BullMQ interdit « : » dans les identifiants personnalisés.
+    await this.safeAdd(this.expedition, jobId, finishesAt, `${jobId}-${phase}`);
+  }
+
   async reconcilePending(): Promise<void> {
     const now = new Date();
-    const [construction, research, colonization] = await Promise.all([
-      this.prisma.constructionJob.findMany({ where: { status: JobStatus.PENDING } }),
-      this.prisma.researchJob.findMany({ where: { status: JobStatus.PENDING } }),
-      this.prisma.colonizationJob.findMany({ where: { status: JobStatus.PENDING } }),
-      this.prisma.session.deleteMany({
-        where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }] },
-      }),
-    ]);
+    const [construction, research, colonization, shipProduction, outbound, returning] =
+      await Promise.all([
+        this.prisma.constructionJob.findMany({ where: { status: JobStatus.PENDING } }),
+        this.prisma.researchJob.findMany({ where: { status: JobStatus.PENDING } }),
+        this.prisma.colonizationJob.findMany({ where: { status: JobStatus.PENDING } }),
+        this.prisma.shipProductionJob.findMany({ where: { status: JobStatus.PENDING } }),
+        this.prisma.expeditionMission.findMany({ where: { phase: 'OUTBOUND' } }),
+        this.prisma.expeditionMission.findMany({ where: { phase: 'RETURNING' } }),
+        this.prisma.session.deleteMany({
+          where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }] },
+        }),
+      ]);
     await Promise.all([
       ...construction.map((job) => this.safeAdd(this.construction, job.id, job.finishesAt)),
       ...research.map((job) => this.safeAdd(this.research, job.id, job.finishesAt)),
       ...colonization.map((job) => this.safeAdd(this.colonization, job.id, job.finishesAt)),
+      ...shipProduction.map((job) => this.safeAdd(this.shipProduction, job.id, job.finishesAt)),
+      ...outbound.map((mission) =>
+        this.safeAdd(this.expedition, mission.id, mission.arrivesAt, `${mission.id}-OUTBOUND`),
+      ),
+      ...returning.map((mission) =>
+        this.safeAdd(this.expedition, mission.id, mission.returnsAt, `${mission.id}-RETURNING`),
+      ),
     ]);
   }
 
@@ -76,9 +100,10 @@ export class GameQueueService {
     queue: Queue<FinalizeJobData>,
     jobId: string,
     finishesAt: Date,
+    queueJobId = jobId,
   ): Promise<void> {
     try {
-      await queue.add(FINALIZE_JOB, { jobId }, this.opts(jobId, finishesAt));
+      await queue.add(FINALIZE_JOB, { jobId }, this.opts(queueJobId, finishesAt));
     } catch (error) {
       this.logger.error(
         { err: error, queue: queue.name, jobId },

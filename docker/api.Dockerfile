@@ -4,6 +4,10 @@
 FROM node:22-bookworm-slim AS base
 WORKDIR /app
 ENV CI=true
+# Prisma détecte OpenSSL lors de la génération et à l'exécution.
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 # ── Dépendances + build ──
 FROM base AS builder

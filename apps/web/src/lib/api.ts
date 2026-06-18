@@ -3,11 +3,17 @@ import type {
   BuildBuildingDto,
   ColonizeDto,
   GalaxySystemView,
+  FleetOverview,
+  ExpeditionView,
+  ExpeditionReportView,
   JobView,
   PlanetDetail,
   PlanetSummary,
   ResearchOverview,
   StartResearchDto,
+  ProduceShipsDto,
+  StartExpeditionDto,
+  ShipProductionJobView,
 } from '@arborisis/shared';
 
 const BASE = '/api';
@@ -103,4 +109,15 @@ export const api = {
     request<GalaxySystemView>(`/galaxy/${galaxy}/${system}`),
   colonizations: () => request<JobView[]>('/colonization'),
   colonize: (body: ColonizeDto) => request<JobView>('/colonization', { method: 'POST', body }),
+
+  // ── Flottes / expéditions ──
+  fleet: (planetId: string) => request<FleetOverview>(`/fleets/${planetId}`),
+  produceShips: (body: ProduceShipsDto) =>
+    request<ShipProductionJobView>('/ships', { method: 'POST', body }),
+  expeditions: () => request<ExpeditionView[]>('/expeditions'),
+  startExpedition: (body: StartExpeditionDto) =>
+    request<ExpeditionView>('/expeditions', { method: 'POST', body }),
+  expeditionReports: () => request<ExpeditionReportView[]>('/expeditions/reports'),
+  markReportRead: (id: string) =>
+    request<ExpeditionReportView>(`/expeditions/reports/${id}/read`, { method: 'PATCH' }),
 };

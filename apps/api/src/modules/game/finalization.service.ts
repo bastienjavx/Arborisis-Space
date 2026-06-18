@@ -87,6 +87,22 @@ export class FinalizationService {
     });
   }
 
+  async finalizeShipProduction(jobId: string, now = new Date()): Promise<void> {
+    await this.prisma.serializable(async (tx) => {
+      const job = await tx.shipProductionJob.findUnique({ where: { id: jobId } });
+      if (!job || job.status !== JobStatus.PENDING || job.finishesAt > now) return;
+      await tx.planetShip.upsert({
+        where: { planetId_type: { planetId: job.planetId, type: job.shipType } },
+        update: { quantity: { increment: job.quantity } },
+        create: { planetId: job.planetId, type: job.shipType, quantity: job.quantity },
+      });
+      await tx.shipProductionJob.update({
+        where: { id: job.id },
+        data: { status: JobStatus.COMPLETED },
+      });
+    });
+  }
+
   // ── Finalisation paresseuse (défensive, lors des lectures) ──
 
   async finalizeDueForPlanet(planetId: string, now = new Date()): Promise<void> {
@@ -110,9 +126,16 @@ export class FinalizationService {
     for (const job of due) await this.finalizeColonization(job.id, now);
   }
 
+  async finalizeDueShipProduction(planetId: string, now = new Date()): Promise<void> {
+    const due = await this.prisma.shipProductionJob.findMany({
+      where: { planetId, status: JobStatus.PENDING, finishesAt: { lte: now } },
+    });
+    for (const job of due) await this.finalizeShipProduction(job.id, now);
+  }
+
   /** Balayage de récupération au démarrage : finalise tout job échu. */
   async sweepAllDue(now = new Date()): Promise<void> {
-    const [c, r, col] = await Promise.all([
+    const [c, r, col, ships] = await Promise.all([
       this.prisma.constructionJob.findMany({
         where: { status: JobStatus.PENDING, finishesAt: { lte: now } },
       }),
@@ -122,13 +145,17 @@ export class FinalizationService {
       this.prisma.colonizationJob.findMany({
         where: { status: JobStatus.PENDING, finishesAt: { lte: now } },
       }),
+      this.prisma.shipProductionJob.findMany({
+        where: { status: JobStatus.PENDING, finishesAt: { lte: now } },
+      }),
     ]);
     for (const j of c) await this.finalizeConstruction(j.id, now);
     for (const j of r) await this.finalizeResearch(j.id, now);
     for (const j of col) await this.finalizeColonization(j.id, now);
-    if (c.length + r.length + col.length > 0) {
+    for (const j of ships) await this.finalizeShipProduction(j.id, now);
+    if (c.length + r.length + col.length + ships.length > 0) {
       this.logger.log(
-        `Balayage : ${c.length} construction(s), ${r.length} recherche(s), ${col.length} essaimage(s) finalisé(s).`,
+        `Balayage : ${c.length} construction(s), ${r.length} recherche(s), ${col.length} essaimage(s), ${ships.length} production(s) finalisé(s).`,
       );
     }
   }

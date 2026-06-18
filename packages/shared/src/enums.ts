@@ -37,6 +37,8 @@ export enum BuildingType {
   RESEARCH_NEXUS = 'RESEARCH_NEXUS',
   /** Cœur Symbiotique — hub principal, réduit les temps de construction. */
   SYMBIOTIC_CORE = 'SYMBIOTIC_CORE',
+  /** Berceau Orbital — produit les bio-vaisseaux. */
+  ORBITAL_NURSERY = 'ORBITAL_NURSERY',
 }
 
 export const BUILDING_TYPES = Object.values(BuildingType);
@@ -59,11 +61,34 @@ export enum ResearchType {
 
 export const RESEARCH_TYPES = Object.values(ResearchType);
 
+/** Bio-vaisseaux disponibles dans le premier cycle d'exploration. */
+export enum ShipType {
+  SPORAL_SCOUT = 'SPORAL_SCOUT',
+  SYMBIOTIC_HARVESTER = 'SYMBIOTIC_HARVESTER',
+}
+
+export const SHIP_TYPES = Object.values(ShipType);
+
+export enum ExpeditionPhase {
+  OUTBOUND = 'OUTBOUND',
+  RETURNING = 'RETURNING',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum ExpeditionOutcome {
+  RESOURCE_CACHE = 'RESOURCE_CACHE',
+  RARE_SPORES = 'RARE_SPORES',
+  DERELICT_SHIP = 'DERELICT_SHIP',
+  INCIDENT = 'INCIDENT',
+  ANOMALY = 'ANOMALY',
+}
+
 /** Nature d'un job temporisé (file de construction / recherche / essaimage). */
 export enum JobKind {
   CONSTRUCTION = 'CONSTRUCTION',
   RESEARCH = 'RESEARCH',
   COLONIZATION = 'COLONIZATION',
+  SHIP_PRODUCTION = 'SHIP_PRODUCTION',
 }
 
 /** Statut d'un job temporisé. */

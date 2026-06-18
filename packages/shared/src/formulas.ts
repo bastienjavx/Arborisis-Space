@@ -18,16 +18,27 @@ import {
   COLONIZATION_COST_FACTOR,
   FIELDS_PER_TERRAFORMATION,
   GENETIC_ENGINEERING_BONUS,
+  EXPEDITION_MIN_TRAVEL_SECONDS,
+  EXPEDITION_SECONDS_PER_DISTANCE,
   PASSIVE_PRODUCTION,
   RESEARCHES,
+  SHIPS,
   RESEARCH_NEXUS_SPEEDUP,
   ResourceBundle,
   STABILITY_MAX,
   STABILITY_PRODUCTION_FLOOR,
   STORAGE_FACTOR,
+  SYSTEMS_PER_GALAXY,
   UNIVERSE_SPEED,
 } from './constants';
-import { BuildingType, ResearchType, ResourceType, RESOURCE_TYPES } from './enums';
+import {
+  BuildingType,
+  ExpeditionOutcome,
+  ResearchType,
+  ResourceType,
+  RESOURCE_TYPES,
+  ShipType,
+} from './enums';
 
 // ──────────────────────────── Helpers ResourceBundle ────────────────────────
 
@@ -237,6 +248,75 @@ export function colonizationTimeSeconds(sporalPropulsionLevel: number): number {
   const seconds =
     COLONIZATION_BASE_TIME_SECONDS / (1 + 0.1 * sporalPropulsionLevel) / UNIVERSE_SPEED;
   return Math.max(BUILD_TIME_MIN_SECONDS, Math.round(seconds));
+}
+
+// ──────────────────────────── Flottes / expéditions ─────────────────────────
+
+export type ShipCounts = Record<ShipType, number>;
+
+export function shipCost(type: ShipType, quantity: number): ResourceBundle {
+  return bundleScale(SHIPS[type].cost, Math.max(0, Math.floor(quantity)));
+}
+
+export function shipProductionTimeSeconds(
+  type: ShipType,
+  quantity: number,
+  nurseryLevel: number,
+): number {
+  if (quantity <= 0 || nurseryLevel <= 0) return 0;
+  return Math.max(
+    BUILD_TIME_MIN_SECONDS,
+    Math.round(
+      (SHIPS[type].baseTimeSeconds * quantity) / (1 + nurseryLevel * 0.5) / UNIVERSE_SPEED,
+    ),
+  );
+}
+
+export function fleetCargo(ships: Partial<ShipCounts>): number {
+  return Object.values(ShipType).reduce(
+    (sum, type) => sum + Math.max(0, ships[type] ?? 0) * SHIPS[type].cargo,
+    0,
+  );
+}
+
+export function expeditionDistance(
+  from: { galaxy: number; system: number },
+  to: { galaxy: number; system: number },
+): number {
+  return Math.max(
+    1,
+    Math.abs(from.galaxy - to.galaxy) * SYSTEMS_PER_GALAXY + Math.abs(from.system - to.system),
+  );
+}
+
+export function expeditionTravelTimeSeconds(
+  from: { galaxy: number; system: number },
+  to: { galaxy: number; system: number },
+  ships: Partial<ShipCounts>,
+): number {
+  const present = Object.values(ShipType).filter((type) => (ships[type] ?? 0) > 0);
+  if (present.length === 0) return 0;
+  const slowest = Math.min(...present.map((type) => SHIPS[type].speed));
+  return Math.max(
+    EXPEDITION_MIN_TRAVEL_SECONDS,
+    Math.round(
+      (expeditionDistance(from, to) * EXPEDITION_SECONDS_PER_DISTANCE) / slowest / UNIVERSE_SPEED,
+    ),
+  );
+}
+
+/** Table v1 : 55% ressources, 20% spores, 10% épave, 10% incident, 5% anomalie. */
+export function expeditionOutcomeFromRoll(roll: number): ExpeditionOutcome {
+  const normalized = Math.max(0, Math.min(9_999, Math.floor(roll)));
+  if (normalized < 5_500) return ExpeditionOutcome.RESOURCE_CACHE;
+  if (normalized < 7_500) return ExpeditionOutcome.RARE_SPORES;
+  if (normalized < 8_500) return ExpeditionOutcome.DERELICT_SHIP;
+  if (normalized < 9_500) return ExpeditionOutcome.INCIDENT;
+  return ExpeditionOutcome.ANOMALY;
+}
+
+export function expeditionIncidentLossPercent(roll: number): number {
+  return 10 + (Math.max(0, Math.floor(roll)) % 21);
 }
 
 // ──────────────────────────── Prérequis ──────────────────────────────────────

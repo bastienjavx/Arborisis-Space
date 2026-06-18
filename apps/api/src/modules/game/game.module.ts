@@ -13,6 +13,10 @@ import { PlanetsService } from './planets.service';
 import { ResearchController } from './research.controller';
 import { ResearchService } from './research.service';
 import { WorldFactoryService } from './world-factory.service';
+import { ShipsController } from './ships.controller';
+import { ShipsService } from './ships.service';
+import { ExpeditionsController } from './expeditions.controller';
+import { ExpeditionsService } from './expeditions.service';
 
 @Module({
   imports: [QueueModule],
@@ -22,6 +26,8 @@ import { WorldFactoryService } from './world-factory.service';
     ResearchController,
     GalaxyController,
     ColonizationController,
+    ShipsController,
+    ExpeditionsController,
   ],
   providers: [
     GameEngineService,
@@ -32,7 +38,9 @@ import { WorldFactoryService } from './world-factory.service';
     ResearchService,
     GalaxyService,
     ColonizationService,
+    ShipsService,
+    ExpeditionsService,
   ],
-  exports: [WorldFactoryService, FinalizationService],
+  exports: [WorldFactoryService, FinalizationService, ExpeditionsService],
 })
 export class GameModule {}

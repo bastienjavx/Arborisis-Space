@@ -1,6 +1,8 @@
 export const CONSTRUCTION_QUEUE = 'construction';
 export const RESEARCH_QUEUE = 'research';
 export const COLONIZATION_QUEUE = 'colonization';
+export const SHIP_PRODUCTION_QUEUE = 'ship-production';
+export const EXPEDITION_QUEUE = 'expedition';
 
 export const FINALIZE_JOB = 'finalize';
 

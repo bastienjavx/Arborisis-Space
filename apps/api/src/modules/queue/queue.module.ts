@@ -1,6 +1,12 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
-import { COLONIZATION_QUEUE, CONSTRUCTION_QUEUE, RESEARCH_QUEUE } from './queue.constants';
+import {
+  COLONIZATION_QUEUE,
+  CONSTRUCTION_QUEUE,
+  EXPEDITION_QUEUE,
+  RESEARCH_QUEUE,
+  SHIP_PRODUCTION_QUEUE,
+} from './queue.constants';
 import { GameQueueService } from './game-queue.service';
 
 /**
@@ -13,6 +19,8 @@ import { GameQueueService } from './game-queue.service';
       { name: CONSTRUCTION_QUEUE },
       { name: RESEARCH_QUEUE },
       { name: COLONIZATION_QUEUE },
+      { name: SHIP_PRODUCTION_QUEUE },
+      { name: EXPEDITION_QUEUE },
     ),
   ],
   providers: [GameQueueService],

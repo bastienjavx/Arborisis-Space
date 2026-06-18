@@ -3,7 +3,16 @@
  * Les montants de ressources sont toujours calculés et renvoyés par le serveur.
  */
 import { ResourceBundle } from './constants';
-import { BuildingType, JobKind, ResearchType, ResourceType, UserRole } from './enums';
+import {
+  BuildingType,
+  ExpeditionOutcome,
+  ExpeditionPhase,
+  JobKind,
+  ResearchType,
+  ResourceType,
+  ShipType,
+  UserRole,
+} from './enums';
 import { UnmetRequirement } from './formulas';
 import { Coordinates } from './schemas';
 
@@ -95,4 +104,53 @@ export interface GalaxySystemView {
   galaxy: number;
   system: number;
   slots: GalaxySlot[];
+}
+
+export interface ShipView {
+  type: ShipType;
+  name: string;
+  description: string;
+  available: number;
+  cost: ResourceBundle;
+  productionTimeSeconds: number;
+  cargo: number;
+  speed: number;
+  requiredNurseryLevel: number;
+  unlocked: boolean;
+  canAfford: boolean;
+}
+
+export interface ShipProductionJobView extends JobView {
+  shipType: ShipType;
+  quantity: number;
+}
+
+export interface FleetOverview {
+  ships: ShipView[];
+  productionJob: ShipProductionJobView | null;
+}
+
+export interface ExpeditionView {
+  id: string;
+  planetId: string;
+  source: Coordinates;
+  target: Pick<Coordinates, 'galaxy' | 'system'>;
+  phase: ExpeditionPhase;
+  ships: Record<ShipType, number>;
+  arrivesAt: string;
+  returnsAt: string;
+}
+
+export interface ExpeditionReportView {
+  id: string;
+  missionId: string;
+  outcome: ExpeditionOutcome;
+  rulesetVersion: number;
+  roll: number;
+  rewards: Record<ResourceType, number>;
+  losses: Record<ShipType, number>;
+  overflow: Record<ResourceType, number>;
+  isRead: boolean;
+  occurredAt: string;
+  returnedAt: string | null;
 }
