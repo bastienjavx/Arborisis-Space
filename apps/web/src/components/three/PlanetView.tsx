@@ -133,13 +133,8 @@ function OrbitingSpores({ count = 80, radius = 4, speed = 0.3, color = '#16bf6c'
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={count}
-          array={positions}
-          itemSize={3}
-        />
-        <bufferAttribute attach="attributes-size" count={count} array={sizes} itemSize={1} />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
       </bufferGeometry>
       <pointsMaterial
         size={0.06}

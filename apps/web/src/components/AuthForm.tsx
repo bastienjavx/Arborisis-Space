@@ -114,9 +114,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const redirectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => () => { clearTimeout(redirectTimer.current); }, []);
+  useEffect(
+    () => () => {
+      clearTimeout(redirectTimer.current);
+    },
+    [],
+  );
 
   const isRegister = mode === 'register';
 
