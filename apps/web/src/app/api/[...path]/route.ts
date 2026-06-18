@@ -2,9 +2,10 @@ import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-async function proxy(request: NextRequest, context: { params: { path: string[] } }) {
+async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const apiOrigin = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
-  const path = context.params.path.map(encodeURIComponent).join('/');
+  const { path: segments } = await context.params;
+  const path = segments.map(encodeURIComponent).join('/');
   const target = new URL(`/api/${path}${request.nextUrl.search}`, apiOrigin);
   const headers = new Headers(request.headers);
   headers.delete('host');
