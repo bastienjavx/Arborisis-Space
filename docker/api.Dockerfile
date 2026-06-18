@@ -35,5 +35,6 @@ COPY --from=builder /app/apps/api/package.json apps/api/package.json
 COPY --from=builder /app/prisma prisma
 
 EXPOSE 4000
-# Applique les migrations puis démarre l'API.
-CMD ["sh", "-c", "npx prisma migrate deploy && node apps/api/dist/main.js"]
+# Prisma 6.x WASM validation ne lit pas les variables process — on écrit un .env
+# temporaire pour que get-config puisse résoudre DATABASE_URL.
+CMD ["sh", "-c", "printf 'DATABASE_URL=%s\\n' \"$DATABASE_URL\" > /app/.env && npx prisma migrate deploy && node apps/api/dist/main.js"]
