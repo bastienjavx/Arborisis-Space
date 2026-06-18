@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-bark-950 text-canopy-50/90 antialiased;
+    background-image:
+      radial-gradient(60rem 60rem at 80% -10%, rgba(22, 191, 108, 0.08), transparent),
+      radial-gradient(50rem 50rem at -10% 110%, rgba(123, 102, 240, 0.07), transparent);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-canopy-700/20 bg-bark-900/70 p-5 shadow-lg backdrop-blur;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition
+      disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-canopy-600 text-bark-950 hover:bg-canopy-500;
+  }
+  .btn-ghost {
+    @apply btn border border-canopy-700/30 text-canopy-100 hover:bg-canopy-700/15;
+  }
+  .input {
+    @apply w-full rounded-xl border border-canopy-700/30 bg-bark-850 px-3 py-2 text-sm
+      text-canopy-50 outline-none placeholder:text-canopy-50/30 focus:border-canopy-500;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-canopy-100/60;
+  }
+}

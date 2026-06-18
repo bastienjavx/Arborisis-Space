@@ -1,0 +1,169 @@
+// Schéma Prisma d'Arborisis.
+// Les enums miroir des valeurs de @arborisis/shared/enums — garder synchronisés.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PLAYER
+  ADMIN
+}
+
+enum BuildingType {
+  BIOMASS_SYNTHESIZER
+  SAP_WELL
+  MINERAL_VEIN
+  SPORANGE
+  PHOTOSYNTHETIC_CANOPY
+  STORAGE_VACUOLE
+  RESEARCH_NEXUS
+  SYMBIOTIC_CORE
+}
+
+enum ResearchType {
+  ADVANCED_PHOTOSYNTHESIS
+  GENETIC_ENGINEERING
+  SYMBIOSIS
+  TERRAFORMATION
+  BIOENGINEERING
+  SPORAL_PROPULSION
+}
+
+enum JobStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  username         String   @unique
+  passwordHash     String
+  role             UserRole @default(PLAYER)
+  // Hash du refresh token courant (rotation). Null = pas de session active.
+  refreshTokenHash String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  planets         Planet[]
+  researchLevels  ResearchLevel[]
+  researchJobs    ResearchJob[]
+  colonizationJobs ColonizationJob[]
+
+  @@map("users")
+}
+
+model Planet {
+  id          String   @id @default(uuid())
+  name        String
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  isHomeworld Boolean  @default(false)
+
+  // Coordonnées galactiques (unicité d'emplacement).
+  galaxy   Int
+  system   Int
+  position Int
+
+  // Stabilité écologique 0..100.
+  stability Float @default(100)
+
+  // Stocks de ressources (recalculés serveur depuis lastResourceUpdate).
+  biomass  Float @default(0)
+  sap      Float @default(0)
+  minerals Float @default(0)
+  spores   Float @default(0)
+
+  // Horodatage de la dernière accumulation appliquée (anti-triche / calcul lazy).
+  lastResourceUpdate DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buildings        PlanetBuilding[]
+  constructionJobs ConstructionJob[]
+  colonizationJobs ColonizationJob[] @relation("ColonizationSource")
+
+  @@unique([galaxy, system, position])
+  @@index([ownerId])
+  @@map("planets")
+}
+
+model PlanetBuilding {
+  id       String       @id @default(uuid())
+  planetId String
+  planet   Planet       @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  type     BuildingType
+  level    Int          @default(0)
+
+  @@unique([planetId, type])
+  @@map("planet_buildings")
+}
+
+model ResearchLevel {
+  id     String       @id @default(uuid())
+  userId String
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   ResearchType
+  level  Int          @default(0)
+
+  @@unique([userId, type])
+  @@map("research_levels")
+}
+
+model ConstructionJob {
+  id          String       @id @default(uuid())
+  planetId    String
+  planet      Planet       @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  buildingType BuildingType
+  targetLevel Int
+  status      JobStatus    @default(PENDING)
+  startedAt   DateTime     @default(now())
+  finishesAt  DateTime
+
+  @@index([planetId, status])
+  @@index([status, finishesAt])
+  @@map("construction_jobs")
+}
+
+model ResearchJob {
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  researchType ResearchType
+  targetLevel  Int
+  // Planète hébergeant la recherche (où sont prélevées les ressources).
+  planetId     String
+  status       JobStatus    @default(PENDING)
+  startedAt    DateTime     @default(now())
+  finishesAt   DateTime
+
+  @@index([userId, status])
+  @@index([status, finishesAt])
+  @@map("research_jobs")
+}
+
+model ColonizationJob {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourcePlanetId String
+  sourcePlanet   Planet    @relation("ColonizationSource", fields: [sourcePlanetId], references: [id], onDelete: Cascade)
+  targetGalaxy   Int
+  targetSystem   Int
+  targetPosition Int
+  status         JobStatus @default(PENDING)
+  startedAt      DateTime  @default(now())
+  finishesAt     DateTime
+
+  @@index([userId, status])
+  @@index([status, finishesAt])
+  @@map("colonization_jobs")
+}

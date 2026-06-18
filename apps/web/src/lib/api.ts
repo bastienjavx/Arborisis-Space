@@ -1,0 +1,100 @@
+import type {
+  AuthUser,
+  BuildBuildingDto,
+  ColonizeDto,
+  GalaxySystemView,
+  JobView,
+  PlanetDetail,
+  PlanetSummary,
+  ResearchOverview,
+  StartResearchDto,
+} from '@arborisis/shared';
+
+const BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api`;
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+async function parseError(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (typeof body?.message === 'string') return body.message;
+    if (Array.isArray(body?.message)) return body.message.join(', ');
+    if (Array.isArray(body?.errors)) {
+      return body.errors.map((e: { message: string }) => e.message).join(', ');
+    }
+  } catch {
+    /* ignore */
+  }
+  return `Erreur ${res.status}`;
+}
+
+interface RequestOptions {
+  method?: string;
+  body?: unknown;
+  /** Empêche la tentative de refresh (utilisé par les routes d'auth). */
+  noRefresh?: boolean;
+  _retried?: boolean;
+}
+
+async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: opts.method ?? 'GET',
+    credentials: 'include',
+    headers: opts.body ? { 'Content-Type': 'application/json' } : undefined,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    cache: 'no-store',
+  });
+
+  // Access token expiré → tentative de rotation puis nouvel essai (une fois).
+  if (res.status === 401 && !opts.noRefresh && !opts._retried) {
+    const refreshed = await fetch(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (refreshed.ok) {
+      return request<T>(path, { ...opts, _retried: true });
+    }
+  }
+
+  if (!res.ok) throw new ApiError(res.status, await parseError(res));
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+export const api = {
+  // ── Auth ──
+  register: (body: { email: string; username: string; password: string }) =>
+    request<{ user: AuthUser }>('/auth/register', { method: 'POST', body, noRefresh: true }),
+  login: (body: { email: string; password: string }) =>
+    request<{ user: AuthUser }>('/auth/login', { method: 'POST', body, noRefresh: true }),
+  logout: () => request<{ success: true }>('/auth/logout', { method: 'POST' }),
+  me: () => request<{ user: AuthUser }>('/auth/me'),
+
+  // ── Planètes ──
+  planets: () => request<PlanetSummary[]>('/planets'),
+  planet: (id: string) => request<PlanetDetail>(`/planets/${id}`),
+
+  // ── Bâtiments ──
+  upgradeBuilding: (body: BuildBuildingDto) =>
+    request<JobView>('/buildings', { method: 'POST', body }),
+  cancelConstruction: (planetId: string) =>
+    request<void>(`/buildings/${planetId}`, { method: 'DELETE' }),
+
+  // ── Recherches ──
+  research: (planetId: string) => request<ResearchOverview>(`/research/${planetId}`),
+  startResearch: (body: StartResearchDto) =>
+    request<JobView>('/research', { method: 'POST', body }),
+
+  // ── Galaxie / colonisation ──
+  galaxySystem: (galaxy: number, system: number) =>
+    request<GalaxySystemView>(`/galaxy/${galaxy}/${system}`),
+  colonizations: () => request<JobView[]>('/colonization'),
+  colonize: (body: ColonizeDto) => request<JobView>('/colonization', { method: 'POST', body }),
+};

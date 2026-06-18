@@ -1,0 +1,31 @@
+# Configuration Railway d'Arborisis.
+#
+# Architecture recommandée sur Railway : 4 services dans le même projet
+#   1. PostgreSQL   (plugin Railway)
+#   2. Redis        (plugin Railway)
+#   3. api          (ce dépôt, docker/api.Dockerfile)
+#   4. web          (ce dépôt, docker/web.Dockerfile)
+#
+# Ce fichier configure le service API (le service par défaut du dépôt).
+# Pour le service web, dupliquer le dépôt en service supplémentaire et régler
+# `dockerfilePath = "docker/web.Dockerfile"` + variable NEXT_PUBLIC_API_URL.
+#
+# Variables à définir sur le service API :
+#   DATABASE_URL          → référence du plugin PostgreSQL
+#   REDIS_URL             → référence du plugin Redis
+#   JWT_ACCESS_SECRET     → openssl rand -base64 48
+#   JWT_REFRESH_SECRET    → openssl rand -base64 48
+#   WEB_ORIGIN            → URL publique du service web
+#   NODE_ENV=production
+#   COOKIE_DOMAIN         → domaine partagé api/web (cookies sécurisés)
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "docker/api.Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+numReplicas = 1
