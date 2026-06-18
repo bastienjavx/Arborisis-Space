@@ -56,8 +56,24 @@ model User {
   researchLevels  ResearchLevel[]
   researchJobs    ResearchJob[]
   colonizationJobs ColonizationJob[]
+  sessions         Session[]
 
   @@map("users")
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastUsedAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
 }
 
 model Planet {

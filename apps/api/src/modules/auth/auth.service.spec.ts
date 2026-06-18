@@ -18,9 +18,21 @@ describe('AuthService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      session: {
+        create: jest.fn().mockResolvedValue({}),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
       },
     };
-    jwt = { signAsync: jest.fn().mockResolvedValue('signed-token') };
+    prisma.serializable = jest.fn((work) => work(prisma));
+    prisma.$transaction = jest.fn((operations) => Promise.all(operations));
+    jwt = {
+      signAsync: jest.fn().mockResolvedValue('signed-access-token'),
+      verifyAsync: jest.fn(),
+    };
     config = {
       get: jest.fn((key: string) => {
         const values: Record<string, unknown> = {
@@ -34,12 +46,7 @@ describe('AuthService', () => {
     };
     worldFactory = { initNewPlayer: jest.fn().mockResolvedValue(undefined) };
 
-    service = new AuthService(
-      prisma as any,
-      jwt as any,
-      config as any,
-      worldFactory as any,
-    );
+    service = new AuthService(prisma as any, jwt as any, config as any, worldFactory as any);
   });
 
   describe('register', () => {
@@ -66,17 +73,16 @@ describe('AuthService', () => {
         password: 'motdepasse12',
       });
 
-      expect(worldFactory.initNewPlayer).toHaveBeenCalledWith('u1');
+      expect(worldFactory.initNewPlayer).toHaveBeenCalledWith('u1', prisma);
       expect(result.user).toEqual({
         id: 'u1',
         email: 'a@b.co',
         username: 'sylv',
         role: UserRole.PLAYER,
       });
-      expect(result.tokens.accessToken).toBe('signed-token');
-      expect(result.tokens.refreshToken).toBe('signed-token');
-      // Le hash du refresh token est persisté (rotation/révocation).
-      expect(prisma.user.update).toHaveBeenCalled();
+      expect(result.tokens.accessToken).toBe('signed-access-token');
+      expect(result.tokens.refreshToken).toMatch(/^[^.]+\.[A-Za-z0-9_-]+$/);
+      expect(prisma.session.create).toHaveBeenCalled();
     });
   });
 
@@ -101,7 +107,51 @@ describe('AuthService', () => {
 
       const result = await service.login({ email: 'a@b.co', password: 'motdepasse12' });
       expect(result.user.id).toBe('u1');
-      expect(result.tokens.accessToken).toBe('signed-token');
+      expect(result.tokens.accessToken).toBe('signed-access-token');
+      expect(prisma.session.create).toHaveBeenCalled();
     });
+  });
+
+  it('révoque une session si un ancien refresh token est réutilisé', async () => {
+    prisma.session.findUnique.mockResolvedValue({
+      id: 'session-id',
+      userId: 'u1',
+      refreshTokenHash: '0'.repeat(64),
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: null,
+      user: { id: 'u1', email: 'a@b.co', username: 'sylv', role: UserRole.PLAYER },
+    });
+    prisma.session.update.mockResolvedValue({});
+
+    await expect(service.refresh('session-id.secret')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(prisma.session.update).toHaveBeenCalledWith({
+      where: { id: 'session-id' },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('convertit un refresh JWT historique en session opaque', async () => {
+    const legacyToken = 'legacy.jwt.token';
+    const refreshTokenHash = await argon2.hash(legacyToken, { type: argon2.argon2id });
+    jwt.verifyAsync.mockResolvedValue({ sub: 'u1' });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'a@b.co',
+      username: 'sylv',
+      role: UserRole.PLAYER,
+      refreshTokenHash,
+    });
+    prisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.refresh(legacyToken);
+
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: 'u1', refreshTokenHash },
+      data: { refreshTokenHash: null },
+    });
+    expect(prisma.session.create).toHaveBeenCalled();
+    expect(result.tokens.refreshToken).toMatch(/^[^.]+\.[A-Za-z0-9_-]+$/);
   });
 });

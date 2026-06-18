@@ -15,7 +15,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   }, [isLoading, isError, user, router]);
 
   if (isLoading) {
-    return <div className="grid min-h-screen place-items-center text-canopy-100/50">Germination…</div>;
+    return (
+      <div className="grid min-h-screen place-items-center text-canopy-100/50">Germination…</div>
+    );
   }
   if (!user) return null;
 

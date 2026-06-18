@@ -1,8 +1,4 @@
-import {
-  BASE_STORAGE,
-  PASSIVE_PRODUCTION,
-  STORAGE_FACTOR,
-} from './constants';
+import { BASE_STORAGE, PASSIVE_PRODUCTION, STORAGE_FACTOR } from './constants';
 import { BuildingType, ResearchType, ResourceType } from './enums';
 import {
   bundleAdd,

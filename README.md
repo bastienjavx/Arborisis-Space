@@ -47,7 +47,8 @@ et schémas servent au serveur (autorité) et au client (prévisualisation).
 ## Stack
 
 - **Backend** : Node 22, TypeScript strict, NestJS, PostgreSQL + Prisma, Redis + BullMQ,
-  JWT (cookies httpOnly) + argon2, Helmet, rate limiting, logs pino, health check Terminus.
+  JWT d'accès + sessions rotatives (cookies httpOnly), argon2, Helmet, rate limiting,
+  logs pino et health check Terminus.
 - **Frontend** : Next.js 14, TypeScript strict, TailwindCSS (thème sombre premium,
   mobile-first), TanStack Query.
 - **DevOps** : Docker, docker-compose, Railway, GitHub Actions, migrations Prisma.
@@ -75,8 +76,8 @@ npm run db:seed         # compte démo : demo@arborisis.test / arborisis-demo
 npm run dev
 ```
 
-- API : http://localhost:4000 (préfixe `/api`, health : `/api/health`)
-- Web : http://localhost:3000
+- API directe : http://localhost:4000 (health : `/api/health`)
+- Web : http://localhost:3000, avec proxy same-origin `/api` vers NestJS
 
 ### Stack complète en conteneurs
 
@@ -86,18 +87,18 @@ docker compose up --build
 
 ## Scripts
 
-| Commande                  | Effet                                             |
-| ------------------------- | ------------------------------------------------- |
-| `npm run dev`             | api + web en développement (Turbo)                |
-| `npm run build`           | build de tous les packages                        |
-| `npm run lint`            | lint                                              |
-| `npm run typecheck`       | vérification de types                             |
-| `npm run test`            | tests unitaires (shared + api)                    |
+| Commande                             | Effet                                  |
+| ------------------------------------ | -------------------------------------- |
+| `npm run dev`                        | api + web en développement (Turbo)     |
+| `npm run build`                      | build de tous les packages             |
+| `npm run lint`                       | lint                                   |
+| `npm run typecheck`                  | vérification de types                  |
+| `npm run test`                       | tests unitaires (shared + api)         |
 | `npm run test:e2e -w @arborisis/api` | tests e2e de l'API (DB + Redis requis) |
-| `npm run db:migrate`      | migrations (dev)                                  |
-| `npm run db:migrate:deploy` | migrations (prod)                               |
-| `npm run db:seed`         | seed                                              |
-| `npm run db:studio`       | Prisma Studio                                     |
+| `npm run db:migrate`                 | migrations (dev)                       |
+| `npm run db:migrate:deploy`          | migrations (prod)                      |
+| `npm run db:seed`                    | seed                                   |
+| `npm run db:studio`                  | Prisma Studio                          |
 
 ## Boucle de jeu
 
@@ -121,6 +122,9 @@ docker compose up --build
 - Toutes les minuteries passent par **BullMQ** ; la finalisation est **idempotente** et
   doublée d'une finalisation paresseuse à la lecture + d'un balayage de récupération au
   démarrage (robuste même si un worker tombe).
+- Les dépenses et créations de jobs utilisent des transactions PostgreSQL sérialisables
+  et des contraintes uniques partielles : deux requêtes concurrentes ne peuvent pas
+  dépenser ou démarrer deux fois la même action.
 - Validation **Zod** stricte de toutes les entrées, rate limiting, cookies httpOnly.
 
 Détails dans [`SECURITY.md`](./SECURITY.md).
@@ -136,8 +140,10 @@ npm run test:e2e -w @arborisis/api    # parcours auth + planète + construction
 
 ## Déploiement Railway
 
-Voir [`railway.toml`](./railway.toml). Projet Railway recommandé : 4 services
-(PostgreSQL, Redis, `api`, `web`). L'API applique `prisma migrate deploy` au démarrage.
+Le projet Railway comporte PostgreSQL, Redis, `api` et `web`. `railway.toml` configure
+l'API et `railway.web.toml` le web. Seul le web doit être public ; définir
+`API_INTERNAL_URL` sur le web avec l'adresse privée Railway de l'API. L'API applique
+`prisma migrate deploy` au démarrage et reçoit `WEB_ORIGIN` avec l'URL publique du web.
 
 ## Sécurité
 

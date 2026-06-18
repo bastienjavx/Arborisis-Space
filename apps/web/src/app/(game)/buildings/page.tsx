@@ -6,12 +6,7 @@ import { Countdown } from '@/components/Countdown';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
 import { formatCost, formatDuration } from '@/lib/format';
-import {
-  keys,
-  useCancelConstruction,
-  usePlanetDetail,
-  useUpgradeBuilding,
-} from '@/lib/queries';
+import { keys, useCancelConstruction, usePlanetDetail, useUpgradeBuilding } from '@/lib/queries';
 import { useState } from 'react';
 
 export default function BuildingsPage() {
@@ -41,7 +36,9 @@ export default function BuildingsPage() {
       {planet.constructionJob && (
         <div className="card flex items-center justify-between border-canopy-500/40">
           <div>
-            <p className="text-sm text-canopy-100/60">En croissance · niveau {planet.constructionJob.targetLevel}</p>
+            <p className="text-sm text-canopy-100/60">
+              En croissance · niveau {planet.constructionJob.targetLevel}
+            </p>
             <p className="font-mono text-canopy-300">
               <Countdown
                 finishesAt={planet.constructionJob.finishesAt}
@@ -72,7 +69,9 @@ export default function BuildingsPage() {
               </div>
 
               {b.currentProduction > 0 && (
-                <p className="text-xs text-canopy-100/50">Production actuelle : {b.currentProduction}/h</p>
+                <p className="text-xs text-canopy-100/50">
+                  Production actuelle : {b.currentProduction}/h
+                </p>
               )}
 
               <div className="mt-auto space-y-1 text-xs text-canopy-100/60">
@@ -86,16 +85,19 @@ export default function BuildingsPage() {
                 </p>
                 {locked && (
                   <p className="text-sap-400">
-                    Requis :{' '}
-                    {b.unmet
-                      .map((u) => `${u.type} niv. ${u.requiredLevel}`)
-                      .join(', ')}
+                    Requis : {b.unmet.map((u) => `${u.type} niv. ${u.requiredLevel}`).join(', ')}
                   </p>
                 )}
               </div>
 
               <button className="btn-primary" onClick={() => onBuild(b.type)} disabled={!canBuild}>
-                {busy ? 'Occupé' : locked ? 'Verrouillé' : b.canAfford ? 'Faire croître' : 'Ressources insuffisantes'}
+                {busy
+                  ? 'Occupé'
+                  : locked
+                    ? 'Verrouillé'
+                    : b.canAfford
+                      ? 'Faire croître'
+                      : 'Ressources insuffisantes'}
               </button>
             </div>
           );

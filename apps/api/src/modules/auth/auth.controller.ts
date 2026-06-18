@@ -1,7 +1,7 @@
-import { Body, Controller, Get, HttpCode, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
-import type { Response, CookieOptions } from 'express';
+import type { Request, Response, CookieOptions } from 'express';
 import {
   loginSchema,
   registerSchema,
@@ -14,9 +14,8 @@ import type { Env } from '../../common/config/env';
 import { AuthService, type TokenPair } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
-import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
-import { ACCESS_COOKIE } from './strategies/jwt.strategy';
-import { REFRESH_COOKIE } from './strategies/jwt-refresh.strategy';
+import { ACCESS_COOKIE, REFRESH_COOKIE } from './strategies/jwt.strategy';
+import type { AuthenticatedUser } from './strategies/jwt.strategy';
 
 @Controller('auth')
 export class AuthController {
@@ -51,14 +50,15 @@ export class AuthController {
   }
 
   @Public()
-  @UseGuards(JwtRefreshGuard)
   @HttpCode(200)
   @Post('refresh')
   async refresh(
-    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ user: AuthUser }> {
-    const tokens = await this.authService.refresh(user);
+    const { user, tokens } = await this.authService.refresh(
+      req.cookies?.[REFRESH_COOKIE] as string | undefined,
+    );
     this.setAuthCookies(res, tokens);
     return { user };
   }
@@ -66,10 +66,21 @@ export class AuthController {
   @HttpCode(200)
   @Post('logout')
   async logout(
-    @CurrentUser() user: AuthUser,
+    @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ success: true }> {
-    await this.authService.logout(user.id);
+    await this.authService.logout(user.id, user.sessionId);
+    this.clearAuthCookies(res);
+    return { success: true };
+  }
+
+  @HttpCode(200)
+  @Post('logout-all')
+  async logoutAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ success: true }> {
+    await this.authService.logoutAll(user.id);
     this.clearAuthCookies(res);
     return { success: true };
   }
@@ -104,12 +115,12 @@ export class AuthController {
       ...this.baseCookieOptions(),
       maxAge: refreshTtl * 1000,
       // Le refresh token n'est envoyé qu'à la route de rafraîchissement.
-      path: '/auth/refresh',
+      path: '/api/auth/refresh',
     });
   }
 
   private clearAuthCookies(res: Response): void {
     res.clearCookie(ACCESS_COOKIE, this.baseCookieOptions());
-    res.clearCookie(REFRESH_COOKIE, { ...this.baseCookieOptions(), path: '/auth/refresh' });
+    res.clearCookie(REFRESH_COOKIE, { ...this.baseCookieOptions(), path: '/api/auth/refresh' });
   }
 }

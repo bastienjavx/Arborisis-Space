@@ -9,11 +9,7 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { FinalizationService } from './finalization.service';
 import { GameEngineService } from './game-engine.service';
-import {
-  buildBuildingViews,
-  constructionJobView,
-  planetCoordinates,
-} from './game.mappers';
+import { buildBuildingViews, constructionJobView, planetCoordinates } from './game.mappers';
 
 @Injectable()
 export class PlanetsService {
@@ -27,7 +23,8 @@ export class PlanetsService {
   async assertOwnership(userId: string, planetId: string) {
     const planet = await this.prisma.planet.findUnique({ where: { id: planetId } });
     if (!planet) throw new NotFoundException('Planète introuvable.');
-    if (planet.ownerId !== userId) throw new ForbiddenException('Cette planète ne vous appartient pas.');
+    if (planet.ownerId !== userId)
+      throw new ForbiddenException('Cette planète ne vous appartient pas.');
     return planet;
   }
 

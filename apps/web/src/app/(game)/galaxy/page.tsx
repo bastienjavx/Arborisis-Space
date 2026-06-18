@@ -36,9 +36,15 @@ export default function GalaxyPage() {
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="label">Galaxie</label>
-          <select className="input" value={galaxy} onChange={(e) => setGalaxy(Number(e.target.value))}>
+          <select
+            className="input"
+            value={galaxy}
+            onChange={(e) => setGalaxy(Number(e.target.value))}
+          >
             {Array.from({ length: GALAXY_COUNT }, (_, i) => i + 1).map((g) => (
-              <option key={g} value={g}>{g}</option>
+              <option key={g} value={g}>
+                {g}
+              </option>
             ))}
           </select>
         </div>
@@ -51,11 +57,17 @@ export default function GalaxyPage() {
               max={SYSTEMS_PER_GALAXY}
               className="input w-24"
               value={system}
-              onChange={(e) => setSystem(Math.min(SYSTEMS_PER_GALAXY, Math.max(1, Number(e.target.value))))}
+              onChange={(e) =>
+                setSystem(Math.min(SYSTEMS_PER_GALAXY, Math.max(1, Number(e.target.value))))
+              }
             />
           </div>
-          <button className="btn-ghost" onClick={() => step(-1)}>◀</button>
-          <button className="btn-ghost" onClick={() => step(1)}>▶</button>
+          <button className="btn-ghost" onClick={() => step(-1)}>
+            ◀
+          </button>
+          <button className="btn-ghost" onClick={() => step(1)}>
+            ▶
+          </button>
         </div>
       </div>
 

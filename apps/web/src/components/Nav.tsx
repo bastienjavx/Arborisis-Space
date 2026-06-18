@@ -40,7 +40,9 @@ export function Nav({ username }: { username: string }) {
                 key={l.href}
                 href={l.href}
                 className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                  active ? 'bg-canopy-700/25 text-canopy-100' : 'text-canopy-100/60 hover:text-canopy-100'
+                  active
+                    ? 'bg-canopy-700/25 text-canopy-100'
+                    : 'text-canopy-100/60 hover:text-canopy-100'
                 }`}
               >
                 {l.label}

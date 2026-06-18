@@ -38,7 +38,9 @@ async function main() {
   }
 
   // Noyau-Monde si absent.
-  const existing = await prisma.planet.findFirst({ where: { ownerId: user.id, isHomeworld: true } });
+  const existing = await prisma.planet.findFirst({
+    where: { ownerId: user.id, isHomeworld: true },
+  });
   if (!existing) {
     const planet = await prisma.planet.create({
       data: {

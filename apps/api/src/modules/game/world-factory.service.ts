@@ -21,8 +21,8 @@ export class WorldFactoryService {
    * Initialise un nouveau joueur : niveaux de recherche à 0 + Noyau-Monde
    * sur un emplacement libre tiré au sort. Idempotent par sécurité.
    */
-  async initNewPlayer(userId: string): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+  async initNewPlayer(userId: string, transaction?: Prisma.TransactionClient): Promise<void> {
+    const initialize = async (tx: Prisma.TransactionClient): Promise<void> => {
       for (const type of RESEARCH_TYPES) {
         await tx.researchLevel.upsert({
           where: { userId_type: { userId, type } },
@@ -54,7 +54,9 @@ export class WorldFactoryService {
       await tx.planetBuilding.createMany({
         data: BUILDING_TYPES.map((type) => ({ planetId: planet.id, type, level: 0 })),
       });
-    });
+    };
+    if (transaction) await initialize(transaction);
+    else await this.prisma.serializable(initialize);
   }
 
   /**

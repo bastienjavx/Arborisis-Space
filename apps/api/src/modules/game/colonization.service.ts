@@ -32,73 +32,83 @@ export class ColonizationService {
     await this.planets.assertOwnership(userId, sourcePlanetId);
     await this.finalization.finalizeDueColonizationForUser(userId);
     this.galaxy.assertValidPosition(target.galaxy, target.system, target.position);
+    let job;
+    try {
+      job = await this.prisma.serializable(async (tx) => {
+        const propulsion =
+          (
+            await tx.researchLevel.findUnique({
+              where: { userId_type: { userId, type: ResearchType.SPORAL_PROPULSION } },
+            })
+          )?.level ?? 0;
+        const allowedColonies = maxColonies(propulsion);
+        if (allowedColonies < 1) {
+          throw new BadRequestException('Recherchez la Propulsion sporale pour essaimer.');
+        }
 
-    // Propulsion sporale requise + limite de colonies.
-    const propulsion =
-      (await this.prisma.researchLevel.findUnique({
-        where: { userId_type: { userId, type: ResearchType.SPORAL_PROPULSION } },
-      }))?.level ?? 0;
-    const allowedColonies = maxColonies(propulsion);
-    if (allowedColonies < 1) {
-      throw new BadRequestException('Recherchez la Propulsion sporale pour essaimer.');
+        const ownedPlanetCount = await tx.planet.count({ where: { ownerId: userId } });
+        const pendingColonizations = await tx.colonizationJob.count({
+          where: { userId, status: JobStatus.PENDING },
+        });
+        if (ownedPlanetCount - 1 + pendingColonizations >= allowedColonies) {
+          throw new ConflictException('Limite de colonies atteinte.');
+        }
+
+        const occupied = await tx.planet.findUnique({
+          where: {
+            galaxy_system_position: {
+              galaxy: target.galaxy,
+              system: target.system,
+              position: target.position,
+            },
+          },
+        });
+        if (occupied) throw new ConflictException('Emplacement déjà occupé.');
+        const inbound = await tx.colonizationJob.findFirst({
+          where: {
+            status: JobStatus.PENDING,
+            targetGalaxy: target.galaxy,
+            targetSystem: target.system,
+            targetPosition: target.position,
+          },
+        });
+        if (inbound) {
+          throw new ConflictException('Un essaimage est déjà en route vers cet emplacement.');
+        }
+
+        const settled = await this.engine.settlePlanet(sourcePlanetId, new Date(), tx);
+        const cost = colonizationCost(ownedPlanetCount);
+        if (!canAfford(this.engine.buildResourceState(settled).amounts, cost)) {
+          throw new BadRequestException('Ressources insuffisantes pour l’essaimage.');
+        }
+        const now = new Date();
+        const finishesAt = new Date(now.getTime() + colonizationTimeSeconds(propulsion) * 1_000);
+        await this.engine.spend(sourcePlanetId, cost, tx);
+        return tx.colonizationJob.create({
+          data: {
+            userId,
+            sourcePlanetId,
+            targetGalaxy: target.galaxy,
+            targetSystem: target.system,
+            targetPosition: target.position,
+            startedAt: now,
+            finishesAt,
+          },
+        });
+      });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException('Un essaimage est déjà en route vers cet emplacement.');
+      }
+      throw error;
     }
-
-    const ownedPlanetCount = await this.prisma.planet.count({ where: { ownerId: userId } });
-    const pendingColonizations = await this.prisma.colonizationJob.count({
-      where: { userId, status: JobStatus.PENDING },
-    });
-    const currentColonies = ownedPlanetCount - 1; // hors Noyau-Monde
-    if (currentColonies + pendingColonizations >= allowedColonies) {
-      throw new ConflictException('Limite de colonies atteinte.');
-    }
-
-    // Emplacement libre (pas de planète ni d'essaimage déjà en route).
-    const occupied = await this.prisma.planet.findUnique({
-      where: {
-        galaxy_system_position: {
-          galaxy: target.galaxy,
-          system: target.system,
-          position: target.position,
-        },
-      },
-    });
-    if (occupied) throw new ConflictException('Emplacement déjà occupé.');
-    const inbound = await this.prisma.colonizationJob.findFirst({
-      where: {
-        status: JobStatus.PENDING,
-        targetGalaxy: target.galaxy,
-        targetSystem: target.system,
-        targetPosition: target.position,
-      },
-    });
-    if (inbound) throw new ConflictException('Un essaimage est déjà en route vers cet emplacement.');
-
-    const settled = await this.engine.settlePlanet(sourcePlanetId);
-    const resources = this.engine.buildResourceState(settled);
-    const cost = colonizationCost(ownedPlanetCount);
-    if (!canAfford(resources.amounts, cost)) {
-      throw new BadRequestException('Ressources insuffisantes pour l’essaimage.');
-    }
-
-    const seconds = colonizationTimeSeconds(propulsion);
-    const now = new Date();
-    const finishesAt = new Date(now.getTime() + seconds * 1000);
-
-    await this.engine.spend(sourcePlanetId, cost);
-    const job = await this.prisma.colonizationJob.create({
-      data: {
-        userId,
-        sourcePlanetId,
-        targetGalaxy: target.galaxy,
-        targetSystem: target.system,
-        targetPosition: target.position,
-        startedAt: now,
-        finishesAt,
-      },
-    });
-    await this.queue.scheduleColonization(job.id, finishesAt);
+    await this.queue.scheduleColonization(job.id, job.finishesAt);
 
     return colonizationJobView(job);
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
   }
 
   async listActive(userId: string): Promise<JobView[]> {

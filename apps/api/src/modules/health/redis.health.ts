@@ -23,9 +23,12 @@ export class RedisHealthIndicator extends HealthIndicator implements OnModuleDes
       const pong = await this.client.ping();
       return this.getStatus(key, pong === 'PONG');
     } catch (error) {
-      throw new HealthCheckError('Redis indisponible', this.getStatus(key, false, {
-        message: (error as Error).message,
-      }));
+      throw new HealthCheckError(
+        'Redis indisponible',
+        this.getStatus(key, false, {
+          message: (error as Error).message,
+        }),
+      );
     }
   }
 

@@ -10,7 +10,8 @@ import type {
   StartResearchDto,
 } from '@arborisis/shared';
 
-const BASE = `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api`;
+const BASE = '/api';
+let refreshInFlight: Promise<boolean> | null = null;
 
 export class ApiError extends Error {
   constructor(
@@ -54,11 +55,15 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   // Access token expiré → tentative de rotation puis nouvel essai (une fois).
   if (res.status === 401 && !opts.noRefresh && !opts._retried) {
-    const refreshed = await fetch(`${BASE}/auth/refresh`, {
+    refreshInFlight ??= fetch(`${BASE}/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
-    });
-    if (refreshed.ok) {
+    })
+      .then((response) => response.ok)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+    if (await refreshInFlight) {
       return request<T>(path, { ...opts, _retried: true });
     }
   }
@@ -75,6 +80,7 @@ export const api = {
   login: (body: { email: string; password: string }) =>
     request<{ user: AuthUser }>('/auth/login', { method: 'POST', body, noRefresh: true }),
   logout: () => request<{ success: true }>('/auth/logout', { method: 'POST' }),
+  logoutAll: () => request<{ success: true }>('/auth/logout-all', { method: 'POST' }),
   me: () => request<{ user: AuthUser }>('/auth/me'),
 
   // ── Planètes ──

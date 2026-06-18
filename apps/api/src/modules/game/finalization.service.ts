@@ -19,7 +19,7 @@ export class FinalizationService {
   ) {}
 
   async finalizeConstruction(jobId: string, now = new Date()): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.serializable(async (tx) => {
       const job = await tx.constructionJob.findUnique({ where: { id: jobId } });
       if (!job || job.status !== JobStatus.PENDING || job.finishesAt > now) return;
 
@@ -35,7 +35,7 @@ export class FinalizationService {
   }
 
   async finalizeResearch(jobId: string, now = new Date()): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.serializable(async (tx) => {
       const job = await tx.researchJob.findUnique({ where: { id: jobId } });
       if (!job || job.status !== JobStatus.PENDING || job.finishesAt > now) return;
 
@@ -51,7 +51,7 @@ export class FinalizationService {
   }
 
   async finalizeColonization(jobId: string, now = new Date()): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.serializable(async (tx) => {
       const job = await tx.colonizationJob.findUnique({ where: { id: jobId } });
       if (!job || job.status !== JobStatus.PENDING || job.finishesAt > now) return;
 
@@ -67,7 +67,10 @@ export class FinalizationService {
 
       if (occupied) {
         // Emplacement pris entre-temps : essaimage annulé.
-        await tx.colonizationJob.update({ where: { id: jobId }, data: { status: JobStatus.CANCELLED } });
+        await tx.colonizationJob.update({
+          where: { id: jobId },
+          data: { status: JobStatus.CANCELLED },
+        });
         this.logger.warn(`Essaimage ${jobId} annulé : emplacement occupé.`);
         return;
       }
@@ -77,7 +80,10 @@ export class FinalizationService {
         system: job.targetSystem,
         position: job.targetPosition,
       });
-      await tx.colonizationJob.update({ where: { id: jobId }, data: { status: JobStatus.COMPLETED } });
+      await tx.colonizationJob.update({
+        where: { id: jobId },
+        data: { status: JobStatus.COMPLETED },
+      });
     });
   }
 
@@ -107,15 +113,23 @@ export class FinalizationService {
   /** Balayage de récupération au démarrage : finalise tout job échu. */
   async sweepAllDue(now = new Date()): Promise<void> {
     const [c, r, col] = await Promise.all([
-      this.prisma.constructionJob.findMany({ where: { status: JobStatus.PENDING, finishesAt: { lte: now } } }),
-      this.prisma.researchJob.findMany({ where: { status: JobStatus.PENDING, finishesAt: { lte: now } } }),
-      this.prisma.colonizationJob.findMany({ where: { status: JobStatus.PENDING, finishesAt: { lte: now } } }),
+      this.prisma.constructionJob.findMany({
+        where: { status: JobStatus.PENDING, finishesAt: { lte: now } },
+      }),
+      this.prisma.researchJob.findMany({
+        where: { status: JobStatus.PENDING, finishesAt: { lte: now } },
+      }),
+      this.prisma.colonizationJob.findMany({
+        where: { status: JobStatus.PENDING, finishesAt: { lte: now } },
+      }),
     ]);
     for (const j of c) await this.finalizeConstruction(j.id, now);
     for (const j of r) await this.finalizeResearch(j.id, now);
     for (const j of col) await this.finalizeColonization(j.id, now);
     if (c.length + r.length + col.length > 0) {
-      this.logger.log(`Balayage : ${c.length} construction(s), ${r.length} recherche(s), ${col.length} essaimage(s) finalisé(s).`);
+      this.logger.log(
+        `Balayage : ${c.length} construction(s), ${r.length} recherche(s), ${col.length} essaimage(s) finalisé(s).`,
+      );
     }
   }
 }

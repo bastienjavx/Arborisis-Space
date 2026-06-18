@@ -26,10 +26,14 @@ Le client est considéré comme **non fiable**. Règles fondamentales :
 ## Authentification & sessions
 
 - Mots de passe hachés avec **argon2id**.
-- **JWT d'accès** courte durée (15 min) + **refresh token rotatif** ; le refresh est
-  stocké **haché** en base (révocable, comparé via argon2).
+- **JWT d'accès** courte durée (15 min) + **refresh token opaque rotatif** par session ;
+  seul un hash SHA-256 du secret aléatoire est stocké. Plusieurs appareils sont isolés
+  et la réutilisation d'un ancien token révoque la session concernée.
 - Tokens transportés en **cookies httpOnly / SameSite=Lax** ; `Secure` en production.
-  Le cookie de refresh est limité au chemin `/auth/refresh`.
+  Le cookie de refresh est limité au chemin `/api/auth/refresh`.
+- Les mutations vérifient `Origin` et Fetch Metadata afin de bloquer les requêtes CSRF.
+- Le navigateur utilise le proxy same-origin Next.js `/api`; NestJS reste privé sur
+  Railway et n'exige aucun cookie inter-domaine.
 - Politique de mot de passe : ≥ 10 caractères (validée par Zod, front et back).
 
 ## Durcissement applicatif
@@ -52,6 +56,8 @@ Le client est considéré comme **non fiable**. Règles fondamentales :
 
 - Accès aux données via Prisma (requêtes paramétrées — pas d'injection SQL).
 - Contraintes d'unicité en base (email, username, coordonnées de planète).
+- Transactions sérialisables avec retry et contraintes uniques partielles pour les files
+  de construction, recherche et colonisation.
 - Suppressions en cascade cohérentes (un utilisateur supprimé emporte ses planètes/jobs).
 
 ## Périmètre non couvert (itérations futures)

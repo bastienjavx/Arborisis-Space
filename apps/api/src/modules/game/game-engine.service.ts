@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Planet, PlanetBuilding, ResearchLevel } from '@prisma/client';
+import type { Planet, PlanetBuilding, Prisma, ResearchLevel } from '@prisma/client';
 import {
   BuildingType,
   computeProduction,
@@ -52,12 +52,19 @@ export class GameEngineService {
    * Applique la production accumulée et persiste les nouveaux stocks.
    * À appeler avant toute lecture/mutation pour garantir des données fiables.
    */
-  async settlePlanet(planetId: string, now = new Date()): Promise<SettledPlanet> {
-    const planet = await this.prisma.planet.findUniqueOrThrow({
+  async settlePlanet(
+    planetId: string,
+    now = new Date(),
+    db?: Prisma.TransactionClient,
+  ): Promise<SettledPlanet> {
+    if (!db) {
+      return this.prisma.serializable((tx) => this.settlePlanet(planetId, now, tx));
+    }
+    const planet = await db.planet.findUniqueOrThrow({
       where: { id: planetId },
       include: { buildings: true },
     });
-    const researchLevels = await this.prisma.researchLevel.findMany({
+    const researchLevels = await db.researchLevel.findMany({
       where: { userId: planet.ownerId },
     });
 
@@ -76,7 +83,7 @@ export class GameEngineService {
       next[r] = amounts[r] > cap ? amounts[r] : Math.min(cap, amounts[r] + gained);
     }
 
-    const updated = await this.prisma.planet.update({
+    const updated = await db.planet.update({
       where: { id: planetId },
       data: {
         biomass: next[ResourceType.BIOMASS],
@@ -116,8 +123,9 @@ export class GameEngineService {
   async spend(
     planetId: string,
     cost: Partial<Record<ResourceType, number>>,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<void> {
-    await this.prisma.planet.update({
+    await db.planet.update({
       where: { id: planetId },
       data: {
         biomass: { decrement: cost[ResourceType.BIOMASS] ?? 0 },

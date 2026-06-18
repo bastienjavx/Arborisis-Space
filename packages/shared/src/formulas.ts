@@ -234,7 +234,8 @@ export function colonizationCost(ownedPlanetCount: number): ResourceBundle {
 
 /** Durée d'un essaimage (secondes), réduite par la Propulsion sporale. */
 export function colonizationTimeSeconds(sporalPropulsionLevel: number): number {
-  const seconds = COLONIZATION_BASE_TIME_SECONDS / (1 + 0.1 * sporalPropulsionLevel) / UNIVERSE_SPEED;
+  const seconds =
+    COLONIZATION_BASE_TIME_SECONDS / (1 + 0.1 * sporalPropulsionLevel) / UNIVERSE_SPEED;
   return Math.max(BUILD_TIME_MIN_SECONDS, Math.round(seconds));
 }
 
@@ -269,7 +270,12 @@ export function unmetResearchRequirements(
 }
 
 function checkRequirements(
-  requires: { research?: Partial<Record<ResearchType, number>>; buildings?: Partial<Record<BuildingType, number>> } | undefined,
+  requires:
+    | {
+        research?: Partial<Record<ResearchType, number>>;
+        buildings?: Partial<Record<BuildingType, number>>;
+      }
+    | undefined,
   ctx: RequirementContext,
 ): UnmetRequirement[] {
   const unmet: UnmetRequirement[] = [];
@@ -277,13 +283,23 @@ function checkRequirements(
   for (const [type, required] of Object.entries(requires.buildings ?? {})) {
     const current = ctx.buildings[type as BuildingType] ?? 0;
     if (current < required) {
-      unmet.push({ kind: 'building', type: type as BuildingType, requiredLevel: required, currentLevel: current });
+      unmet.push({
+        kind: 'building',
+        type: type as BuildingType,
+        requiredLevel: required,
+        currentLevel: current,
+      });
     }
   }
   for (const [type, required] of Object.entries(requires.research ?? {})) {
     const current = ctx.research[type as ResearchType] ?? 0;
     if (current < required) {
-      unmet.push({ kind: 'research', type: type as ResearchType, requiredLevel: required, currentLevel: current });
+      unmet.push({
+        kind: 'research',
+        type: type as ResearchType,
+        requiredLevel: required,
+        currentLevel: current,
+      });
     }
   }
   return unmet;

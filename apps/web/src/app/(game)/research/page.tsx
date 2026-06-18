@@ -32,7 +32,8 @@ export default function ResearchPage() {
     <div className="space-y-5">
       <h1 className="text-xl font-semibold text-canopy-100">Mycélium de recherche</h1>
       <p className="text-sm text-canopy-100/50">
-        Les recherches profitent à tout l’empire. Les ressources sont prélevées sur la planète active.
+        Les recherches profitent à tout l’empire. Les ressources sont prélevées sur la planète
+        active.
       </p>
 
       {data.activeJob && (
@@ -85,7 +86,13 @@ export default function ResearchPage() {
               </div>
 
               <button className="btn-primary" onClick={() => onStart(r.type)} disabled={!canStart}>
-                {busy ? 'Occupé' : locked ? 'Verrouillé' : r.canAfford ? 'Étudier' : 'Ressources insuffisantes'}
+                {busy
+                  ? 'Occupé'
+                  : locked
+                    ? 'Verrouillé'
+                    : r.canAfford
+                      ? 'Étudier'
+                      : 'Ressources insuffisantes'}
               </button>
             </div>
           );

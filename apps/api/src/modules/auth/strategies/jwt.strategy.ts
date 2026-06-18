@@ -7,11 +7,17 @@ import { UserRole, type AuthUser } from '@arborisis/shared';
 import type { Env } from '../../../common/config/env';
 
 export const ACCESS_COOKIE = 'access_token';
+export const REFRESH_COOKIE = 'refresh_token';
 
 export interface JwtPayload {
   sub: string;
   username: string;
   role: UserRole;
+  sid?: string;
+}
+
+export interface AuthenticatedUser extends AuthUser {
+  sessionId?: string;
 }
 
 /** Extrait le token d'accès du cookie httpOnly. */
@@ -29,13 +35,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  validate(payload: JwtPayload): AuthUser {
+  validate(payload: JwtPayload): AuthenticatedUser {
     if (!payload?.sub) throw new UnauthorizedException();
     return {
       id: payload.sub,
       username: payload.username,
       role: payload.role,
       email: '',
+      sessionId: payload.sid,
     };
   }
 }

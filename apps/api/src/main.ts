@@ -10,6 +10,7 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
   app.useLogger(app.get(Logger));
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   const config = app.get(ConfigService<Env, true>);
 
   app.use(helmet());
@@ -24,7 +25,8 @@ async function bootstrap(): Promise<void> {
   // La validation des entrées passe par ZodValidationPipe au niveau des routes.
   app.enableShutdownHooks();
 
-  const port = config.get('API_PORT', { infer: true });
+  const port =
+    config.get('PORT', { infer: true }) ?? config.get('API_PORT', { infer: true }) ?? 4000;
   await app.listen(port, '0.0.0.0');
 }
 

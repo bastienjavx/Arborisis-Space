@@ -43,13 +43,17 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-canopy-300">🌿 Arborisis</h1>
           <p className="mt-1 text-sm text-canopy-100/50">
-            {isRegister ? 'Faites germer votre civilisation.' : 'Reprenez le contrôle de votre empire.'}
+            {isRegister
+              ? 'Faites germer votre civilisation.'
+              : 'Reprenez le contrôle de votre empire.'}
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="card space-y-4">
           <div>
-            <label className="label" htmlFor="email">Email</label>
+            <label className="label" htmlFor="email">
+              Email
+            </label>
             <input
               id="email"
               type="email"
@@ -63,7 +67,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
           {isRegister && (
             <div>
-              <label className="label" htmlFor="username">Nom d’explorateur</label>
+              <label className="label" htmlFor="username">
+                Nom d’explorateur
+              </label>
               <input
                 id="username"
                 type="text"
@@ -77,7 +83,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
           )}
 
           <div>
-            <label className="label" htmlFor="password">Mot de passe</label>
+            <label className="label" htmlFor="password">
+              Mot de passe
+            </label>
             <input
               id="password"
               type="password"
@@ -103,12 +111,16 @@ export function AuthForm({ mode }: { mode: Mode }) {
           {isRegister ? (
             <>
               Déjà une colonie ?{' '}
-              <Link href="/login" className="text-canopy-300 hover:underline">Se connecter</Link>
+              <Link href="/login" className="text-canopy-300 hover:underline">
+                Se connecter
+              </Link>
             </>
           ) : (
             <>
               Pas encore de colonie ?{' '}
-              <Link href="/register" className="text-canopy-300 hover:underline">Créer un compte</Link>
+              <Link href="/register" className="text-canopy-300 hover:underline">
+                Créer un compte
+              </Link>
             </>
           )}
         </p>

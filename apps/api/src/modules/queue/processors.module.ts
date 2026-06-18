@@ -1,10 +1,11 @@
-import { Module, OnApplicationBootstrap } from '@nestjs/common';
+import { Logger, Module, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { GameModule } from '../game/game.module';
 import { FinalizationService } from '../game/finalization.service';
 import { QueueModule } from './queue.module';
 import { ColonizationProcessor } from './processors/colonization.processor';
 import { ConstructionProcessor } from './processors/construction.processor';
 import { ResearchProcessor } from './processors/research.processor';
+import { GameQueueService } from './game-queue.service';
 
 /**
  * Workers BullMQ. Importe GameModule (logique de finalisation) et QueueModule
@@ -15,10 +16,39 @@ import { ResearchProcessor } from './processors/research.processor';
   imports: [QueueModule, GameModule],
   providers: [ConstructionProcessor, ResearchProcessor, ColonizationProcessor],
 })
-export class ProcessorsModule implements OnApplicationBootstrap {
-  constructor(private readonly finalization: FinalizationService) {}
+export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationShutdown {
+  private readonly logger = new Logger(ProcessorsModule.name);
+  private timer?: NodeJS.Timeout;
+  private reconciling = false;
+
+  constructor(
+    private readonly finalization: FinalizationService,
+    private readonly queues: GameQueueService,
+  ) {}
 
   async onApplicationBootstrap(): Promise<void> {
     await this.finalization.sweepAllDue();
+    await this.queues.reconcilePending();
+    this.timer = setInterval(() => {
+      void this.reconcile().catch((error) =>
+        this.logger.error(error, 'Échec du cycle de réconciliation.'),
+      );
+    }, 60_000);
+    this.timer.unref();
+  }
+
+  onApplicationShutdown(): void {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  private async reconcile(): Promise<void> {
+    if (this.reconciling) return;
+    this.reconciling = true;
+    try {
+      await this.finalization.sweepAllDue();
+      await this.queues.reconcilePending();
+    } finally {
+      this.reconciling = false;
+    }
   }
 }

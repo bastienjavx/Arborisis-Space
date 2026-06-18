@@ -7,6 +7,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { validateEnv, type Env } from './common/config/env';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { OriginGuard } from './common/guards/origin.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { GameModule } from './modules/game/game.module';
 import { HealthModule } from './modules/health/health.module';
@@ -22,9 +23,15 @@ import { ProcessorsModule } from './modules/queue/processors.module';
         return {
           pinoHttp: {
             level: isProd ? 'info' : 'debug',
-            transport: isProd ? undefined : { target: 'pino-pretty', options: { singleLine: true } },
+            transport: isProd
+              ? undefined
+              : { target: 'pino-pretty', options: { singleLine: true } },
             // Ne jamais journaliser les secrets.
-            redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
+            redact: [
+              'req.headers.cookie',
+              'req.headers.authorization',
+              'res.headers["set-cookie"]',
+            ],
             autoLogging: true,
           },
         };
@@ -55,6 +62,7 @@ import { ProcessorsModule } from './modules/queue/processors.module';
     ProcessorsModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: OriginGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],

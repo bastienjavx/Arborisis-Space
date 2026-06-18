@@ -52,7 +52,9 @@ export function ResourceBar({ resources }: { resources: ResourceState }) {
         <span className="text-xs uppercase tracking-wide text-canopy-100/50">Photosynthèse</span>
         <span
           className={
-            resources.energyRatio < 1 ? 'font-semibold text-red-400' : 'font-semibold text-canopy-300'
+            resources.energyRatio < 1
+              ? 'font-semibold text-red-400'
+              : 'font-semibold text-canopy-300'
           }
         >
           {formatNumber(resources.energyProduced - resources.energyConsumed)}

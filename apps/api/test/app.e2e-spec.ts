@@ -37,8 +37,20 @@ describe('Arborisis API (e2e)', () => {
     expect(res.body.user.email).toBe(email);
     const setCookie = res.headers['set-cookie'] as unknown as string[];
     const access = setCookie.find((c) => c.startsWith('access_token='));
+    const refresh = setCookie.find((c) => c.startsWith('refresh_token='));
     expect(access).toBeDefined();
-    cookie = access!.split(';')[0]!;
+    expect(refresh).toContain('Path=/api/auth/refresh');
+    cookie = [access, refresh].map((value) => value!.split(';')[0]).join('; ');
+  });
+
+  it('fait tourner le refresh token et conserve la session', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', cookie)
+      .expect(200);
+    const setCookie = res.headers['set-cookie'] as unknown as string[];
+    cookie = setCookie.map((value) => value.split(';')[0]).join('; ');
+    expect(res.body.user.email).toBe(email);
   });
 
   it('retourne le joueur courant via /auth/me', async () => {
@@ -61,25 +73,32 @@ describe('Arborisis API (e2e)', () => {
     planetId = home.id;
   });
 
-  it('lance la construction d’une Canopée Photosynthétique', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/api/buildings')
-      .set('Cookie', cookie)
-      .send({ planetId, type: BuildingType.PHOTOSYNTHETIC_CANOPY })
-      .expect(201);
-    expect(res.body.targetLevel).toBe(1);
-    expect(res.body.finishesAt).toBeDefined();
-  });
-
-  it('refuse une seconde construction simultanée (409)', async () => {
-    await request(app.getHttpServer())
-      .post('/api/buildings')
-      .set('Cookie', cookie)
-      .send({ planetId, type: BuildingType.BIOMASS_SYNTHESIZER })
-      .expect(409);
+  it('n’accepte qu’une construction parmi deux requêtes concurrentes', async () => {
+    const responses = await Promise.all([
+      request(app.getHttpServer())
+        .post('/api/buildings')
+        .set('Cookie', cookie)
+        .send({ planetId, type: BuildingType.PHOTOSYNTHETIC_CANOPY }),
+      request(app.getHttpServer())
+        .post('/api/buildings')
+        .set('Cookie', cookie)
+        .send({ planetId, type: BuildingType.BIOMASS_SYNTHESIZER }),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+    const accepted = responses.find((response) => response.status === 201)!;
+    expect(accepted.body.targetLevel).toBe(1);
+    expect(accepted.body.finishesAt).toBeDefined();
   });
 
   it('rejette une requête non authentifiée (401)', async () => {
     await request(app.getHttpServer()).get('/api/planets').expect(401);
+  });
+
+  it('révoque toutes les sessions', async () => {
+    await request(app.getHttpServer())
+      .post('/api/auth/logout-all')
+      .set('Cookie', cookie)
+      .expect(200);
+    await request(app.getHttpServer()).post('/api/auth/refresh').set('Cookie', cookie).expect(401);
   });
 });

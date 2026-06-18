@@ -1,5 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { JobStatus } from '@prisma/client';
 import { Queue } from 'bullmq';
 import {
   COLONIZATION_QUEUE,
@@ -8,6 +9,7 @@ import {
   RESEARCH_QUEUE,
   type FinalizeJobData,
 } from './queue.constants';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 /**
  * Planifie la finalisation différée des jobs métier (construction, recherche,
@@ -16,10 +18,13 @@ import {
  */
 @Injectable()
 export class GameQueueService {
+  private readonly logger = new Logger(GameQueueService.name);
+
   constructor(
     @InjectQueue(CONSTRUCTION_QUEUE) private readonly construction: Queue<FinalizeJobData>,
     @InjectQueue(RESEARCH_QUEUE) private readonly research: Queue<FinalizeJobData>,
     @InjectQueue(COLONIZATION_QUEUE) private readonly colonization: Queue<FinalizeJobData>,
+    private readonly prisma: PrismaService,
   ) {}
 
   private delayFor(finishesAt: Date): number {
@@ -39,14 +44,46 @@ export class GameQueueService {
   }
 
   async scheduleConstruction(jobId: string, finishesAt: Date): Promise<void> {
-    await this.construction.add(FINALIZE_JOB, { jobId }, this.opts(jobId, finishesAt));
+    await this.safeAdd(this.construction, jobId, finishesAt);
   }
 
   async scheduleResearch(jobId: string, finishesAt: Date): Promise<void> {
-    await this.research.add(FINALIZE_JOB, { jobId }, this.opts(jobId, finishesAt));
+    await this.safeAdd(this.research, jobId, finishesAt);
   }
 
   async scheduleColonization(jobId: string, finishesAt: Date): Promise<void> {
-    await this.colonization.add(FINALIZE_JOB, { jobId }, this.opts(jobId, finishesAt));
+    await this.safeAdd(this.colonization, jobId, finishesAt);
+  }
+
+  async reconcilePending(): Promise<void> {
+    const now = new Date();
+    const [construction, research, colonization] = await Promise.all([
+      this.prisma.constructionJob.findMany({ where: { status: JobStatus.PENDING } }),
+      this.prisma.researchJob.findMany({ where: { status: JobStatus.PENDING } }),
+      this.prisma.colonizationJob.findMany({ where: { status: JobStatus.PENDING } }),
+      this.prisma.session.deleteMany({
+        where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }] },
+      }),
+    ]);
+    await Promise.all([
+      ...construction.map((job) => this.safeAdd(this.construction, job.id, job.finishesAt)),
+      ...research.map((job) => this.safeAdd(this.research, job.id, job.finishesAt)),
+      ...colonization.map((job) => this.safeAdd(this.colonization, job.id, job.finishesAt)),
+    ]);
+  }
+
+  private async safeAdd(
+    queue: Queue<FinalizeJobData>,
+    jobId: string,
+    finishesAt: Date,
+  ): Promise<void> {
+    try {
+      await queue.add(FINALIZE_JOB, { jobId }, this.opts(jobId, finishesAt));
+    } catch (error) {
+      this.logger.error(
+        { err: error, queue: queue.name, jobId },
+        'Planification BullMQ impossible ; le réconciliateur réessaiera.',
+      );
+    }
   }
 }

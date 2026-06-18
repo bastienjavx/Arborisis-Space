@@ -7,8 +7,8 @@
 #   4. web          (ce dépôt, docker/web.Dockerfile)
 #
 # Ce fichier configure le service API (le service par défaut du dépôt).
-# Pour le service web, dupliquer le dépôt en service supplémentaire et régler
-# `dockerfilePath = "docker/web.Dockerfile"` + variable NEXT_PUBLIC_API_URL.
+# Pour le service web, utiliser `railway.web.toml` et définir `API_INTERNAL_URL`
+# avec l'adresse privée Railway de l'API.
 #
 # Variables à définir sur le service API :
 #   DATABASE_URL          → référence du plugin PostgreSQL
@@ -17,7 +17,9 @@
 #   JWT_REFRESH_SECRET    → openssl rand -base64 48
 #   WEB_ORIGIN            → URL publique du service web
 #   NODE_ENV=production
-#   COOKIE_DOMAIN         → domaine partagé api/web (cookies sécurisés)
+# Le service API n'a pas besoin d'un domaine public lorsque le proxy web utilise
+# le réseau privé Railway. Le service web utilise railway.web.toml et définit
+# API_INTERNAL_URL vers l'adresse privée du service API.
 
 [build]
 builder = "DOCKERFILE"

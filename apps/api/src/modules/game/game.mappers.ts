@@ -19,12 +19,7 @@ import {
   type JobView,
   type ResearchView,
 } from '@arborisis/shared';
-import type {
-  ColonizationJob,
-  ConstructionJob,
-  Planet,
-  ResearchJob,
-} from '@prisma/client';
+import type { ColonizationJob, ConstructionJob, Planet, ResearchJob } from '@prisma/client';
 
 type Levels = Partial<Record<BuildingType, number>>;
 type ResearchLevels = Partial<Record<ResearchType, number>>;

@@ -48,42 +48,52 @@ export class ResearchService {
   async start(userId: string, planetId: string, type: ResearchType): Promise<JobView> {
     await this.planets.assertOwnership(userId, planetId);
     await this.finalization.finalizeDueResearchForUser(userId);
+    let job;
+    try {
+      job = await this.prisma.serializable(async (tx) => {
+        const pending = await tx.researchJob.findFirst({
+          where: { userId, status: JobStatus.PENDING },
+        });
+        if (pending) throw new ConflictException('Une recherche est déjà en cours.');
 
-    // Une seule recherche à la fois par empire.
-    const pending = await this.prisma.researchJob.findFirst({
-      where: { userId, status: JobStatus.PENDING },
-    });
-    if (pending) throw new ConflictException('Une recherche est déjà en cours.');
-
-    const settled = await this.engine.settlePlanet(planetId);
-    const { buildings, research } = settled;
-    const resources = this.engine.buildResourceState(settled);
-
-    const currentLevel = research[type] ?? 0;
-    const targetLevel = currentLevel + 1;
-    if (targetLevel > RESEARCHES[type].maxLevel) {
-      throw new BadRequestException('Niveau maximum atteint pour cette recherche.');
+        const settled = await this.engine.settlePlanet(planetId, new Date(), tx);
+        const { buildings, research } = settled;
+        const resources = this.engine.buildResourceState(settled);
+        const targetLevel = (research[type] ?? 0) + 1;
+        if (targetLevel > RESEARCHES[type].maxLevel) {
+          throw new BadRequestException('Niveau maximum atteint pour cette recherche.');
+        }
+        if (unmetResearchRequirements(type, { buildings, research }).length > 0) {
+          throw new BadRequestException('Prérequis non satisfaits.');
+        }
+        const cost = researchCost(type, targetLevel);
+        if (!canAfford(resources.amounts, cost)) {
+          throw new BadRequestException('Ressources insuffisantes.');
+        }
+        const seconds = researchTimeSeconds(
+          type,
+          targetLevel,
+          buildings[BuildingType.RESEARCH_NEXUS] ?? 0,
+        );
+        const now = new Date();
+        const finishesAt = new Date(now.getTime() + seconds * 1000);
+        await this.engine.spend(planetId, cost, tx);
+        return tx.researchJob.create({
+          data: { userId, planetId, researchType: type, targetLevel, startedAt: now, finishesAt },
+        });
+      });
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException('Une recherche est déjà en cours.');
+      }
+      throw error;
     }
-
-    const unmet = unmetResearchRequirements(type, { buildings, research });
-    if (unmet.length > 0) throw new BadRequestException('Prérequis non satisfaits.');
-
-    const cost = researchCost(type, targetLevel);
-    if (!canAfford(resources.amounts, cost)) {
-      throw new BadRequestException('Ressources insuffisantes.');
-    }
-
-    const nexusLevel = buildings[BuildingType.RESEARCH_NEXUS] ?? 0;
-    const seconds = researchTimeSeconds(type, targetLevel, nexusLevel);
-    const now = new Date();
-    const finishesAt = new Date(now.getTime() + seconds * 1000);
-
-    await this.engine.spend(planetId, cost);
-    const job = await this.prisma.researchJob.create({
-      data: { userId, planetId, researchType: type, targetLevel, startedAt: now, finishesAt },
-    });
-    await this.queue.scheduleResearch(job.id, finishesAt);
+    await this.queue.scheduleResearch(job.id, job.finishesAt);
 
     return researchJobView(job);
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
   }
 }

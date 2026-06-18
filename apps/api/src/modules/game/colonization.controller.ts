@@ -1,10 +1,5 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import {
-  colonizeSchema,
-  type AuthUser,
-  type ColonizeDto,
-  type JobView,
-} from '@arborisis/shared';
+import { colonizeSchema, type AuthUser, type ColonizeDto, type JobView } from '@arborisis/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ColonizationService } from './colonization.service';
