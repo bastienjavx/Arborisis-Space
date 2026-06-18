@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface ParticleBackgroundProps {
@@ -8,14 +9,22 @@ interface ParticleBackgroundProps {
 }
 
 export function ParticleBackground({ count = 30, color = '#16bf6c' }: ParticleBackgroundProps) {
-  const particles = Array.from({ length: count }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    duration: Math.random() * 10 + 10,
-    delay: Math.random() * 5,
-  }));
+  const [particles, setParticles] = useState<
+    { id: number; x: number; y: number; size: number; duration: number; delay: number }[]
+  >([]);
+
+  useEffect(() => {
+    setParticles(
+      Array.from({ length: count }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: Math.random() * 3 + 1,
+        duration: Math.random() * 10 + 10,
+        delay: Math.random() * 5,
+      })),
+    );
+  }, [count]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">

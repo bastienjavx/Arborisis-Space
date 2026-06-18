@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface Particle {
@@ -12,27 +12,29 @@ interface Particle {
   color: string;
 }
 
+function buildParticles(): Particle[] {
+  const colors = [
+    'rgba(22, 191, 108, 0.4)',
+    'rgba(123, 102, 240, 0.3)',
+    'rgba(245, 201, 107, 0.3)',
+    'rgba(22, 191, 108, 0.2)',
+    'rgba(155, 140, 255, 0.25)',
+  ];
+  return Array.from({ length: 40 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    size: Math.random() * 3 + 1,
+    duration: Math.random() * 15 + 10,
+    delay: Math.random() * 10,
+    color: colors[Math.floor(Math.random() * colors.length)],
+  }));
+}
+
 export function ParticleField() {
-  const particles = useMemo<Particle[]>(() => {
-    const colors = [
-      'rgba(22, 191, 108, 0.4)',
-      'rgba(123, 102, 240, 0.3)',
-      'rgba(245, 201, 107, 0.3)',
-      'rgba(22, 191, 108, 0.2)',
-      'rgba(155, 140, 255, 0.25)',
-    ];
-    return Array.from({ length: 40 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      size: Math.random() * 3 + 1,
-      duration: Math.random() * 15 + 10,
-      delay: Math.random() * 10,
-      color: colors[Math.floor(Math.random() * colors.length)],
-    }));
-  }, []);
+  const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    // Prevents hydration mismatch by not rendering particles on server
+    setParticles(buildParticles());
   }, []);
 
   return (

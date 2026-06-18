@@ -38,7 +38,7 @@ export default function FleetsPage() {
     [ShipType.SYMBIOTIC_HARVESTER]: 1,
   });
   const [ships, setShips] = useState<ShipCounts>({
-    [ShipType.SPORAL_SCOUT]: 1,
+    [ShipType.SPORAL_SCOUT]: 0,
     [ShipType.SYMBIOTIC_HARVESTER]: 0,
   });
   const [galaxy, setGalaxy] = useState(1);
@@ -170,7 +170,7 @@ export default function FleetsPage() {
                   onChange={(event) =>
                     setQuantities((value) => ({
                       ...value,
-                      [ship.type]: Math.max(1, Number(event.target.value)),
+                      [ship.type]: Math.min(100, Math.max(1, Number(event.target.value))),
                     }))
                   }
                   aria-label={`Quantité de ${ship.name}`}
@@ -281,7 +281,7 @@ export default function FleetsPage() {
                     onChange={(e) =>
                       setShips((value) => ({
                         ...value,
-                        [ship.type]: Math.max(0, Number(e.target.value)),
+                        [ship.type]: Math.min(ship.available, Math.max(0, Number(e.target.value))),
                       }))
                     }
                     whileFocus={{ scale: 1.02 }}

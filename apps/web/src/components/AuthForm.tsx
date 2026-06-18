@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, ApiError } from '@/lib/api';
@@ -114,6 +114,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => () => { clearTimeout(redirectTimer.current); }, []);
 
   const isRegister = mode === 'register';
 
@@ -127,7 +130,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         : await api.login({ email, password });
       qc.setQueryData(keys.me, res.user);
       setSuccess(true);
-      setTimeout(() => router.replace('/play'), 800);
+      redirectTimer.current = setTimeout(() => router.replace('/play'), 800);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
     } finally {

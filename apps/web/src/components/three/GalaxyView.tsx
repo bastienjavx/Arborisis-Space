@@ -54,12 +54,11 @@ function OrbitRing({ radius }: { radius: number }) {
 interface PlanetDotProps {
   slot: GalaxySlot;
   index: number;
-  total: number;
   selected?: boolean;
   onSelect?: (slot: GalaxySlot) => void;
 }
 
-function PlanetDot({ slot, index, total, selected, onSelect }: PlanetDotProps) {
+function PlanetDot({ slot, index, selected, onSelect }: PlanetDotProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
 
@@ -121,7 +120,6 @@ function Scene({ slots, selectedSlot, onSelect }: GalaxyViewProps) {
           key={`${slot.coordinates.galaxy}-${slot.coordinates.system}-${slot.coordinates.position}`}
           slot={slot}
           index={i}
-          total={slots.length}
           selected={selectedSlot?.coordinates.position === slot.coordinates.position}
           onSelect={onSelect}
         />

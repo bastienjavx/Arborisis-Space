@@ -6,7 +6,6 @@ import { MeshDistortMaterial, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface PlanetBodyProps {
-  seed?: number;
   color?: string;
   emissive?: string;
 }
