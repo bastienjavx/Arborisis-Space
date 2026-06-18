@@ -225,13 +225,17 @@ describe('flottes et expéditions', () => {
     ).toBeGreaterThanOrEqual(30);
   });
 
-  it('respecte exactement les bornes de la table de tirage v1', () => {
+  it('respecte exactement les bornes de la table de tirage v2', () => {
     expect(expeditionOutcomeFromRoll(0)).toBe(ExpeditionOutcome.RESOURCE_CACHE);
-    expect(expeditionOutcomeFromRoll(5_499)).toBe(ExpeditionOutcome.RESOURCE_CACHE);
-    expect(expeditionOutcomeFromRoll(5_500)).toBe(ExpeditionOutcome.RARE_SPORES);
-    expect(expeditionOutcomeFromRoll(7_500)).toBe(ExpeditionOutcome.DERELICT_SHIP);
-    expect(expeditionOutcomeFromRoll(8_500)).toBe(ExpeditionOutcome.INCIDENT);
-    expect(expeditionOutcomeFromRoll(9_500)).toBe(ExpeditionOutcome.ANOMALY);
+    expect(expeditionOutcomeFromRoll(4_999)).toBe(ExpeditionOutcome.RESOURCE_CACHE);
+    expect(expeditionOutcomeFromRoll(5_000)).toBe(ExpeditionOutcome.RARE_SPORES);
+    expect(expeditionOutcomeFromRoll(6_500)).toBe(ExpeditionOutcome.DERELICT_SHIP);
+    expect(expeditionOutcomeFromRoll(7_500)).toBe(ExpeditionOutcome.INCIDENT);
+    expect(expeditionOutcomeFromRoll(8_500)).toBe(ExpeditionOutcome.ANOMALY);
+    expect(expeditionOutcomeFromRoll(9_100)).toBe(ExpeditionOutcome.ANCIENT_ARCHIVE);
+    expect(expeditionOutcomeFromRoll(9_500)).toBe(ExpeditionOutcome.VOID_ECHO);
+    expect(expeditionOutcomeFromRoll(9_800)).toBe(ExpeditionOutcome.CONVERGENCE_BLOOM);
+    expect(expeditionOutcomeFromRoll(9_999)).toBe(ExpeditionOutcome.CONVERGENCE_BLOOM);
   });
 
   it('borne les pertes d’incident entre 10 et 30 pour cent', () => {
