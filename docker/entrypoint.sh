@@ -15,7 +15,7 @@ printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > /app/.env
 echo "[startup] Written .env ($(wc -c < /app/.env) bytes)"
 
 echo "[startup] Running: npx prisma migrate deploy"
-npx prisma migrate deploy --url "$DATABASE_URL"
+npx prisma migrate deploy
 
 echo "[startup] Migration done. Starting API..."
 exec node apps/api/dist/main.js
