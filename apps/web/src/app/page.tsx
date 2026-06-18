@@ -1,409 +1,273 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
-import { HeroScene } from '@/components/three';
+import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
+import { useState } from 'react';
+import { FiMenu, FiX } from 'react-icons/fi';
 
-function TypingText({ text, delay = 0 }: { text: string; delay?: number }) {
-  const [displayed, setDisplayed] = useState('');
-  const [started, setStarted] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setStarted(true), delay);
-    return () => clearTimeout(timer);
-  }, [delay]);
-
-  useEffect(() => {
-    if (!started) return;
-    let i = 0;
-    const interval = setInterval(() => {
-      setDisplayed(text.slice(0, i + 1));
-      i++;
-      if (i >= text.length) clearInterval(interval);
-    }, 50);
-    return () => clearInterval(interval);
-  }, [started, text]);
-
-  return (
-    <span>
-      {displayed}
-      {started && displayed.length < text.length && (
-        <motion.span
-          className="inline-block h-[1em] w-[2px] bg-canopy-400 align-middle"
-          animate={{ opacity: [1, 0] }}
-          transition={{ duration: 0.5, repeat: Infinity }}
-        />
-      )}
-    </span>
-  );
-}
-
-function FloatingOrbs() {
-  const orbs = [
-    { x: '10%', y: '20%', size: 120, color: 'rgba(22, 191, 108, 0.12)', delay: 0 },
-    { x: '80%', y: '60%', size: 160, color: 'rgba(123, 102, 240, 0.1)', delay: 2 },
-    { x: '30%', y: '70%', size: 100, color: 'rgba(245, 201, 107, 0.08)', delay: 4 },
-    { x: '70%', y: '15%', size: 80, color: 'rgba(22, 191, 108, 0.08)', delay: 1 },
-    { x: '50%', y: '50%', size: 200, color: 'rgba(123, 102, 240, 0.06)', delay: 3 },
-  ];
-
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {orbs.map((orb, i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full blur-3xl"
-          style={{
-            left: orb.x,
-            top: orb.y,
-            width: orb.size,
-            height: orb.size,
-            backgroundColor: orb.color,
-          }}
-          animate={{
-            x: [0, 30, -20, 0],
-            y: [0, -20, 30, 0],
-            scale: [1, 1.2, 0.9, 1],
-          }}
-          transition={{
-            duration: 15 + i * 3,
-            delay: orb.delay,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function ScrollIndicator() {
-  return (
-    <motion.div
-      className="absolute bottom-8 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2"
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 2.2, duration: 0.8 }}
-    >
-      <span className="text-xs text-canopy-100/40">Découvrir</span>
-      <motion.div
-        className="h-8 w-5 rounded-full border-2 border-canopy-700/40 p-1"
-        animate={{ y: [0, 5, 0] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <motion.div
-          className="h-2 w-full rounded-full bg-canopy-500/60"
-          animate={{ y: [0, 12, 0], opacity: [1, 0.3, 1] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-        />
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function FeatureCard({
-  title,
-  desc,
-  color,
-  delay,
-}: {
-  title: string;
-  desc: string;
-  color: string;
-  delay: number;
-}) {
-  return (
-    <motion.div
-      className={`glass-card bg-gradient-to-br ${color} group relative overflow-hidden`}
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay, duration: 0.5 }}
-      whileHover={{ y: -8, transition: { duration: 0.25 } }}
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-canopy-500/0 to-canopy-500/0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-      <div className="relative z-10">
-        <h3 className="mb-2 text-xl font-semibold text-canopy-300">{title}</h3>
-        <p className="text-sm text-canopy-100/60">{desc}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-const FEATURES = [
+const GAMEPLAY = [
   {
-    title: 'Colonisez',
-    desc: "Plantez votre première graine sur un monde vierge et faites-la grandir jusqu'à devenir un empire galactique.",
-    color: 'from-canopy-500/20 to-canopy-600/10',
+    title: 'Empire',
+    eyebrow: 'Cultiver',
+    description:
+      'Développez des cités vivantes, reliées par des réseaux racinaires. Chaque structure transforme durablement votre monde.',
+    image: '/images/arborisis/feature-empire.webp',
+    accent: 'text-canopy-300',
+    glow: 'group-hover:shadow-canopy-500/20',
   },
   {
-    title: 'Évoluez',
-    desc: 'Recherchez des technologies biologiques pour débloquer de nouvelles capacités et adapter votre civilisation.',
-    color: 'from-spore-500/20 to-spore-600/10',
+    title: 'Recherche',
+    eyebrow: 'Évoluer',
+    description:
+      "Explorez des symbioses, débloquez de nouvelles voies d'évolution et adaptez votre civilisation aux merveilles de la galaxie.",
+    image: '/images/arborisis/feature-research.webp',
+    accent: 'text-spore-400',
+    glow: 'group-hover:shadow-spore-500/20',
   },
   {
-    title: 'Dominez',
-    desc: 'Étendez votre influence à travers les étoiles par la diplomatie ou la force des spores.',
-    color: 'from-sap-400/20 to-sap-500/10',
+    title: 'Galaxie',
+    eyebrow: 'Étendre',
+    description:
+      "Déployez vos essaims à travers une galaxie vivante, découvrez des anomalies et étendez l'influence de vos colonies.",
+    image: '/images/arborisis/feature-galaxy.webp',
+    accent: 'text-sap-400',
+    glow: 'group-hover:shadow-sap-400/20',
   },
-];
+] as const;
 
-const MECHANICS = [
-  {
-    title: 'Ressources vivantes',
-    desc: 'Gérez sève, spores et biomasse dans un écosystème fragile où chaque choix impacte la stabilité.',
-  },
-  {
-    title: 'Recherches organiques',
-    desc: "Développez un arbre technologique unique inspiré de la génétique, de la mycologie et de l'astrobiologie.",
-  },
-  {
-    title: 'Flottes biologiques',
-    desc: "Faites éclore des bio-vaisseaux capables d'explorer, coloniser et défendre vos mondes.",
-  },
-  {
-    title: 'Expéditions narratives',
-    desc: "Envoyez des essaims à la découverte d'anomalies, de débris et de civilisations oubliées.",
-  },
-];
+const NAV_ITEMS = [
+  { href: '#univers', label: 'Univers' },
+  { href: '#systemes', label: 'Systèmes' },
+  { href: '#rejoindre', label: 'Rejoindre' },
+] as const;
 
 export default function LandingPage() {
+  const [menuOpen, setMenuOpen] = useState(false);
   const { scrollY } = useScroll();
-  const heroOpacity = useTransform(scrollY, [0, 400], [1, 0]);
-  const heroScale = useTransform(scrollY, [0, 400], [1, 0.95]);
-
-  const titleLetters = 'Arborisis'.split('');
+  const heroY = useTransform(scrollY, [0, 800], [0, 90]);
+  const heroOpacity = useTransform(scrollY, [0, 650], [1, 0.35]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-bark-950">
-      <FloatingOrbs />
-
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.02]"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(22, 191, 108, 0.5) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(22, 191, 108, 0.5) 1px, transparent 1px)
-          `,
-          backgroundSize: '80px 80px',
-        }}
-      />
-
-      <motion.div
-        className="relative flex min-h-screen flex-col items-center justify-center px-4"
-        style={{ opacity: heroOpacity, scale: heroScale }}
-      >
-        <div className="pointer-events-none absolute inset-0 z-0">
-          <HeroScene className="h-full w-full opacity-60" />
-        </div>
-
-        <motion.div
-          className="relative z-10 text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h1 className="mb-4 text-7xl font-bold tracking-tight sm:text-8xl md:text-9xl">
-            {titleLetters.map((letter, i) => (
-              <motion.span
-                key={i}
-                className={`inline-block ${letter === ' ' ? 'w-4' : ''} gradient-text text-glow-strong`}
-                initial={{ opacity: 0, y: 50, rotateX: -90 }}
-                animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                transition={{
-                  delay: 0.3 + i * 0.08,
-                  duration: 0.6,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              >
-                {letter}
-              </motion.span>
-            ))}
-          </h1>
-
-          <motion.p
-            className="mx-auto max-w-xl text-lg text-canopy-100/70 sm:text-xl"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.2, duration: 0.5 }}
+    <div className="min-h-screen bg-bark-950 text-canopy-50">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-bark-950/75 backdrop-blur-xl">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
+          <Link
+            href="/"
+            className="gradient-text text-2xl font-semibold tracking-[-0.04em] sm:text-3xl"
+            aria-label="Arborisis — accueil"
           >
-            <TypingText
-              text="Cultivez une civilisation organique à travers une galaxie vivante."
-              delay={1200}
-            />
-          </motion.p>
-        </motion.div>
-
-        <motion.div
-          className="relative z-10 mt-12 flex flex-col gap-4 sm:flex-row sm:gap-6"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.8, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <Link href="/login">
-            <motion.button
-              className="group relative overflow-hidden rounded-2xl bg-canopy-600 px-8 py-4 text-lg font-semibold text-bark-950 shadow-lg shadow-canopy-600/20 transition-all"
-              whileHover={{ scale: 1.05, boxShadow: '0 0 40px rgba(22, 191, 108, 0.4)' }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className="relative z-10">Se connecter</span>
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-canopy-500 to-canopy-400"
-                initial={{ x: '-100%' }}
-                whileHover={{ x: 0 }}
-                transition={{ duration: 0.3 }}
-              />
-            </motion.button>
+            Arborisis
           </Link>
 
-          <Link href="/register">
-            <motion.button
-              className="group relative overflow-hidden rounded-2xl border-2 border-canopy-700/50 px-8 py-4 text-lg font-semibold text-canopy-300 backdrop-blur-sm transition-all"
-              whileHover={{
-                scale: 1.05,
-                borderColor: 'rgba(22, 191, 108, 0.5)',
-                boxShadow: '0 0 30px rgba(22, 191, 108, 0.2)',
-              }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span className="relative z-10">Créer un compte</span>
-              <motion.div
-                className="absolute inset-0 bg-canopy-600/10"
-                initial={{ x: '-100%' }}
-                whileHover={{ x: 0 }}
-                transition={{ duration: 0.3 }}
-              />
-            </motion.button>
-          </Link>
-        </motion.div>
-
-        <ScrollIndicator />
-      </motion.div>
-
-      <motion.section
-        className="relative z-10 px-4 py-24"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-      >
-        <div className="mx-auto max-w-4xl">
-          <motion.h2
-            className="mb-12 text-center text-3xl font-bold gradient-text md:text-4xl"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            Une galaxie vivante vous attend
-          </motion.h2>
-
-          <div className="grid gap-6 sm:grid-cols-3">
-            {FEATURES.map((feature, i) => (
-              <FeatureCard key={feature.title} {...feature} delay={i * 0.2} />
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      <motion.section
-        className="relative z-10 px-4 py-24"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-      >
-        <div className="mx-auto max-w-5xl">
-          <motion.h2
-            className="mb-12 text-center text-3xl font-bold gradient-text md:text-4xl"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            Mécaniques organiques
-          </motion.h2>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {MECHANICS.map((mechanic, i) => (
-              <motion.div
-                key={mechanic.title}
-                className="card group"
-                initial={{ opacity: 0, x: i % 2 === 0 ? -30 : 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
-                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+          <nav className="hidden items-center gap-8 md:flex" aria-label="Navigation principale">
+            {NAV_ITEMS.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="text-sm text-canopy-100/60 transition hover:text-canopy-100"
               >
-                <h3 className="mb-2 text-lg font-semibold text-canopy-300 transition-colors group-hover:text-canopy-200">
-                  {mechanic.title}
-                </h3>
-                <p className="text-sm text-canopy-100/60">{mechanic.desc}</p>
-              </motion.div>
+                {item.label}
+              </a>
             ))}
-          </div>
-        </div>
-      </motion.section>
+          </nav>
 
-      <motion.section
-        className="relative z-10 px-4 py-24"
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-      >
-        <div className="mx-auto max-w-3xl text-center">
-          <motion.h2
-            className="mb-6 text-3xl font-bold gradient-text md:text-4xl"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            Prêt à germer ?
-          </motion.h2>
-          <motion.p
-            className="mb-8 text-canopy-100/60"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-          >
-            Rejoignez la bêta contrôlée et participez à l\'éveil d\'Arborisis.
-          </motion.p>
-          <motion.div
-            className="flex flex-col justify-center gap-4 sm:flex-row"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-          >
-            <Link href="/register">
-              <motion.button
-                className="rounded-2xl bg-canopy-600 px-8 py-4 text-lg font-semibold text-bark-950 shadow-lg shadow-canopy-600/20"
-                whileHover={{ scale: 1.05, boxShadow: '0 0 40px rgba(22, 191, 108, 0.4)' }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Planter ma graine
-              </motion.button>
+          <div className="hidden items-center gap-3 md:flex">
+            <Link href="/login" className="btn-ghost">
+              Se connecter
             </Link>
-            <Link href="/login">
-              <motion.button
-                className="rounded-2xl border-2 border-canopy-700/50 px-8 py-4 text-lg font-semibold text-canopy-300 backdrop-blur-sm"
-                whileHover={{
-                  scale: 1.05,
-                  borderColor: 'rgba(22, 191, 108, 0.5)',
-                  boxShadow: '0 0 30px rgba(22, 191, 108, 0.2)',
-                }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Reprendre mon empire
-              </motion.button>
+            <Link href="/register" className="btn-primary px-5">
+              Créer un compte
+            </Link>
+          </div>
+
+          <button
+            type="button"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-canopy-700/30 text-canopy-100 md:hidden"
+            aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? (
+              <FiX className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <FiMenu className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              className="border-t border-white/[0.06] bg-bark-950 px-5 py-5 md:hidden"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <nav className="flex flex-col gap-1" aria-label="Navigation mobile">
+                {NAV_ITEMS.map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    className="rounded-lg px-3 py-3 text-canopy-100/70 hover:bg-canopy-700/10"
+                  >
+                    {item.label}
+                  </a>
+                ))}
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <Link href="/login" className="btn-ghost">
+                    Connexion
+                  </Link>
+                  <Link href="/register" className="btn-primary">
+                    S'inscrire
+                  </Link>
+                </div>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
+
+      <main>
+        <section
+          id="univers"
+          className="relative isolate min-h-[760px] overflow-hidden pt-20 sm:min-h-[820px]"
+        >
+          <motion.div className="absolute inset-0" style={{ y: heroY, opacity: heroOpacity }}>
+            <Image
+              src="/images/arborisis/hero-living-planet.webp"
+              alt="Monde organique parcouru de réseaux bioluminescents dans l’espace"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-[62%_center] sm:object-center"
+            />
+          </motion.div>
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,#060b09_0%,rgba(6,11,9,0.96)_28%,rgba(6,11,9,0.38)_58%,rgba(6,11,9,0.08)_100%)]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-bark-950 via-transparent to-bark-950/20" />
+
+          <div className="relative mx-auto flex min-h-[680px] max-w-7xl items-center px-5 py-20 lg:px-8">
+            <motion.div
+              className="max-w-2xl"
+              initial={{ opacity: 0, y: 28 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <p className="mb-6 text-xs font-semibold uppercase tracking-[0.28em] text-canopy-300/80">
+                Stratégie spatiale organique
+              </p>
+              <h1 className="max-w-xl text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-white sm:text-7xl lg:text-[5.5rem]">
+                Cultivez une civilisation <span className="gradient-text">organique.</span>
+              </h1>
+              <p className="mt-7 max-w-lg text-base leading-7 text-canopy-100/65 sm:text-lg">
+                Faites germer votre empire sur des mondes vivants, développez des technologies
+                biologiques et étendez vos racines à travers la galaxie.
+              </p>
+              <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+                <Link href="/register" className="btn-primary min-h-12 px-7 text-base">
+                  Créer un compte
+                </Link>
+                <Link href="/login" className="btn-ghost min-h-12 px-7 text-base">
+                  Se connecter
+                </Link>
+              </div>
+              <div className="mt-12 flex items-center gap-4 text-xs uppercase tracking-[0.2em] text-canopy-100/35">
+                <span className="h-px w-12 bg-canopy-500/40" />
+                Une galaxie vivante vous attend
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        <section id="systemes" className="relative px-5 pb-28 pt-12 lg:px-8 lg:pb-36">
+          <div className="mx-auto max-w-7xl">
+            <motion.div
+              className="mb-12 flex flex-col justify-between gap-4 border-b border-canopy-700/20 pb-8 md:flex-row md:items-end"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.4 }}
+            >
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-canopy-400">
+                  Les piliers du vivant
+                </p>
+                <h2 className="text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
+                  Votre empire est un écosystème.
+                </h2>
+              </div>
+              <p className="max-w-md text-sm leading-6 text-canopy-100/50">
+                Chaque décision façonne un réseau interdépendant de ressources, d'organismes et de
+                mondes à conquérir.
+              </p>
+            </motion.div>
+
+            <div className="grid gap-6 lg:grid-cols-3">
+              {GAMEPLAY.map((item, index) => (
+                <motion.article
+                  key={item.title}
+                  className={`group overflow-hidden rounded-2xl border border-canopy-700/20 bg-bark-900/55 shadow-2xl shadow-transparent transition duration-500 ${item.glow}`}
+                  initial={{ opacity: 0, y: 32 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.25 }}
+                  transition={{ delay: index * 0.1, duration: 0.55 }}
+                >
+                  <div className="relative aspect-[2/1] overflow-hidden">
+                    <Image
+                      src={item.image}
+                      alt={`Illustration du système ${item.title} d’Arborisis`}
+                      fill
+                      sizes="(min-width: 1024px) 33vw, 100vw"
+                      className="object-cover transition duration-700 ease-out group-hover:scale-[1.04]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-bark-900/75 to-transparent" />
+                  </div>
+                  <div className="p-6 sm:p-7">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-canopy-100/35">
+                      0{index + 1} · {item.eyebrow}
+                    </p>
+                    <h3 className={`mt-3 text-2xl font-semibold ${item.accent}`}>{item.title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-canopy-100/55">{item.description}</p>
+                  </div>
+                </motion.article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="rejoindre"
+          className="relative overflow-hidden border-t border-canopy-700/15 px-5 py-28 lg:px-8"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_130%,rgba(22,191,108,0.16),transparent_45%)]" />
+          <motion.div
+            className="relative mx-auto max-w-3xl text-center"
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.5 }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-canopy-400">
+              Commencer l'expansion
+            </p>
+            <h2 className="mt-5 text-4xl font-semibold tracking-[-0.045em] sm:text-6xl">
+              Plantez la première graine.
+            </h2>
+            <p className="mx-auto mt-6 max-w-xl text-canopy-100/55">
+              Créez votre monde-noyau et prenez part à l'éveil d'une civilisation qui ne ressemble à
+              aucune autre.
+            </p>
+            <Link href="/register" className="btn-primary mt-9 min-h-12 px-8 text-base">
+              Faire germer mon empire
             </Link>
           </motion.div>
-        </div>
-      </motion.section>
+        </section>
+      </main>
 
-      <footer className="relative z-10 border-t border-canopy-700/10 px-4 py-8 text-center text-sm text-canopy-100/40">
-        <p>© {new Date().getFullYear()} Arborisis. Civilisation organique en développement.</p>
+      <footer className="border-t border-canopy-700/15 px-5 py-8 text-sm text-canopy-100/35 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <span>Arborisis</span>
+          <span>© {new Date().getFullYear()} · Civilisation organique en développement</span>
+        </div>
       </footer>
     </div>
   );
