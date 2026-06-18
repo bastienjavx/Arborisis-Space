@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { motion, useSpring, useTransform } from 'framer-motion';
 import { RESOURCE_TYPES, ResourceType, type ResourceState } from '@arborisis/shared';
 import { formatNumber, resourceLabel } from '@/lib/format';
+import { AnimatedCounter } from './AnimatedCounter';
 
 /**
  * Barre de ressources avec accumulation fluide côté client (extrapolation de la
@@ -35,20 +37,31 @@ export function ResourceBar({ resources }: { resources: ResourceState }) {
       {RESOURCE_TYPES.map((r) => {
         const full = display[r] >= resources.capacity[r];
         return (
-          <div key={r} className="card flex min-w-[8.5rem] flex-col px-3 py-2">
+          <motion.div
+            key={r}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 * RESOURCE_TYPES.indexOf(r) }}
+            className="card flex min-w-[8.5rem] flex-col px-3 py-2"
+          >
             <span className="text-xs uppercase tracking-wide text-canopy-100/50">
               {resourceLabel(r)}
             </span>
             <span className={full ? 'font-semibold text-sap-400' : 'font-semibold'}>
-              {formatNumber(display[r])}
+              <AnimatedCounter value={Math.floor(display[r])} duration={1} />
             </span>
             <span className="text-[11px] text-canopy-100/40">
               +{formatNumber(resources.perHour[r])}/h
             </span>
-          </div>
+          </motion.div>
         );
       })}
-      <div className="card flex min-w-[8.5rem] flex-col px-3 py-2">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="card flex min-w-[8.5rem] flex-col px-3 py-2"
+      >
         <span className="text-xs uppercase tracking-wide text-canopy-100/50">Photosynthèse</span>
         <span
           className={
@@ -62,11 +75,16 @@ export function ResourceBar({ resources }: { resources: ResourceState }) {
         <span className="text-[11px] text-canopy-100/40">
           {formatNumber(resources.energyProduced)} / {formatNumber(resources.energyConsumed)}
         </span>
-      </div>
-      <div className="card flex min-w-[8.5rem] flex-col px-3 py-2">
+      </motion.div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="card flex min-w-[8.5rem] flex-col px-3 py-2"
+      >
         <span className="text-xs uppercase tracking-wide text-canopy-100/50">Stabilité</span>
         <span className="font-semibold text-spore-400">{Math.round(resources.stability)}%</span>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -7,12 +7,32 @@
 }
 
 @layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #0a7a47 #0a120f;
+  }
+
   body {
     @apply bg-bark-950 text-canopy-50/90 antialiased;
     background-image:
       radial-gradient(60rem 60rem at 80% -10%, rgba(22, 191, 108, 0.08), transparent),
       radial-gradient(50rem 50rem at -10% 110%, rgba(123, 102, 240, 0.07), transparent);
     background-attachment: fixed;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0a120f;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #0a7a47;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #16bf6c;
   }
 }
 
@@ -36,5 +56,87 @@
   }
   .label {
     @apply mb-1 block text-xs font-medium uppercase tracking-wide text-canopy-100/60;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-canopy-300 via-sap-400 to-canopy-400 bg-clip-text text-transparent;
+  }
+
+  .glass {
+    @apply border border-canopy-700/20 bg-bark-900/60 backdrop-blur-xl;
+  }
+  .glass-strong {
+    @apply border border-canopy-700/30 bg-bark-900/80 backdrop-blur-2xl;
+  }
+  .glass-card {
+    @apply glass rounded-2xl p-6 shadow-2xl shadow-bark-950/50;
+  }
+}
+
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 20px rgba(22, 191, 108, 0.4), 0 0 40px rgba(22, 191, 108, 0.2);
+  }
+  .text-glow-strong {
+    text-shadow: 0 0 30px rgba(22, 191, 108, 0.5), 0 0 60px rgba(22, 191, 108, 0.3), 0 0 90px rgba(22, 191, 108, 0.1);
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(22, 191, 108, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(22, 191, 108, 0.5), 0 0 60px rgba(22, 191, 108, 0.3); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+@keyframes particle-float {
+  0% { transform: translateY(100vh) scale(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
+@keyframes checkmark-draw {
+  0% { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes typing-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float linear infinite;
   }
 }

@@ -3,11 +3,16 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RESEARCHES, type ResearchType } from '@arborisis/shared';
-import { Countdown } from '@/components/Countdown';
+import { PageHeader } from '@/components/PageHeader';
+import { StatCard } from '@/components/StatCard';
+import { AnimatedCard } from '@/components/AnimatedCard';
+import { AnimatedCountdown } from '@/components/AnimatedCountdown';
+import { AnimatedButton } from '@/components/AnimatedButton';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
 import { formatCost, formatDuration } from '@/lib/format';
 import { keys, useResearch, useStartResearch } from '@/lib/queries';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ResearchPage() {
   const qc = useQueryClient();
@@ -28,39 +33,95 @@ export default function ResearchPage() {
     );
   }
 
+  const totalResearchTime = data.activeJob
+    ? (new Date(data.activeJob.finishesAt).getTime() -
+        new Date(data.activeJob.startedAt ?? data.activeJob.finishesAt).getTime()) /
+      1000
+    : undefined;
+
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-semibold text-canopy-100">Mycélium de recherche</h1>
-      <p className="text-sm text-canopy-100/50">
-        Les recherches profitent à tout l’empire. Les ressources sont prélevées sur la planète
-        active.
-      </p>
+      <PageHeader
+        title="Mycélium de recherche"
+        subtitle="Les recherches profitent à tout l'empire. Les ressources sont prélevées sur la planète active."
+      />
 
-      {data.activeJob && (
-        <div className="card flex items-center justify-between border-spore-500/40">
-          <div>
-            <p className="text-sm text-canopy-100/60">
-              {RESEARCHES[data.activeJob.targetType as ResearchType]?.name} → niveau{' '}
-              {data.activeJob.targetLevel}
-            </p>
-            <p className="font-mono text-spore-400">
-              <Countdown
-                finishesAt={data.activeJob.finishesAt}
-                onDone={() => qc.invalidateQueries({ queryKey: keys.research(selectedId!) })}
+      <div className="flex flex-wrap gap-3">
+        <StatCard
+          label="Niveau total"
+          value={data.researches.reduce((sum, r) => sum + r.level, 0).toString()}
+          color="purple"
+          delay={0.1}
+        />
+        <StatCard
+          label="Technologies"
+          value={data.researches.length.toString()}
+          hint={`${data.researches.filter((r) => r.level > 0).length} débloquées`}
+          color="gold"
+          delay={0.15}
+        />
+      </div>
+
+      <AnimatePresence>
+        {data.activeJob && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <AnimatedCard
+              className="flex items-center justify-between border-spore-500/40"
+              glow="purple"
+            >
+              <div>
+                <p className="text-sm text-canopy-100/60">
+                  {RESEARCHES[data.activeJob.targetType as ResearchType]?.name} → niveau{' '}
+                  {data.activeJob.targetLevel}
+                </p>
+                <p className="font-mono text-spore-400">
+                  <AnimatedCountdown
+                    finishesAt={data.activeJob.finishesAt}
+                    onDone={() => qc.invalidateQueries({ queryKey: keys.research(selectedId!) })}
+                    showRing
+                    totalSeconds={totalResearchTime}
+                  />
+                </p>
+              </div>
+              <motion.div
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="h-3 w-3 rounded-full bg-spore-500"
               />
-            </p>
-          </div>
-        </div>
-      )}
+            </AnimatedCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      <AnimatePresence>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-sm text-red-400"
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {data.researches.map((r) => {
+        {data.researches.map((r, index) => {
           const locked = r.unmet.length > 0;
           const canStart = !busy && !locked && r.canAfford && !start.isPending;
           return (
-            <div key={r.type} className="card flex flex-col gap-3">
+            <AnimatedCard
+              key={r.type}
+              delay={index * 0.08}
+              hover={!locked}
+              className={locked ? 'grayscale opacity-60' : ''}
+              glow={!locked && canStart ? 'purple' : 'none'}
+            >
               <div>
                 <div className="flex items-baseline justify-between">
                   <h3 className="font-medium text-canopy-100">{r.name}</h3>
@@ -85,16 +146,21 @@ export default function ResearchPage() {
                 )}
               </div>
 
-              <button className="btn-primary" onClick={() => onStart(r.type)} disabled={!canStart}>
+              <AnimatedButton
+                variant="primary"
+                onClick={() => onStart(r.type)}
+                disabled={!canStart}
+                glow={canStart}
+              >
                 {busy
                   ? 'Occupé'
                   : locked
-                    ? 'Verrouillé'
+                    ? '🔒 Verrouillé'
                     : r.canAfford
                       ? 'Étudier'
                       : 'Ressources insuffisantes'}
-              </button>
-            </div>
+              </AnimatedButton>
+            </AnimatedCard>
           );
         })}
       </div>

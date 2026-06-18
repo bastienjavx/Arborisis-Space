@@ -8,7 +8,11 @@ import {
   SYSTEMS_PER_GALAXY,
   type ShipCounts,
 } from '@arborisis/shared';
-import { Countdown } from '@/components/Countdown';
+import { FleetView } from '@/components/three';
+import { PageHeader } from '@/components/PageHeader';
+import { AnimatedCard } from '@/components/AnimatedCard';
+import { AnimatedCountdown } from '@/components/AnimatedCountdown';
+import { AnimatedButton } from '@/components/AnimatedButton';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ResourceBar } from '@/components/ResourceBar';
 import { ApiError } from '@/lib/api';
@@ -20,6 +24,7 @@ import {
   useProduceShips,
   useStartExpedition,
 } from '@/lib/queries';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function FleetsPage() {
   const { selectedId } = usePlanetSelection();
@@ -47,42 +52,99 @@ export default function FleetsPage() {
   if (isLoading || !fleet || !planet)
     return <p className="text-canopy-100/50">Croissance du hangar…</p>;
 
+  const dockedShips: ShipCounts = {
+    [ShipType.SPORAL_SCOUT]:
+      fleet.ships.find((s) => s.type === ShipType.SPORAL_SCOUT)?.available ?? 0,
+    [ShipType.SYMBIOTIC_HARVESTER]:
+      fleet.ships.find((s) => s.type === ShipType.SYMBIOTIC_HARVESTER)?.available ?? 0,
+  };
+
   function message(reason: unknown) {
     setError(reason instanceof ApiError ? reason.message : 'Une erreur est survenue.');
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-canopy-100">Flottes organiques</h1>
-        <p className="text-sm text-canopy-100/50">
-          Faites éclore des bio-vaisseaux puis sondez les systèmes inconnus.
-        </p>
-      </div>
-      <ResourceBar resources={planet.resources} />
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      <PageHeader
+        title="Flottes organiques"
+        subtitle="Faites éclore des bio-vaisseaux puis sondez les systèmes inconnus."
+      />
 
-      {fleet.productionJob && (
-        <section className="card flex items-center justify-between border-canopy-500/40">
-          <div>
-            <p className="text-sm text-canopy-100/60">Production en cours</p>
-            <p>
-              {fleet.productionJob.quantity} × {SHIPS[fleet.productionJob.shipType].name}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <ResourceBar resources={planet.resources} />
+      </motion.div>
+
+      <AnimatedCard delay={0.15} glow="purple" className="overflow-hidden p-0">
+        <div className="grid lg:grid-cols-3">
+          <div className="p-5 lg:col-span-1">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-canopy-100/60">
+              Essaim orbital
+            </h2>
+            <p className="text-sm text-canopy-100/50">
+              {fleet.ships.reduce((sum, s) => sum + s.available, 0)} bio-vaisseaux en orbite.
             </p>
+            <ul className="mt-3 space-y-1 text-sm">
+              {fleet.ships.map((s) => (
+                <li key={s.type} className="flex justify-between">
+                  <span className="text-canopy-100/70">{s.name}</span>
+                  <span className="text-canopy-300">{s.available}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <span className="font-mono text-canopy-300">
-            <Countdown finishesAt={fleet.productionJob.finishesAt} />
-          </span>
-        </section>
-      )}
+          <FleetView ships={dockedShips} className="h-64 w-full lg:col-span-2 lg:h-80" />
+        </div>
+      </AnimatedCard>
+
+      <AnimatePresence>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="text-sm text-red-400"
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {fleet.productionJob && (
+          <motion.section
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <AnimatedCard
+              className="flex items-center justify-between border-canopy-500/40"
+              glow="green"
+            >
+              <div>
+                <p className="text-sm text-canopy-100/60">Production en cours</p>
+                <p>
+                  {fleet.productionJob.quantity} × {SHIPS[fleet.productionJob.shipType].name}
+                </p>
+              </div>
+              <span className="font-mono text-canopy-300">
+                <AnimatedCountdown finishesAt={fleet.productionJob.finishesAt} />
+              </span>
+            </AnimatedCard>
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-canopy-100/60">
           Berceau orbital
         </h2>
         <div className="grid gap-4 md:grid-cols-2">
-          {fleet.ships.map((ship) => (
-            <article key={ship.type} className="card space-y-3">
+          {fleet.ships.map((ship, index) => (
+            <AnimatedCard key={ship.type} delay={index * 0.1} hover>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-medium text-canopy-100">{ship.name}</h3>
@@ -99,7 +161,7 @@ export default function FleetsPage() {
                 </span>
               </div>
               <div className="flex gap-2">
-                <input
+                <motion.input
                   className="input w-24"
                   type="number"
                   min={1}
@@ -112,9 +174,10 @@ export default function FleetsPage() {
                     }))
                   }
                   aria-label={`Quantité de ${ship.name}`}
+                  whileFocus={{ scale: 1.05 }}
                 />
-                <button
-                  className="btn-primary flex-1"
+                <AnimatedButton
+                  className="flex-1"
                   disabled={!ship.unlocked || !!fleet.productionJob || produce.isPending}
                   onClick={() => {
                     setError(undefined);
@@ -123,18 +186,19 @@ export default function FleetsPage() {
                       { onError: message },
                     );
                   }}
+                  glow={ship.unlocked && !fleet.productionJob}
                 >
                   {!ship.unlocked
                     ? `Berceau niv. ${ship.requiredNurseryLevel} requis`
                     : 'Faire éclore'}
-                </button>
+                </AnimatedButton>
               </div>
-            </article>
+            </AnimatedCard>
           ))}
         </div>
       </section>
 
-      <section className="card space-y-4">
+      <AnimatedCard delay={0.2} className="space-y-4">
         <div>
           <h2 className="font-medium text-canopy-100">Expédition</h2>
           <p className="text-xs text-canopy-100/50">
@@ -142,7 +206,11 @@ export default function FleetsPage() {
           </p>
         </div>
         {active ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-wrap items-center justify-between gap-3"
+          >
             <div>
               <p className="text-canopy-100/70">
                 Cible {active.target.galaxy}:{active.target.system} ·{' '}
@@ -154,42 +222,57 @@ export default function FleetsPage() {
               </p>
             </div>
             <span className="font-mono text-spore-400">
-              <Countdown
+              <AnimatedCountdown
                 finishesAt={active.phase === 'OUTBOUND' ? active.arrivesAt : active.returnsAt}
               />
             </span>
-          </div>
+          </motion.div>
         ) : (
-          <>
+          <div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label>
+              <motion.label
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
                 <span className="label">Galaxie</span>
-                <input
+                <motion.input
                   className="input"
                   type="number"
                   min={1}
                   max={GALAXY_COUNT}
                   value={galaxy}
                   onChange={(e) => setGalaxy(Number(e.target.value))}
+                  whileFocus={{ scale: 1.02 }}
                 />
-              </label>
-              <label>
+              </motion.label>
+              <motion.label
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+              >
                 <span className="label">Système</span>
-                <input
+                <motion.input
                   className="input"
                   type="number"
                   min={1}
                   max={SYSTEMS_PER_GALAXY}
                   value={system}
                   onChange={(e) => setSystem(Number(e.target.value))}
+                  whileFocus={{ scale: 1.02 }}
                 />
-              </label>
-              {fleet.ships.map((ship) => (
-                <label key={ship.type}>
+              </motion.label>
+              {fleet.ships.map((ship, index) => (
+                <motion.label
+                  key={ship.type}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + index * 0.05 }}
+                >
                   <span className="label">
                     {ship.name} (max. {ship.available})
                   </span>
-                  <input
+                  <motion.input
                     className="input"
                     type="number"
                     min={ship.type === ShipType.SPORAL_SCOUT ? 1 : 0}
@@ -201,12 +284,12 @@ export default function FleetsPage() {
                         [ship.type]: Math.max(0, Number(e.target.value)),
                       }))
                     }
+                    whileFocus={{ scale: 1.02 }}
                   />
-                </label>
+                </motion.label>
               ))}
             </div>
-            <button
-              className="btn-primary"
+            <AnimatedButton
               disabled={launch.isPending || ships[ShipType.SPORAL_SCOUT] < 1}
               onClick={() => {
                 setError(undefined);
@@ -215,12 +298,13 @@ export default function FleetsPage() {
                   { onError: message },
                 );
               }}
+              glow
             >
-              Lancer l’expédition
-            </button>
-          </>
+              Lancer l'expédition
+            </AnimatedButton>
+          </div>
         )}
-      </section>
+      </AnimatedCard>
     </div>
   );
 }
