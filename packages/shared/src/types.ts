@@ -219,6 +219,10 @@ export interface AchievementView {
   description: string;
   rewardText: string;
   unlockedAt: string | null;
+  /** Progression calculée par le serveur. */
+  progress: number;
+  target: number;
+  progressLabel: string;
 }
 
 export interface AllianceView {

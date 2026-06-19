@@ -5,32 +5,17 @@ import Image from 'next/image';
 import { useMe, usePublicProfile, useUpdateProfile } from '@/lib/queries';
 import { PageHeader } from '@/components/PageHeader';
 import { AnimatedButton } from '@/components/AnimatedButton';
+import { ProceduralAvatar } from '@/components/ProceduralAvatar';
 import { RACES } from '@arborisis/shared';
 import { FiCheck, FiEye, FiGlobe, FiInfo, FiRefreshCw, FiUser } from 'react-icons/fi';
 
-function hashString(str: string): number {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = (h << 5) - h + str.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h);
-}
-
 function AvatarPreview({ seed, color }: { seed: string; color: string }) {
-  const images = [
-    '/images/arborisis/hero-living-planet.webp',
-    '/images/arborisis/feature-empire.webp',
-    '/images/arborisis/feature-galaxy.webp',
-    '/images/arborisis/feature-research.webp',
-  ];
-  const source = images[hashString(seed || 'arborisis') % images.length] ?? images[0];
   return (
     <span
       className="relative block h-28 w-28 overflow-hidden rounded-full border-2 bg-bark-950 shadow-2xl"
       style={{ borderColor: color }}
     >
-      <Image src={source} alt="Avatar organique" fill sizes="7rem" className="object-cover" />
+      <ProceduralAvatar seed={seed} color={color} />
     </span>
   );
 }

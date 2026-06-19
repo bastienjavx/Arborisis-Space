@@ -12,7 +12,9 @@ export default function AchievementsPage() {
     return <p className="text-canopy-100/50">Consultation des archives…</p>;
 
   const unlocked = achievements.filter((a) => a.unlockedAt);
-  const locked = achievements.filter((a) => !a.unlockedAt);
+  const locked = achievements
+    .filter((a) => !a.unlockedAt)
+    .sort((a, b) => b.progress / b.target - a.progress / a.target);
   const completion = achievements.length
     ? Math.round((unlocked.length / achievements.length) * 100)
     : 0;
@@ -118,7 +120,22 @@ export default function AchievementsPage() {
                     </p>
                   )}
                 </div>
-                <FiLock className="h-5 w-5 text-canopy-100/35 sm:ml-auto" aria-label="Verrouillé" />
+                <div className="min-w-0 sm:text-right">
+                  <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-canopy-100/50 sm:justify-end">
+                    <span>
+                      {new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(a.progress)} /{' '}
+                      {new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(a.target)}{' '}
+                      {a.progressLabel}
+                    </span>
+                    <FiLock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </div>
+                  <progress
+                    className="h-1.5 w-full overflow-hidden rounded-full accent-canopy-500 [&::-webkit-progress-bar]:bg-canopy-700/25 [&::-webkit-progress-value]:bg-canopy-500"
+                    value={a.progress}
+                    max={a.target}
+                    aria-label={`Progression de ${a.name} : ${a.progress} sur ${a.target}`}
+                  />
+                </div>
               </motion.article>
             ))}
           </div>
