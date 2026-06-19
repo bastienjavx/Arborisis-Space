@@ -17,5 +17,8 @@ echo "[startup] Written .env ($(wc -c < /app/.env) bytes)"
 echo "[startup] Running: npx prisma migrate deploy"
 npx prisma migrate deploy
 
-echo "[startup] Migration done. Starting API..."
+echo "[startup] Running: npx prisma db seed"
+npx prisma db seed
+
+echo "[startup] Seed done. Starting API..."
 exec node apps/api/dist/main.js
