@@ -89,13 +89,13 @@ export class AuthService {
 
   async logoutAll(userId: string): Promise<void> {
     const now = new Date();
-    await this.prisma.$transaction([
-      this.prisma.session.updateMany({
+    await this.prisma.serializable(async (tx) => {
+      await tx.session.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: now },
-      }),
-      this.prisma.user.update({ where: { id: userId }, data: { refreshTokenHash: null } }),
-    ]);
+      });
+      await tx.user.update({ where: { id: userId }, data: { refreshTokenHash: null } });
+    });
   }
 
   async me(userId: string): Promise<AuthUser> {
