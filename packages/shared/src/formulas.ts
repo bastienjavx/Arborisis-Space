@@ -136,6 +136,16 @@ export function stabilityFactor(stability: number): number {
   return STABILITY_PRODUCTION_FLOOR + (1 - STABILITY_PRODUCTION_FLOOR) * ratio;
 }
 
+/** Stabilité visible, plafonnée immédiatement par l'énergie disponible. */
+export function effectiveStability(
+  ecologicalStability: number,
+  energyRatio: number,
+  stabilityMaximum = STABILITY_MAX,
+): number {
+  const safeRatio = Math.max(0, Math.min(1, energyRatio));
+  return Math.min(ecologicalStability, stabilityMaximum * safeRatio);
+}
+
 /** Production brute/heure d'un bâtiment producteur (avant modificateurs globaux). */
 export function buildingBaseProduction(type: BuildingType, level: number): number {
   const cfg = BUILDINGS[type];
@@ -167,6 +177,8 @@ export function buildingEnergyProduction(
 
 export interface ProductionInput {
   buildings: Partial<Record<BuildingType, number>>;
+  /** Intensité des bâtiments producteurs, en pourcentage [0..100]. */
+  productionIntensities?: Partial<Record<BuildingType, number>>;
   research: Partial<Record<ResearchType, number>>;
   stability: number;
   planetType?: PlanetType;
@@ -187,6 +199,11 @@ function buildingLevel(input: ProductionInput, type: BuildingType): number {
   return input.buildings[type] ?? 0;
 }
 
+function productionIntensity(input: ProductionInput, type: BuildingType): number {
+  const intensity = input.productionIntensities?.[type] ?? 100;
+  return Math.max(0, Math.min(100, intensity)) / 100;
+}
+
 /**
  * Calcule la production horaire d'une planète.
  * Modificateurs : énergie (ratio), stabilité écologique, Génie génétique, type de planète.
@@ -200,7 +217,7 @@ export function computeProduction(input: ProductionInput): ProductionResult {
   for (const type of Object.values(BuildingType)) {
     const level = buildingLevel(input, type);
     energyProduced += buildingEnergyProduction(type, level, advPhoto);
-    energyConsumed += buildingEnergyConsumption(type, level);
+    energyConsumed += buildingEnergyConsumption(type, level) * productionIntensity(input, type);
   }
   const energyRatio = energyConsumed > 0 ? Math.min(1, energyProduced / energyConsumed) : 1;
 
@@ -227,7 +244,8 @@ export function computeProduction(input: ProductionInput): ProductionResult {
   for (const type of Object.values(BuildingType)) {
     const cfg = BUILDINGS[type];
     if (!cfg.producesResource) continue;
-    const raw = buildingBaseProduction(type, buildingLevel(input, type));
+    const raw =
+      buildingBaseProduction(type, buildingLevel(input, type)) * productionIntensity(input, type);
     perHour[cfg.producesResource] += raw * geneticBonus * stab * energyRatio * UNIVERSE_SPEED;
   }
   for (const r of RESOURCE_TYPES) {

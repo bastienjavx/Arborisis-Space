@@ -5,6 +5,7 @@ import {
   BuildingType,
   computeProduction,
   computeStabilityDecay,
+  effectiveStability,
   FIELDS_PER_TERRAFORMATION,
   GalacticEventType,
   PlanetSpecialization,
@@ -24,6 +25,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 export interface SettledPlanet {
   planet: Planet & { buildings: PlanetBuilding[] };
   buildings: Partial<Record<BuildingType, number>>;
+  productionIntensities: Partial<Record<BuildingType, number>>;
   research: Partial<Record<ResearchType, number>>;
   production: ProductionResult;
 }
@@ -40,6 +42,12 @@ export class GameEngineService {
   buildingLevelsOf(buildings: PlanetBuilding[]): Partial<Record<BuildingType, number>> {
     const map: Partial<Record<BuildingType, number>> = {};
     for (const b of buildings) map[b.type] = b.level;
+    return map;
+  }
+
+  productionIntensitiesOf(buildings: PlanetBuilding[]): Partial<Record<BuildingType, number>> {
+    const map: Partial<Record<BuildingType, number>> = {};
+    for (const building of buildings) map[building.type] = building.productionIntensity;
     return map;
   }
 
@@ -79,12 +87,14 @@ export class GameEngineService {
     });
 
     const buildings = this.buildingLevelsOf(planet.buildings);
+    const productionIntensities = this.productionIntensitiesOf(planet.buildings);
     const research = this.researchLevelsOf(researchLevels);
 
     // Check for active galactic events affecting production
     const activeEvent = await this.getActiveEvent(db);
     const production = computeProduction({
       buildings,
+      productionIntensities,
       research,
       stability: planet.stability,
       planetType: planet.planetType as PlanetType,
@@ -118,9 +128,14 @@ export class GameEngineService {
     const decayPerHour = computeStabilityDecay(usedFields, maxFields, sporrangeLevel);
     const symbiosis = research[ResearchType.SYMBIOSIS] ?? 0;
     const stabilityMax = STABILITY_MAX + symbiosis * STABILITY_SYMBIOSIS_BONUS;
-    const newStability = Math.min(
+    const ecologicalStability = Math.min(
       stabilityMax,
-      Math.max(STABILITY_MIN, planet.stability - decayPerHour * hours),
+      Math.max(STABILITY_MIN, planet.ecologicalStability - decayPerHour * hours),
+    );
+    const newStability = effectiveStability(
+      ecologicalStability,
+      production.energyRatio,
+      stabilityMax,
     );
 
     const updated = await db.planet.update({
@@ -131,17 +146,39 @@ export class GameEngineService {
         minerals: next[ResourceType.MINERALS],
         spores: next[ResourceType.SPORES],
         stability: newStability,
+        ecologicalStability,
         lastResourceUpdate: now,
       },
       include: { buildings: true },
     });
 
-    return { planet: updated, buildings, research, production };
+    const currentProduction = computeProduction({
+      buildings,
+      productionIntensities,
+      research,
+      stability: newStability,
+      planetType: updated.planetType as PlanetType,
+      race: planet.owner.race as RaceType,
+      specialization: (updated.specialization as PlanetSpecialization) ?? null,
+    });
+    if (activeEvent?.type === GalacticEventType.SPORE_BLOOM) {
+      for (const r of Object.values(ResourceType)) {
+        currentProduction.perHour[r] = Math.round(currentProduction.perHour[r] * 1.5 * 100) / 100;
+      }
+    }
+
+    return {
+      planet: updated,
+      buildings,
+      productionIntensities,
+      research,
+      production: currentProduction,
+    };
   }
 
   /** Construit l'état ressources exposé au client. */
   buildResourceState(settled: SettledPlanet): ResourceState {
-    const { planet, buildings, production } = settled;
+    const { planet, buildings, production, research } = settled;
     const cap = storageCap(buildings[BuildingType.STORAGE_VACUOLE] ?? 0);
     const capacity = {
       [ResourceType.BIOMASS]: cap,
@@ -157,6 +194,9 @@ export class GameEngineService {
       energyConsumed: Math.round(production.energyConsumed),
       energyRatio: Math.round(production.energyRatio * 100) / 100,
       stability: planet.stability,
+      ecologicalStability: planet.ecologicalStability,
+      stabilityMaximum:
+        STABILITY_MAX + (research[ResearchType.SYMBIOSIS] ?? 0) * STABILITY_SYMBIOSIS_BONUS,
     };
   }
 

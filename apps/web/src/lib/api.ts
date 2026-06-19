@@ -28,6 +28,7 @@ import type {
   StartResearchDto,
   ProduceShipsDto,
   SetSpecializationDto,
+  SetProductionIntensitiesDto,
   SpyPlanetDto,
   StartExpeditionDto,
   ShipProductionJobView,
@@ -132,6 +133,8 @@ export const api = {
     request<PlanetSummary>(`/planets/${id}/name`, { method: 'PATCH', body }),
   setSpecialization: (id: string, body: SetSpecializationDto) =>
     request<PlanetSummary>(`/planets/${id}/specialization`, { method: 'PATCH', body }),
+  setProductionIntensities: (id: string, body: SetProductionIntensitiesDto) =>
+    request<PlanetDetail>(`/planets/${id}/production`, { method: 'PATCH', body }),
 
   // ── Transferts ──
   transfers: () => request<ResourceTransferMissionView[]>('/transfer'),

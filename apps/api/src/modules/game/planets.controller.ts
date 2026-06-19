@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch } from '@nestjs/common';
 import {
   renamePlanetSchema,
+  setProductionIntensitiesSchema,
   setSpecializationSchema,
   type AuthUser,
   type PlanetDetail,
   type PlanetSummary,
   type RenamePlanetDto,
   type SetSpecializationDto,
+  type SetProductionIntensitiesDto,
 } from '@arborisis/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -45,5 +47,14 @@ export class PlanetsController {
     @Body(new ZodValidationPipe(setSpecializationSchema)) dto: SetSpecializationDto,
   ): Promise<PlanetSummary> {
     return this.planets.setSpecialization(user.id, id, dto.specialization);
+  }
+
+  @Patch(':id/production')
+  setProductionIntensities(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(setProductionIntensitiesSchema)) dto: SetProductionIntensitiesDto,
+  ): Promise<PlanetDetail> {
+    return this.planets.setProductionIntensities(user.id, id, dto.intensities);
   }
 }

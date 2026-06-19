@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { RESOURCE_TYPES, ResourceType, type ResourceState } from '@arborisis/shared';
 import { FiCircle, FiDroplet, FiHexagon, FiShield, FiZap } from 'react-icons/fi';
@@ -101,6 +102,11 @@ export function ResourceBar({
         </div>
         <span className="mt-1 text-[10px] text-canopy-100/35">
           {formatNumber(resources.energyProduced)} / {formatNumber(resources.energyConsumed)}
+          {resources.energyRatio < 1 && (
+            <Link href="/production" className="ml-2 text-red-300 underline underline-offset-2">
+              Régler
+            </Link>
+          )}
         </span>
       </motion.div>
       <motion.div

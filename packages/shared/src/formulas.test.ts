@@ -16,6 +16,7 @@ import {
   colonizationCost,
   computeDefensePower,
   computeProduction,
+  effectiveStability,
   fleetCombatPower,
   maxColonies,
   npcCombatPower,
@@ -94,6 +95,13 @@ describe('stabilityFactor', () => {
   });
 });
 
+describe('effectiveStability', () => {
+  it('plafonne immédiatement la stabilité selon le déficit énergétique', () => {
+    expect(effectiveStability(100, 0.65)).toBe(65);
+    expect(effectiveStability(82, 1)).toBe(82);
+  });
+});
+
 describe('computeProduction', () => {
   it('ne renvoie que la production passive sans bâtiment', () => {
     const r = computeProduction({
@@ -160,6 +168,29 @@ describe('computeProduction', () => {
     expect(avecEnergie.perHour[ResourceType.BIOMASS]).toBeGreaterThan(
       sansEnergie.perHour[ResourceType.BIOMASS],
     );
+  });
+
+  it('réduit production et consommation selon l’intensité configurée', () => {
+    const full = computeProduction({
+      buildings: {
+        [BuildingType.BIOMASS_SYNTHESIZER]: 5,
+        [BuildingType.PHOTOSYNTHETIC_CANOPY]: 5,
+      },
+      research: {},
+      stability: 100,
+    });
+    const reduced = computeProduction({
+      buildings: {
+        [BuildingType.BIOMASS_SYNTHESIZER]: 5,
+        [BuildingType.PHOTOSYNTHETIC_CANOPY]: 5,
+      },
+      productionIntensities: { [BuildingType.BIOMASS_SYNTHESIZER]: 50 },
+      research: {},
+      stability: 100,
+    });
+
+    expect(reduced.energyConsumed).toBeCloseTo(full.energyConsumed / 2);
+    expect(reduced.perHour[ResourceType.BIOMASS]).toBeLessThan(full.perHour[ResourceType.BIOMASS]);
   });
 
   it('le Génie génétique augmente la production', () => {

@@ -16,6 +16,7 @@ import type {
   RenamePlanetDto,
   ResourceTransferMissionView,
   SetSpecializationDto,
+  SetProductionIntensitiesDto,
   SpyPlanetDto,
   StartExpeditionDto,
   StartResearchDto,
@@ -334,6 +335,16 @@ export function useSetSpecialization(planetId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.planet(planetId) });
       void qc.invalidateQueries({ queryKey: keys.planets });
+    },
+  });
+}
+
+export function useSetProductionIntensities(planetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SetProductionIntensitiesDto) => api.setProductionIntensities(planetId, body),
+    onSuccess: (planet) => {
+      qc.setQueryData(keys.planet(planetId), planet);
     },
   });
 }

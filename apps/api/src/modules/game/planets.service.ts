@@ -1,6 +1,13 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { JobStatus } from '@prisma/client';
 import {
+  BUILDINGS,
+  BuildingType,
   planetFields,
   PlanetSpecialization,
   PlanetType,
@@ -57,7 +64,12 @@ export class PlanetsService {
 
     const settled = await this.engine.settlePlanet(planetId);
     const resources = this.engine.buildResourceState(settled);
-    const buildings = buildBuildingViews(settled.buildings, settled.research, resources.amounts);
+    const buildings = buildBuildingViews(
+      settled.buildings,
+      settled.research,
+      resources.amounts,
+      settled.productionIntensities,
+    );
 
     const activeJob = await this.prisma.constructionJob.findFirst({
       where: { planetId, status: JobStatus.PENDING },
@@ -136,5 +148,32 @@ export class PlanetsService {
       maxFields: planetFields(terraform),
       specialization: (updated.specialization as PlanetSpecialization) ?? null,
     };
+  }
+
+  async setProductionIntensities(
+    userId: string,
+    planetId: string,
+    intensities: Partial<Record<BuildingType, number>>,
+  ): Promise<PlanetDetail> {
+    await this.assertOwnership(userId, planetId);
+
+    const entries = Object.entries(intensities) as [BuildingType, number][];
+    if (entries.some(([type]) => !BUILDINGS[type]?.producesResource)) {
+      throw new BadRequestException('Seuls les bâtiments producteurs peuvent changer d’intensité.');
+    }
+
+    // Comptabilise d’abord la production écoulée avec les anciens réglages.
+    await this.engine.settlePlanet(planetId);
+    await this.prisma.$transaction(
+      entries.map(([type, productionIntensity]) =>
+        this.prisma.planetBuilding.update({
+          where: { planetId_type: { planetId, type } },
+          data: { productionIntensity },
+        }),
+      ),
+    );
+
+    // Le second settle recalcule immédiatement la stabilité énergétique.
+    return this.getPlanetDetail(userId, planetId);
   }
 }

@@ -21,6 +21,7 @@ import {
   FiMenu,
   FiMoreHorizontal,
   FiNavigation,
+  FiSliders,
   FiUser,
   FiX,
 } from 'react-icons/fi';
@@ -31,6 +32,7 @@ import { usePlanetSelection } from './PlanetContext';
 const LINKS = [
   { href: '/play', label: 'Empire', icon: FiGrid },
   { href: '/buildings', label: 'Structures', icon: FiLayers },
+  { href: '/production', label: 'Production', icon: FiSliders },
   { href: '/research', label: 'Recherche', icon: FiCpu },
   { href: '/galaxy', label: 'Galaxie', icon: FiGlobe },
   { href: '/fleets', label: 'Flottes', icon: FiNavigation },

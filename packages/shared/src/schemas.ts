@@ -247,6 +247,18 @@ export const renamePlanetSchema = z.object({
 });
 export type RenamePlanetDto = z.infer<typeof renamePlanetSchema>;
 
+export const setProductionIntensitiesSchema = z.object({
+  intensities: z.record(
+    z.nativeEnum(BuildingType),
+    z
+      .number()
+      .int()
+      .min(0, 'L’intensité minimale est 0 %')
+      .max(100, 'L’intensité maximale est 100 %'),
+  ),
+});
+export type SetProductionIntensitiesDto = z.infer<typeof setProductionIntensitiesSchema>;
+
 export const createUniverseSchema = z.object({
   slug: z
     .string()

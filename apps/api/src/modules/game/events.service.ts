@@ -50,7 +50,10 @@ export class EventsService {
     if (type === GalacticEventType.MYCOTOXIN_OUTBREAK) {
       await this.prisma.planet.updateMany({
         where: { universeId },
-        data: { stability: { decrement: 20 } },
+        data: {
+          stability: { decrement: 20 },
+          ecologicalStability: { decrement: 20 },
+        },
       });
     }
   }

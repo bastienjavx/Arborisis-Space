@@ -3,6 +3,7 @@ import {
   BuildingType,
   BUILDING_TYPES,
   buildingBaseProduction,
+  buildingEnergyConsumption,
   buildingCost,
   buildTimeSeconds,
   canAfford,
@@ -30,6 +31,7 @@ export function buildBuildingViews(
   buildings: Levels,
   research: ResearchLevels,
   amounts: Amounts,
+  intensities: Partial<Record<BuildingType, number>> = {},
 ): BuildingView[] {
   const coreLevel = buildings[BuildingType.SYMBIOTIC_CORE] ?? 0;
   return BUILDING_TYPES.map((type) => {
@@ -44,6 +46,8 @@ export function buildBuildingViews(
       nextLevelCost,
       nextLevelTimeSeconds: buildTimeSeconds(type, level + 1, coreLevel),
       currentProduction: Math.round(buildingBaseProduction(type, level)),
+      currentEnergyConsumption: Math.round(buildingEnergyConsumption(type, level)),
+      productionIntensity: intensities[type] ?? 100,
       canAfford: canAfford(amounts, nextLevelCost),
       unmet: unmetBuildingRequirements(type, { buildings, research }),
     };

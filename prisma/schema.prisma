@@ -288,6 +288,7 @@ model Planet {
 
   // Stabilité écologique 0..100.
   stability Float @default(100)
+  ecologicalStability Float @default(100)
 
   // Spécialisation planétaire (bonus/malus ciblés).
   specialization PlanetSpecialization?
@@ -412,6 +413,7 @@ model PlanetBuilding {
   planet   Planet       @relation(fields: [planetId], references: [id], onDelete: Cascade)
   type     BuildingType
   level    Int          @default(0)
+  productionIntensity Int          @default(100)
 
   @@unique([planetId, type])
   @@map("planet_buildings")

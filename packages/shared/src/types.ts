@@ -68,6 +68,8 @@ export interface ResourceState {
   energyConsumed: number;
   energyRatio: number;
   stability: number;
+  ecologicalStability: number;
+  stabilityMaximum: number;
 }
 
 export interface BuildingView {
@@ -79,6 +81,8 @@ export interface BuildingView {
   nextLevelTimeSeconds: number;
   /** Production/heure au niveau actuel (0 si non producteur). */
   currentProduction: number;
+  currentEnergyConsumption: number;
+  productionIntensity: number;
   canAfford: boolean;
   unmet: UnmetRequirement[];
 }
