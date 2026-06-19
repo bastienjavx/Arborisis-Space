@@ -64,6 +64,7 @@ import { TransferService } from './transfer.service';
     EventsService,
     GameEngineService,
     PlanetsService,
+    TransferService,
   ],
 })
 export class GameModule {}
