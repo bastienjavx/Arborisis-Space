@@ -1,5 +1,12 @@
 import { BASE_STORAGE, PASSIVE_PRODUCTION, STORAGE_FACTOR } from './constants';
-import { BuildingType, ExpeditionOutcome, ResearchType, ResourceType, ShipType } from './enums';
+import {
+  BuildingType,
+  ExpeditionOutcome,
+  RaceType,
+  ResearchType,
+  ResourceType,
+  ShipType,
+} from './enums';
 import {
   bundleAdd,
   bundleSubtract,
@@ -7,11 +14,19 @@ import {
   buildingCost,
   canAfford,
   colonizationCost,
+  computeDefensePower,
   computeProduction,
+  fleetCombatPower,
   maxColonies,
+  npcCombatPower,
   planetFields,
+  pveCombatDurationSeconds,
+  pveResolve,
+  pveTravelTimeSeconds,
   researchCost,
   researchTimeSeconds,
+  resolvePvpAttack,
+  resolveSpy,
   stabilityFactor,
   storageCap,
   unmetBuildingRequirements,
@@ -21,6 +36,7 @@ import {
   expeditionOutcomeFromRoll,
   expeditionTravelTimeSeconds,
   fleetCargo,
+  pvpTravelTimeSeconds,
   shipCost,
   shipProductionTimeSeconds,
 } from './formulas';
@@ -80,9 +96,35 @@ describe('stabilityFactor', () => {
 
 describe('computeProduction', () => {
   it('ne renvoie que la production passive sans bâtiment', () => {
-    const r = computeProduction({ buildings: {}, research: {}, stability: 100 });
+    const r = computeProduction({
+      buildings: {},
+      research: {},
+      stability: 100,
+      race: RaceType.PHOTOSYNTHEX,
+    });
     expect(r.perHour[ResourceType.BIOMASS]).toBe(PASSIVE_PRODUCTION[ResourceType.BIOMASS]);
     expect(r.energyRatio).toBe(1);
+  });
+
+  it('applique les bonus raciaux à la production passive', () => {
+    const mycelians = computeProduction({
+      buildings: {},
+      research: {},
+      stability: 100,
+      race: RaceType.MYCELIANS,
+    });
+    expect(mycelians.perHour[ResourceType.BIOMASS]).toBe(
+      Math.round((PASSIVE_PRODUCTION[ResourceType.BIOMASS] ?? 0) * 1.1),
+    );
+    const chitinids = computeProduction({
+      buildings: {},
+      research: {},
+      stability: 100,
+      race: RaceType.CHITINIDS,
+    });
+    expect(chitinids.perHour[ResourceType.BIOMASS]).toBe(
+      Math.round((PASSIVE_PRODUCTION[ResourceType.BIOMASS] ?? 0) * 0.9),
+    );
   });
 
   it('augmente la production avec le niveau de bâtiment', () => {
@@ -134,6 +176,40 @@ describe('computeProduction', () => {
     expect(avecRecherche.perHour[ResourceType.BIOMASS]).toBeGreaterThan(
       sansRecherche.perHour[ResourceType.BIOMASS],
     );
+  });
+
+  it('les recherches avancées boostent leurs ressources cibles', () => {
+    const base = computeProduction({
+      buildings: {
+        [BuildingType.BIOMASS_SYNTHESIZER]: 3,
+        [BuildingType.SAP_WELL]: 3,
+        [BuildingType.SPORANGE]: 3,
+        [BuildingType.PHOTOSYNTHETIC_CANOPY]: 5,
+      },
+      research: {},
+      stability: 100,
+      race: RaceType.PHOTOSYNTHEX,
+    });
+    const boosted = computeProduction({
+      buildings: {
+        [BuildingType.BIOMASS_SYNTHESIZER]: 3,
+        [BuildingType.SAP_WELL]: 3,
+        [BuildingType.SPORANGE]: 3,
+        [BuildingType.PHOTOSYNTHETIC_CANOPY]: 5,
+      },
+      research: {
+        [ResearchType.NUTRIENT_CYCLING]: 5,
+        [ResearchType.SUBTERRANEAN_ROOTS]: 5,
+        [ResearchType.SPORAL_ECONOMY]: 5,
+      },
+      stability: 100,
+      race: RaceType.PHOTOSYNTHEX,
+    });
+    expect(boosted.perHour[ResourceType.BIOMASS]).toBeGreaterThan(
+      base.perHour[ResourceType.BIOMASS],
+    );
+    expect(boosted.perHour[ResourceType.SAP]).toBeGreaterThan(base.perHour[ResourceType.SAP]);
+    expect(boosted.perHour[ResourceType.SPORES]).toBeGreaterThan(base.perHour[ResourceType.SPORES]);
   });
 });
 
@@ -242,5 +318,147 @@ describe('flottes et expéditions', () => {
     expect(expeditionIncidentLossPercent(0)).toBe(10);
     expect(expeditionIncidentLossPercent(20)).toBe(30);
     expect(expeditionIncidentLossPercent(21)).toBe(10);
+  });
+});
+
+describe('PvE', () => {
+  const fleet = {
+    [ShipType.SPORAL_DRONE]: 10,
+    [ShipType.BIOLUMINESCENT_CRUISER]: 2,
+  };
+
+  it('calcule la puissance de combat d’une flotte', () => {
+    const power = fleetCombatPower(fleet, RaceType.MYCELIANS);
+    expect(power).toBeGreaterThan(0);
+  });
+
+  it('calcule la puissance d’une anomalie selon sa difficulté', () => {
+    expect(npcCombatPower(1)).toBe(150);
+    expect(npcCombatPower(5)).toBe(750);
+  });
+
+  it('calcule le temps de trajet PvE comme une expédition', () => {
+    expect(
+      pveTravelTimeSeconds({ galaxy: 1, system: 1 }, { galaxy: 1, system: 2, position: 1 }, fleet),
+    ).toBeGreaterThanOrEqual(30);
+  });
+
+  it('calcule une durée de combat de base', () => {
+    expect(pveCombatDurationSeconds(300, 150)).toBe(60);
+    expect(pveCombatDurationSeconds(600, 600)).toBe(90);
+  });
+
+  it('renvoie une victoire si la flotte domine largement', () => {
+    const result = pveResolve({
+      fleetPower: 3_000,
+      npcPower: 1_000,
+      ships: fleet,
+      race: RaceType.MYCELIANS,
+      difficulty: 3,
+    });
+    expect(result.outcome).toBe('VICTORY');
+    expect(result.rewards[ResourceType.BIOMASS]).toBeGreaterThan(0);
+  });
+
+  it('renvoie une défaite si la flotte est trop faible', () => {
+    const result = pveResolve({
+      fleetPower: 100,
+      npcPower: 1_000,
+      ships: fleet,
+      race: RaceType.MYCELIANS,
+      difficulty: 5,
+    });
+    expect(result.outcome).toBe('DEFEAT');
+  });
+});
+
+describe('PvP', () => {
+  const attackFleet = {
+    [ShipType.SPORAL_DRONE]: 20,
+    [ShipType.BIOLUMINESCENT_CRUISER]: 5,
+  };
+
+  it('calcule un temps de trajet PvP comme une expédition', () => {
+    expect(
+      pvpTravelTimeSeconds(
+        { galaxy: 1, system: 1, position: 1 },
+        { galaxy: 1, system: 2, position: 3 },
+        attackFleet,
+      ),
+    ).toBeGreaterThanOrEqual(30);
+  });
+
+  it('calcule la puissance défensive orbitale', () => {
+    const defense = {
+      [ShipType.ORBITAL_THORN]: 2,
+      [ShipType.CHITIN_BULWARK]: 1,
+    };
+    const power = computeDefensePower({ ships: defense, race: RaceType.CHITINIDS });
+    expect(power).toBeGreaterThan(0);
+  });
+
+  it('renvoie un succès si l’attaquant domine', () => {
+    const result = resolvePvpAttack({
+      attackerShips: {
+        [ShipType.BIOMASS_DREADNOUGHT]: 5,
+      },
+      defenderShips: {
+        [ShipType.SPORAL_DRONE]: 10,
+      },
+      attackerRace: RaceType.MYCELIANS,
+      defenderRace: RaceType.PHOTOSYNTHEX,
+      targetResources: {
+        [ResourceType.BIOMASS]: 10_000,
+        [ResourceType.SAP]: 5_000,
+      },
+    });
+    expect(result.outcome).toBe('SUCCESS');
+    expect(result.loot[ResourceType.BIOMASS]).toBeGreaterThan(0);
+  });
+
+  it('limite le butin par la cargaison des survivants', () => {
+    const result = resolvePvpAttack({
+      attackerShips: {
+        [ShipType.SYMBIOTIC_HARVESTER]: 10,
+      },
+      defenderShips: {},
+      attackerRace: RaceType.MYCELIANS,
+      defenderRace: RaceType.PHOTOSYNTHEX,
+      targetResources: {
+        [ResourceType.BIOMASS]: 1_000_000,
+      },
+    });
+    expect(result.outcome).toBe('SUCCESS');
+    const totalLoot = Object.values(result.loot).reduce((sum, v) => sum + (v ?? 0), 0);
+    expect(totalLoot).toBeLessThanOrEqual(10 * 1_000);
+  });
+
+  it('renvoie un échec si l’attaquant est trop faible', () => {
+    const result = resolvePvpAttack({
+      attackerShips: {
+        [ShipType.SPORAL_DRONE]: 2,
+      },
+      defenderShips: {
+        [ShipType.BIOMASS_DREADNOUGHT]: 2,
+      },
+      attackerRace: RaceType.MYCELIANS,
+      defenderRace: RaceType.CHITINIDS,
+    });
+    expect(result.outcome).toBe('FAILURE');
+    expect(Object.values(result.lostShips).some((v) => (v ?? 0) > 0)).toBe(true);
+  });
+
+  it('résout l’espionnage selon la puissance de renseignement', () => {
+    const success = resolveSpy({
+      ships: { [ShipType.SHADOW_SPORE]: 10 },
+      defensePower: 100,
+    });
+    expect(success.success).toBe(true);
+
+    const failure = resolveSpy({
+      ships: { [ShipType.SHADOW_SPORE]: 1 },
+      defensePower: 10_000,
+    });
+    expect(failure.success).toBe(false);
   });
 });

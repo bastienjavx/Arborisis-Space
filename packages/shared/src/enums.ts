@@ -45,6 +45,7 @@ export const BUILDING_TYPES = Object.values(BuildingType);
 
 /** Types de recherches (empire-wide, partagées entre toutes les planètes). */
 export enum ResearchType {
+  // ── Énergie & économie ──
   /** Photosynthèse avancée — augmente la production d'énergie. */
   ADVANCED_PHOTOSYNTHESIS = 'ADVANCED_PHOTOSYNTHESIS',
   /** Génie génétique — augmente la production de ressources. */
@@ -57,18 +58,72 @@ export enum ResearchType {
   BIOENGINEERING = 'BIOENGINEERING',
   /** Propulsion sporale — débloque la colonisation (essaimage). */
   SPORAL_PROPULSION = 'SPORAL_PROPULSION',
+
+  // ── Économie avancée ──
+  /** Cycle des nutriments — augmente la production de biomasse. */
+  NUTRIENT_CYCLING = 'NUTRIENT_CYCLING',
+  /** Racines souterraines — augmente la production de sève. */
+  SUBTERRANEAN_ROOTS = 'SUBTERRANEAN_ROOTS',
+  /** Économie sporale — augmente la production de spores. */
+  SPORAL_ECONOMY = 'SPORAL_ECONOMY',
+
+  // ── Militaire ──
+  /** Armure de chitine — augmente la défense des vaisseaux. */
+  CHITIN_ARMOR = 'CHITIN_ARMOR',
+  /** Guerre biologique — augmente l'attaque des vaisseaux. */
+  BIOLOGICAL_WARFARE = 'BIOLOGICAL_WARFARE',
+  /** Tactiques de essaim — améliore la vitesse des vaisseaux légers. */
+  SWARM_TACTICS = 'SWARM_TACTICS',
+  /** Grille défensive orbitale — renforce les défenses planétaires. */
+  ORBITAL_DEFENSE_GRID = 'ORBITAL_DEFENSE_GRID',
+
+  // ── Propulsion & renseignement ──
+  /** Moteur hyperspore — augmente la vitesse de toute la flotte. */
+  HYPERSPORE_DRIVE = 'HYPERSPORE_DRIVE',
+  /** Mycologie des vers — réduit les temps de trajet intergalactiques. */
+  WORMHOLE_MYCOLOGY = 'WORMHOLE_MYCOLOGY',
+  /** Sens sporal — améliore la chance d'espionnage. */
+  SPORE_SENSE = 'SPORE_SENSE',
+  /** Scan profond — améliore la qualité des rapports d'espionnage. */
+  DEEP_SCAN = 'DEEP_SCAN',
 }
 
 export const RESEARCH_TYPES = Object.values(ResearchType);
 
+/** Rôle d'un vaisseau dans la flotte. */
+export enum ShipRole {
+  COMBAT = 'COMBAT',
+  TRANSPORT = 'TRANSPORT',
+  ESPIONAGE = 'ESPIONAGE',
+  DEFENSE = 'DEFENSE',
+  SUPPORT = 'SUPPORT',
+}
+
 /** Bio-vaisseaux disponibles dans le premier cycle d'exploration. */
 export enum ShipType {
+  // ── Civils / support ──
   SPORAL_SCOUT = 'SPORAL_SCOUT',
   SYMBIOTIC_HARVESTER = 'SYMBIOTIC_HARVESTER',
   MYCELIAL_TENDRIL = 'MYCELIAL_TENDRIL',
   CHITIN_FREIGHTER = 'CHITIN_FREIGHTER',
   BIOLUMINESCENT_CRUISER = 'BIOLUMINESCENT_CRUISER',
   SPOROGENESIS_TITAN = 'SPOROGENESIS_TITAN',
+
+  // ── Militaires ──
+  SPORAL_DRONE = 'SPORAL_DRONE',
+  ACID_BOMBER = 'ACID_BOMBER',
+  CHITIN_DESTROYER = 'CHITIN_DESTROYER',
+  BIOMASS_DREADNOUGHT = 'BIOMASS_DREADNOUGHT',
+
+  // ─é Spécialisés ──
+  SEED_POD = 'SEED_POD',
+  SHADOW_SPORE = 'SHADOW_SPORE',
+  ORBITAL_THORN = 'ORBITAL_THORN',
+
+  // ── Raciaux exclusifs ──
+  SPORAL_SWARM = 'SPORAL_SWARM',
+  LUMINOUS_WARDEN = 'LUMINOUS_WARDEN',
+  CHITIN_BULWARK = 'CHITIN_BULWARK',
 }
 
 export const SHIP_TYPES = Object.values(ShipType);
@@ -128,6 +183,44 @@ export enum ExpeditionPhase {
   COMPLETED = 'COMPLETED',
 }
 
+export enum NpcEncounterType {
+  VOID_RIFT = 'VOID_RIFT',
+  MYCOXIN_NEST = 'MYCOXIN_NEST',
+  ABANDONED_DERELICT = 'ABANDONED_DERELICT',
+}
+
+export const NPC_ENCOUNTER_TYPES = Object.values(NpcEncounterType);
+
+export enum PveMissionPhase {
+  TRAVEL = 'TRAVEL',
+  COMBAT = 'COMBAT',
+  RETURNING = 'RETURNING',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum PvpMissionType {
+  SPY = 'SPY',
+  ATTACK = 'ATTACK',
+}
+
+export enum PvpMissionPhase {
+  OUTBOUND = 'OUTBOUND',
+  RETURNING = 'RETURNING',
+  COMPLETED = 'COMPLETED',
+}
+
+export enum PvpOutcome {
+  SUCCESS = 'SUCCESS',
+  FAILURE = 'FAILURE',
+  DRAW = 'DRAW',
+}
+
+export enum PveOutcome {
+  VICTORY = 'VICTORY',
+  DEFEAT = 'DEFEAT',
+  RETREAT = 'RETREAT',
+}
+
 export enum ExpeditionOutcome {
   RESOURCE_CACHE = 'RESOURCE_CACHE',
   RARE_SPORES = 'RARE_SPORES',
@@ -159,3 +252,33 @@ export enum UserRole {
   PLAYER = 'PLAYER',
   ADMIN = 'ADMIN',
 }
+
+/** Rôles au sein d'une alliance. */
+export enum AllianceRole {
+  LEADER = 'LEADER',
+  OFFICER = 'OFFICER',
+  MEMBER = 'MEMBER',
+}
+
+export const ALLIANCE_ROLES = Object.values(AllianceRole);
+
+/** Statut d'une candidature à une alliance. */
+export enum ApplicationStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+}
+
+export const APPLICATION_STATUSES = Object.values(ApplicationStatus);
+
+/** Races jouables, chacune avec des bonus/malus et un vaisseau exclusif. */
+export enum RaceType {
+  /** Mycéliens — maîtres de la biomasse et de l'essaimage. */
+  MYCELIANS = 'MYCELIANS',
+  /** Photosynthex — experts en énergie et en recherche. */
+  PHOTOSYNTHEX = 'PHOTOSYNTHEX',
+  /** Chitinids — constructeurs défensifs et mineurs. */
+  CHITINIDS = 'CHITINIDS',
+}
+
+export const RACE_TYPES = Object.values(RaceType);

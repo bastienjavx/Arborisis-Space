@@ -13,10 +13,10 @@ interface StatCardProps {
 }
 
 const colorClasses = {
-  green: 'border-canopy-500/30 text-canopy-300',
-  purple: 'border-spore-500/30 text-spore-400',
-  gold: 'border-sap-400/30 text-sap-400',
-  red: 'border-red-500/30 text-red-400',
+  green: 'border-canopy-500/20 text-canopy-300',
+  purple: 'border-spore-500/20 text-spore-400',
+  gold: 'border-sap-400/20 text-sap-400',
+  red: 'border-red-500/20 text-red-400',
 };
 
 export function StatCard({ label, value, hint, icon, delay = 0, color = 'green' }: StatCardProps) {
@@ -25,14 +25,14 @@ export function StatCard({ label, value, hint, icon, delay = 0, color = 'green' 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
-      className={`card flex min-w-[8.5rem] flex-col px-3 py-2 ${colorClasses[color]}`}
+      className={`flex min-w-[9.5rem] flex-col rounded-xl border bg-bark-950/55 px-4 py-3 shadow-lg shadow-black/10 backdrop-blur ${colorClasses[color]}`}
     >
-      <div className="mb-1 flex items-center gap-2 text-canopy-100/50">
+      <div className="mb-1.5 flex items-center gap-2 text-canopy-100/40">
         {icon && <span className="text-lg">{icon}</span>}
-        <span className="text-xs uppercase tracking-wide">{label}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em]">{label}</span>
       </div>
-      <div className="text-lg font-semibold">{value}</div>
-      {hint && <div className="text-[11px] text-canopy-100/40">{hint}</div>}
+      <div className="text-xl font-semibold tracking-[-0.025em]">{value}</div>
+      {hint && <div className="mt-0.5 text-[11px] text-canopy-100/35">{hint}</div>}
     </motion.div>
   );
 }

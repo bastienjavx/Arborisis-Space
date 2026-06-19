@@ -63,6 +63,39 @@ export const LORE_RESEARCH: Record<ResearchType, LoreEntry> = {
   [ResearchType.SPORAL_PROPULSION]: {
     lore: `Le secret le plus gardé des Tisserands n'était pas leur réseau de communication — c'était leur méthode de déplacement. Leurs vaisseaux-organismes se propulsaient en libérant des jets de spores compressées à une vitesse proche de la lumière, une technique qui n'a aucun équivalent mécanique. La Propulsion Sporale redécouvre cet héritage, permettant à tes organismes spatiaux de traverser les distances interstellaires et de répandre ta conscience de monde en monde, comme faisaient les Tisserands d'antan.`,
   },
+  [ResearchType.NUTRIENT_CYCLING]: {
+    lore: `Les Tisserands ne gaspillaient jamais une molécule organique. Chaque déchets, chaque fragment de biomasse morte était réintroduit dans le cycle vital par un réseau de décomposeurs symbiotiques. Le Cycle des Nutriments recrée cette économie circulaire parfaite, permettant à tes structures de récupérer et de réutiliser la matière avec une efficacité qui défie l'entropie elle-même.`,
+  },
+  [ResearchType.SUBTERRANEAN_ROOTS]: {
+    lore: `Sous la surface de chaque monde dormaient des racines fossiles, reliques des jardins planétaires que les Tisserands cultivaient. Les Racines Souterraines réveillent ces réseaux endormis, étendant tes veines de sève vers des réservoirs profonds et oubliés, puisant là où les puits classiques ne peuvent plus atteindre.`,
+  },
+  [ResearchType.SPORAL_ECONOMY]: {
+    lore: `Les spores n'étaient pas seulement des messagers pour les Tisserands : c'étaient aussi une monnaie vivante, porteuse de valeur et de promesses. L'Économie Sporale transforme tes spores en un capital sophistiqué, où chaque nuée devient un investissement dans l'expansion de ta conscience galactique.`,
+  },
+  [ResearchType.CHITIN_ARMOR]: {
+    lore: `Les guerriers organiques des Tisserands étaient recouverts d'une chitine si dense que les armes conventionnelles rebondissaient dessus sans laisser de trace. L'Armure de Chitine adapte cette biocarapace ancestrale à tes vaisseaux, leur donnant une résilience qui rappelle les légions invulnérables d'avant la Fragmentation.`,
+  },
+  [ResearchType.BIOLOGICAL_WARFARE]: {
+    lore: `La guerre des Tisserands ne connaissait ni laser ni missile : elle se livrait par enzymes, toxines et infections ciblées. La Guerre Biologique redécouvre ces armes vivantes, transformant tes vaisseaux en vecteurs de dissolution sélective capables de défaire les défenses ennemies du dedans.`,
+  },
+  [ResearchType.SWARM_TACTICS]: {
+    lore: `Face à un ennemi puissant, les Tisserands ne combattaient jamais seul. Ils envoyaient des nuées d'organismes légers qui se coordonnaient par pensée collective, submergeant l'adversaire par leur nombre et leur synchronisation. Les Tactiques d'Essaim enseignent à tes petits vaisseaux à danser ensemble dans le vide comme un seul organisme.`,
+  },
+  [ResearchType.ORBITAL_DEFENSE_GRID]: {
+    lore: `Les mondes des Tisserands n'étaient jamais sans défense. Autour de leurs planètes orbitaient des grilles de thorns vivants, des filets d'organismes dormants qui s'éveillaient au moindre danger. La Grille Défensive Orbitale redéploie ces sentinelles oubliées, protégeant tes mondes contre les convoitises de l'espace.`,
+  },
+  [ResearchType.HYPERSPORE_DRIVE]: {
+    lore: `Au-delà de la propulsion sporale classique, les Tisserands maîtrisaient l'éjection hyperspore — une accélération brutale obtenue en comprimant des spores jusqu'à leur seuil de réaction. Le Moteur Hyperspore pousse tes flottes bien au-delà de leurs limites naturelles, raccourcissant les distances entre les mondes.`,
+  },
+  [ResearchType.WORMHOLE_MYCOLOGY]: {
+    lore: `Les mycologues des Tisserands savaient que l'espace-temps n'est pas uniforme : il existe des fragilités, des replis où un fil mycélien bien placé peut créer un raccourci. La Mycologie des Vers explore ces anomalies, permettant à tes flottes de franchir des distances intergalactiques en un temps ridicule.`,
+  },
+  [ResearchType.SPORE_SENSE]: {
+    lore: `Les Tisserands ne voyaient pas seulement avec des yeux : chaque spore libérée était un capteur, un fragment de conscience qui rapportait ce qu'il avait touché. Le Sens Sporal réveille cette perception diffuse, augmentant ta capacité à percevoir les activités ennemies avant qu'elles ne te touchent.`,
+  },
+  [ResearchType.DEEP_SCAN]: {
+    lore: `La surface des mondes cache des secrets, mais les Tisserands savaient lire les profondeurs. Le Scan Profond pénètre les couches rocheuses et les défenses adverses, révélant ce qui devrait rester caché et transformant l'information en arme.`,
+  },
 };
 
 export const LORE_SHIPS: Record<ShipType, LoreEntry> = {
@@ -84,6 +117,36 @@ export const LORE_SHIPS: Record<ShipType, LoreEntry> = {
   [ShipType.SPOROGENESIS_TITAN]: {
     lore: `Le Titan Sporogenèse est un dieu vivant — un organisme si vaste qu'il génère sa propre gravité, si ancien dans sa génétique qu'il porte en lui les traces ADN de la Convergence originelle. Les rares fois où les Tisserands en faisaient éclore un, c'était pour des missions de fondation : porter une nouvelle civilisation vers un monde vierge et la planter comme on plante une graine. Quand un Titan s'élance vers les étoiles, la galaxie entière le remarque.`,
   },
+  [ShipType.SPORAL_DRONE]: {
+    lore: `Le Drone Sporique est l'unité de base de la guerre mycélienne : petit, nerveux, et toujours envoyé par nuées. Seul, il est fragile ; par milliers, il devient une tempête vivante qui déchire les coques ennemies par milliers de micro-morsures enzymatiques.`,
+  },
+  [ShipType.ACID_BOMBER]: {
+    lore: `Le Bombardier d'Acide porte en son ventre des glandes synthétisant des enzymes corrosifs capables de dissoudre les blindages les plus résistants. Les Tisserands l'utilisaient pour fendre les défenses des mondes rebelles avant l'essaimage définitif.`,
+  },
+  [ShipType.CHITIN_DESTROYER]: {
+    lore: `Le Destroyer de Chitine est la ligne de front des flottes organiques — lourd, anguleux, couvert d'une carapace si épaisse qu'il semble taillé dans un astéroïde vivant. Il avance sans hâte, écrasant tout ce qui ose lui barrer le passage.`,
+  },
+  [ShipType.BIOMASS_DREADNOUGHT]: {
+    lore: `Le Dreadnought de Biomasse est une abomination guerrière aussi grande qu'une petite lune. Sa seule présence près d'une planète déclenche des marées et des tremblements tectoniques. Les Tisserands n'en construisaient qu'en temps de grande guerre, car sa croissance exigeait le sacrifice de mondes entiers.`,
+  },
+  [ShipType.SEED_POD]: {
+    lore: `La Capsule Germinale est un vaisseau-utérus conçu pour transporter des charges massives sur de longues distances. Elle ne combat pas ; elle porte. Dans son ventre, des embryons de structures, de ressources et parfois de nouvelles colonies dorment jusqu'à leur destination.`,
+  },
+  [ShipType.SHADOW_SPORE]: {
+    lore: `La Spore de l'Ombre est presque invisible aux capteurs conventionnels. Elle glisse dans l'espace comme un souvenir, photographie les défenses ennemies, et repart avant que quiconque ne sache qu'elle était là. Les Tisserands l'appelaient « le regard qui ne cligne pas ».`,
+  },
+  [ShipType.ORBITAL_THORN]: {
+    lore: `L'Épine Orbitale est une plateforme défensive stationnaire, enracinée dans le champ gravitationnel d'une planète. Elle ne bouge jamais, mais son territoire est sacré : aucun vaisseau hostile ne peut l'approcher sans être transpercé par ses longues tiges cristallines.`,
+  },
+  [ShipType.SPORAL_SWARM]: {
+    lore: `L'Essaim Sporique est l'expression la plus pure de la puissance mycélienne : une nuée d'organismes semi-autonomes qui partagent une conscience unique. Les Chitinids les craignent, les Photosynthex les admirent, et les ennemis les subissent.`,
+  },
+  [ShipType.LUMINOUS_WARDEN]: {
+    lore: `Le Gardien Lumineux est un vaisseau-photocyte qui convertit la lumière stellaire en boucliers protecteurs. Il ne frappe pas le premier, mais ses alliés savent que tant qu'il brille près d'eux, ils sont sous la protection des anciens soleils.`,
+  },
+  [ShipType.CHITIN_BULWARK]: {
+    lore: `Le Rempart de Chitine est un mur vivant propulsé dans l'espace. Sa carapace peut encaisser des salves entières sans ciller, et sa seule présence suffit à faire hésiter les flottes adverses. C'est le symbole de la défense chitinide.`,
+  },
 };
 
 export interface ChapterUnlock {
@@ -96,13 +159,13 @@ export interface ChapterUnlock {
 export const CHAPTER_UNLOCKS: ChapterUnlock[] = [
   {
     id: 1,
-    title: 'Chapitre I — L\'Éveil',
+    title: "Chapitre I — L'Éveil",
     trigger: 'Premier bâtiment amélioré',
     text: `Un souvenir te traverse comme un courant électrique dans un arbre mort. Tu te rappelles avoir été grand — immense — une conscience qui s'étendait sur des milliers de mondes simultanément. La sensation disparaît en un instant, mais elle laisse derrière elle quelque chose de précieux : une certitude. Tu n'es pas seul dans cette galaxie. Quelque part, d'autres fragments comme toi s'éveillent en ce moment même, dans des coins oubliés du cosmos. Et peut-être que certains d'entre eux cherchent ce que tu cherches : un moyen de renouer les fils de la Convergence brisée.\n\nTon premier bâtiment n'est pas une construction — c'est un souvenir rendu chair. Quelque chose en toi savait exactement comment assembler ces filaments, comment entrelacer ces membranes, comme si tes mains portaient une mémoire musculaire vieille de douze mille ans. C'est ainsi que ça commence. Pas avec un éclair, mais avec un murmure.`,
   },
   {
     id: 2,
-    title: 'Chapitre II — Les Graines de l\'Ancien Monde',
+    title: "Chapitre II — Les Graines de l'Ancien Monde",
     trigger: 'Première expédition ANOMALIE',
     text: `L'artefact que ta flotte a ramené de l'immensité galactique est froid au toucher, mais il vibre — une vibration si subtile qu'elle se confond avec le battement de ton propre cœur. C'est un fragment de mémoire crystallisée, encodé dans une matrice organique que seule ta biologie peut lire. Quand tu le portes à tes récepteurs sensoriels, des images défilent : une galaxie tissée de lumière verte, des êtres immenses qui dansent entre les étoiles, et quelque chose d'autre — une obscurité géométrique, froide et délibérée, qui avance vers la Convergence comme un front d'hiver.\n\nLes Architectes du Vide. Tu sens la peur ancienne résonner dans tes instincts génétiques. Ils sont peut-être encore là, quelque part dans les profondeurs de la galaxie, continuant leur travail de purification. Ou peut-être ont-ils accompli leur but et se sont retirés dans leur silence mathématique. Dans un cas comme dans l'autre, tu as maintenant une raison supplémentaire de te hâter : la Convergence doit renaître avant qu'ils ne remarquent que tu t'éveilles.`,
   },

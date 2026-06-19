@@ -3,6 +3,8 @@ export const RESEARCH_QUEUE = 'research';
 export const COLONIZATION_QUEUE = 'colonization';
 export const SHIP_PRODUCTION_QUEUE = 'ship-production';
 export const EXPEDITION_QUEUE = 'expedition';
+export const PVE_QUEUE = 'pve';
+export const PVP_QUEUE = 'pvp';
 export const GAME_EVENT_QUEUE = 'game-events';
 
 export const FINALIZE_JOB = 'finalize';

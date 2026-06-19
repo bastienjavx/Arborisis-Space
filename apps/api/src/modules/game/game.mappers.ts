@@ -6,6 +6,7 @@ import {
   buildingCost,
   buildTimeSeconds,
   canAfford,
+  RaceType,
   RESEARCHES,
   ResearchType,
   RESEARCH_TYPES,
@@ -53,12 +54,13 @@ export function buildResearchViews(
   buildings: Levels,
   research: ResearchLevels,
   amounts: Amounts,
+  race: RaceType = RaceType.MYCELIANS,
 ): ResearchView[] {
   const nexusLevel = buildings[BuildingType.RESEARCH_NEXUS] ?? 0;
   return RESEARCH_TYPES.map((type) => {
     const cfg = RESEARCHES[type];
     const level = research[type] ?? 0;
-    const nextLevelCost = researchCost(type, level + 1);
+    const nextLevelCost = researchCost(type, level + 1, race);
     return {
       type,
       name: cfg.name,

@@ -9,9 +9,11 @@ import {
   ADVANCED_PHOTOSYNTHESIS_BONUS,
   BASE_PLANET_FIELDS,
   BASE_STORAGE,
+  BIOLOGICAL_WARFARE_BONUS,
   BUILDINGS,
   BUILD_TIME_DIVISOR,
   BUILD_TIME_MIN_SECONDS,
+  CHITIN_ARMOR_BONUS,
   COLONIES_PER_PROPULSION_LEVEL,
   COLONIZATION_BASE_COST,
   COLONIZATION_BASE_TIME_SECONDS,
@@ -21,18 +23,24 @@ import {
   EXPEDITION_SECONDS_PER_DISTANCE,
   FIELDS_PER_TERRAFORMATION,
   GENETIC_ENGINEERING_BONUS,
-  PASSIVE_PRODUCTION,
+  NUTRIENT_CYCLING_BONUS,
+  ORBITAL_DEFENSE_GRID_BONUS,
   PLANET_TYPES_CONFIG,
+  RACES,
+  racePassiveProduction,
   RESEARCHES,
   RESEARCH_NEXUS_SPEEDUP,
   ResourceBundle,
   SHIPS,
+  SPORE_SENSE_BONUS,
+  SPORAL_ECONOMY_BONUS,
   STABILITY_DECAY_RATE,
   STABILITY_DECAY_THRESHOLD,
   STABILITY_MAX,
   STABILITY_PRODUCTION_FLOOR,
   STABILITY_SPORANGE_REGEN,
   STORAGE_FACTOR,
+  SUBTERRANEAN_ROOTS_BONUS,
   SYSTEMS_PER_GALAXY,
   UNIVERSE_SPEED,
 } from './constants';
@@ -40,9 +48,13 @@ import {
   BuildingType,
   ExpeditionOutcome,
   PlanetType,
+  PveOutcome,
+  PvpOutcome,
+  RaceType,
   ResearchType,
   ResourceType,
   RESOURCE_TYPES,
+  ShipRole,
   ShipType,
 } from './enums';
 
@@ -155,6 +167,7 @@ export interface ProductionInput {
   research: Partial<Record<ResearchType, number>>;
   stability: number;
   planetType?: PlanetType;
+  race?: RaceType;
 }
 
 export interface ProductionResult {
@@ -190,10 +203,22 @@ export function computeProduction(input: ProductionInput): ProductionResult {
   const stab = stabilityFactor(input.stability);
   const geneticBonus = 1 + GENETIC_ENGINEERING_BONUS * genetic;
   const planetBonus = input.planetType ? PLANET_TYPES_CONFIG[input.planetType].productionBonus : {};
+  const race = input.race ?? RaceType.MYCELIANS;
+  const raceBonus = RACES[race].productionBonus;
+
+  const researchProductionBonus: Partial<Record<ResourceType, number>> = {
+    [ResourceType.BIOMASS]:
+      1 + NUTRIENT_CYCLING_BONUS * (input.research[ResearchType.NUTRIENT_CYCLING] ?? 0),
+    [ResourceType.SAP]:
+      1 + SUBTERRANEAN_ROOTS_BONUS * (input.research[ResearchType.SUBTERRANEAN_ROOTS] ?? 0),
+    [ResourceType.SPORES]:
+      1 + SPORAL_ECONOMY_BONUS * (input.research[ResearchType.SPORAL_ECONOMY] ?? 0),
+  };
 
   const perHour = {} as Record<ResourceType, number>;
+  const passive = racePassiveProduction(race);
   for (const r of RESOURCE_TYPES) {
-    perHour[r] = (PASSIVE_PRODUCTION[r] ?? 0) * UNIVERSE_SPEED;
+    perHour[r] = (passive[r] ?? 0) * UNIVERSE_SPEED;
   }
   for (const type of Object.values(BuildingType)) {
     const cfg = BUILDINGS[type];
@@ -202,7 +227,14 @@ export function computeProduction(input: ProductionInput): ProductionResult {
     perHour[cfg.producesResource] += raw * geneticBonus * stab * energyRatio * UNIVERSE_SPEED;
   }
   for (const r of RESOURCE_TYPES) {
-    perHour[r] = Math.round(perHour[r] * (planetBonus[r] ?? 1) * 100) / 100;
+    perHour[r] =
+      Math.round(
+        perHour[r] *
+          (planetBonus[r] ?? 1) *
+          (raceBonus[r] ?? 1) *
+          (researchProductionBonus[r] ?? 1) *
+          100,
+      ) / 100;
   }
 
   return { perHour, energyProduced, energyConsumed, energyRatio };
@@ -221,7 +253,10 @@ export function computeStabilityDecay(
 }
 
 /** Réduit le temps de recherche selon le nombre d'artefacts arborisiens (max 3, -5% chacun). */
-export function computeResearchTimeWithArtifacts(baseSeconds: number, artifactCount: number): number {
+export function computeResearchTimeWithArtifacts(
+  baseSeconds: number,
+  artifactCount: number,
+): number {
   const reduction = Math.min(3, Math.max(0, artifactCount)) * 0.05;
   return Math.max(BUILD_TIME_MIN_SECONDS, Math.round(baseSeconds * (1 - reduction)));
 }
@@ -235,10 +270,17 @@ export function storageCap(vacuoleLevel: number): number {
 
 // ──────────────────────────── Recherches ─────────────────────────────────────
 
-export function researchCost(type: ResearchType, targetLevel: number): ResourceBundle {
+export function researchCost(
+  type: ResearchType,
+  targetLevel: number,
+  race: RaceType = RaceType.MYCELIANS,
+): ResourceBundle {
   if (targetLevel < 1) return {};
   const cfg = RESEARCHES[type];
-  return bundleScale(cfg.baseCost, Math.pow(cfg.costFactor, targetLevel - 1));
+  const cost = bundleScale(cfg.baseCost, Math.pow(cfg.costFactor, targetLevel - 1));
+  const factor = RACES[race].researchCostFactor;
+  if (factor === 1) return cost;
+  return bundleScale(cost, factor);
 }
 
 export function researchTimeSeconds(
@@ -300,6 +342,11 @@ export function shipProductionTimeSeconds(
   );
 }
 
+/** Vitesse effective d'un vaisseau selon la race. */
+export function shipSpeed(type: ShipType, race: RaceType = RaceType.MYCELIANS): number {
+  return Math.round(SHIPS[type].speed * RACES[race].shipSpeedFactor * 100) / 100;
+}
+
 export function fleetCargo(ships: Partial<ShipCounts>): number {
   return Object.values(ShipType).reduce(
     (sum, type) => sum + Math.max(0, ships[type] ?? 0) * SHIPS[type].cargo,
@@ -321,10 +368,11 @@ export function expeditionTravelTimeSeconds(
   from: { galaxy: number; system: number },
   to: { galaxy: number; system: number },
   ships: Partial<ShipCounts>,
+  race: RaceType = RaceType.MYCELIANS,
 ): number {
   const present = Object.values(ShipType).filter((type) => (ships[type] ?? 0) > 0);
   if (present.length === 0) return 0;
-  const slowest = Math.min(...present.map((type) => SHIPS[type].speed));
+  const slowest = Math.min(...present.map((type) => shipSpeed(type, race)));
   return Math.max(
     EXPEDITION_MIN_TRAVEL_SECONDS,
     Math.round(
@@ -418,4 +466,304 @@ function checkRequirements(
     }
   }
   return unmet;
+}
+
+// ──────────────────────────── PvE ────────────────────────────────────────────
+
+export interface PveResolveInput {
+  fleetPower: number;
+  npcPower: number;
+  ships: Partial<ShipCounts>;
+  race: RaceType;
+  difficulty: number;
+}
+
+export interface PveResolveResult {
+  outcome: PveOutcome;
+  lostShips: Partial<ShipCounts>;
+  rewards: ResourceBundle;
+  damageDealt: number;
+}
+
+/** Puissance de combat d'une flotte (attaque + défense/2 + coque/4) × race.attackFactor. */
+export function fleetCombatPower(ships: Partial<ShipCounts>, race: RaceType): number {
+  let power = 0;
+  for (const type of Object.values(ShipType)) {
+    const quantity = ships[type] ?? 0;
+    if (quantity <= 0) continue;
+    const cfg = SHIPS[type];
+    power +=
+      (cfg.attack + cfg.defense * 0.5 + cfg.hull * 0.25) * quantity * RACES[race].attackFactor;
+  }
+  return Math.round(power);
+}
+
+/** Puissance de combat d'une anomalie hostile. */
+export function npcCombatPower(difficulty: number): number {
+  return difficulty * 150;
+}
+
+/** Temps de trajet pour un raid PvE (même formule qu'une expédition). */
+export function pveTravelTimeSeconds(
+  from: { galaxy: number; system: number },
+  to: { galaxy: number; system: number; position?: number },
+  ships: Partial<ShipCounts>,
+  race: RaceType = RaceType.MYCELIANS,
+): number {
+  return expeditionTravelTimeSeconds(from, to, ships, race);
+}
+
+/** Durée du combat en secondes : 60s + 30s par tranche de 500 de puissance ennemie. */
+export function pveCombatDurationSeconds(fleetPower: number, npcPower: number): number {
+  const maxPower = Math.max(fleetPower, npcPower);
+  return 60 + Math.floor(maxPower / 500) * 30;
+}
+
+/** Résout un combat PvE : issue, pertes et récompenses. */
+export function pveResolve(input: PveResolveInput): PveResolveResult {
+  const { fleetPower, npcPower, ships, difficulty } = input;
+  const ratio = fleetPower / Math.max(1, npcPower);
+
+  let outcome: PveOutcome;
+  if (ratio >= 1.5) outcome = PveOutcome.VICTORY;
+  else if (ratio >= 0.8) outcome = PveOutcome.RETREAT;
+  else outcome = PveOutcome.DEFEAT;
+
+  const lostShips: Partial<ShipCounts> = {};
+  const totalShips = Object.values(ShipType).reduce((sum, type) => sum + (ships[type] ?? 0), 0);
+
+  if (outcome === PveOutcome.VICTORY) {
+    const lossRate = Math.max(0, 0.05 + (1 - ratio) * 0.15);
+    for (const type of Object.values(ShipType)) {
+      const qty = ships[type] ?? 0;
+      if (qty > 0) {
+        lostShips[type] = Math.min(qty, Math.max(0, Math.floor(qty * lossRate)));
+      }
+    }
+  } else if (outcome === PveOutcome.RETREAT) {
+    const lossRate = 0.25;
+    for (const type of Object.values(ShipType)) {
+      const qty = ships[type] ?? 0;
+      if (qty > 0) {
+        lostShips[type] = Math.min(qty, Math.max(0, Math.floor(qty * lossRate)));
+      }
+    }
+  } else {
+    // Défaite : pertes massives, les survivants fuient (déterministe).
+    const lossRate = 0.85;
+    for (const type of Object.values(ShipType)) {
+      const qty = ships[type] ?? 0;
+      if (qty > 0) {
+        lostShips[type] = Math.min(qty, Math.max(0, Math.floor(qty * lossRate)));
+      }
+    }
+  }
+
+  const rewards: ResourceBundle = {};
+  if (outcome === PveOutcome.VICTORY || outcome === PveOutcome.RETREAT) {
+    const baseReward = difficulty * 500;
+    rewards[ResourceType.BIOMASS] = Math.floor(baseReward * 0.4);
+    rewards[ResourceType.SAP] = Math.floor(baseReward * 0.25);
+    rewards[ResourceType.MINERALS] = Math.floor(baseReward * 0.25);
+    rewards[ResourceType.SPORES] = Math.floor(baseReward * 0.1);
+  }
+
+  const damageDealt =
+    outcome === PveOutcome.DEFEAT
+      ? Math.floor(fleetPower * 0.3)
+      : Math.floor(fleetPower * (outcome === PveOutcome.VICTORY ? 1.2 : 0.7));
+
+  // Normalise les pertes pour ne jamais dépasser les effectifs.
+  const normalizedLost: Partial<ShipCounts> = {};
+  for (const type of Object.values(ShipType)) {
+    const qty = ships[type] ?? 0;
+    const lost = lostShips[type] ?? 0;
+    normalizedLost[type] = Math.min(qty, Math.max(0, lost));
+  }
+
+  // En cas de défaite totale (tous vaisseaux perdus), on borne à totalShips - 1 pour garder l'issue dramatique.
+  if (outcome === PveOutcome.DEFEAT && totalShips > 0) {
+    const lostTotal = Object.values(normalizedLost).reduce((sum, v) => sum + (v ?? 0), 0);
+    if (lostTotal >= totalShips) {
+      const firstType = Object.values(ShipType).find((type) => (ships[type] ?? 0) > 0);
+      if (firstType) {
+        normalizedLost[firstType] = Math.max(0, (ships[firstType] ?? 0) - 1);
+      }
+    }
+  }
+
+  return { outcome, lostShips: normalizedLost, rewards, damageDealt };
+}
+
+// ──────────────────────────── PvP ────────────────────────────────────────────
+
+/** Temps de trajet pour une mission PvP (même formule qu'une expédition). */
+export function pvpTravelTimeSeconds(
+  from: { galaxy: number; system: number; position?: number },
+  to: { galaxy: number; system: number; position?: number },
+  ships: Partial<ShipCounts>,
+  race: RaceType = RaceType.MYCELIANS,
+): number {
+  return expeditionTravelTimeSeconds(from, to, ships, race);
+}
+
+export interface DefensePowerInput {
+  ships: Partial<ShipCounts>;
+  race: RaceType;
+  orbitalDefenseGridLevel?: number;
+}
+
+/** Puissance défensive d'une planète : flotte en orbite + défenses. */
+export function computeDefensePower(input: DefensePowerInput): number {
+  const { ships, race, orbitalDefenseGridLevel = 0 } = input;
+  let power = 0;
+  for (const type of Object.values(ShipType)) {
+    const quantity = ships[type] ?? 0;
+    if (quantity <= 0) continue;
+    const cfg = SHIPS[type];
+    let value = cfg.defense + cfg.hull * 0.5;
+    if (type === ShipType.ORBITAL_THORN) {
+      value *= 1.5;
+    }
+    power += value * quantity;
+  }
+  const gridBonus = 1 + ORBITAL_DEFENSE_GRID_BONUS * orbitalDefenseGridLevel;
+  return Math.round(power * RACES[race].defenseFactor * gridBonus);
+}
+
+export interface PvpAttackInput {
+  attackerShips: Partial<ShipCounts>;
+  defenderShips: Partial<ShipCounts>;
+  attackerRace: RaceType;
+  defenderRace: RaceType;
+  attackerResearch?: Partial<Record<ResearchType, number>>;
+  defenderResearch?: Partial<Record<ResearchType, number>>;
+  targetResources?: ResourceBundle;
+}
+
+export interface PvpAttackResult {
+  outcome: PvpOutcome;
+  lostShips: Partial<ShipCounts>;
+  defenderLosses: Partial<ShipCounts>;
+  loot: ResourceBundle;
+}
+
+/** Résout un combat PvP : issue, pertes des deux côtés et butin maximal. */
+export function resolvePvpAttack(input: PvpAttackInput): PvpAttackResult {
+  const {
+    attackerShips,
+    defenderShips,
+    attackerRace,
+    defenderRace,
+    attackerResearch = {},
+    defenderResearch = {},
+    targetResources = {},
+  } = input;
+
+  const biologicalWarfare = attackerResearch[ResearchType.BIOLOGICAL_WARFARE] ?? 0;
+  const chitinArmor = defenderResearch[ResearchType.CHITIN_ARMOR] ?? 0;
+
+  const attackerPower =
+    fleetCombatPower(attackerShips, attackerRace) *
+    (1 + BIOLOGICAL_WARFARE_BONUS * biologicalWarfare);
+  const defenderPower =
+    computeDefensePower({
+      ships: defenderShips,
+      race: defenderRace,
+      orbitalDefenseGridLevel: defenderResearch[ResearchType.ORBITAL_DEFENSE_GRID] ?? 0,
+    }) *
+    (1 + CHITIN_ARMOR_BONUS * chitinArmor);
+
+  const ratio = attackerPower / Math.max(1, defenderPower);
+
+  let outcome: PvpOutcome;
+  if (ratio >= 1.5) outcome = PvpOutcome.SUCCESS;
+  else if (ratio >= 0.8) outcome = PvpOutcome.DRAW;
+  else outcome = PvpOutcome.FAILURE;
+
+  const lostShips: Partial<ShipCounts> = {};
+  const defenderLosses: Partial<ShipCounts> = {};
+
+  if (outcome === PvpOutcome.SUCCESS) {
+    const attackerLossRate = Math.max(0, 0.05 + (1 - Math.min(ratio, 1.5)) * 0.15);
+    const defenderLossRate = Math.min(0.75, 0.25 + Math.max(0, ratio - 1) * 0.2);
+    for (const type of Object.values(ShipType)) {
+      const atkQty = attackerShips[type] ?? 0;
+      if (atkQty > 0) lostShips[type] = Math.min(atkQty, Math.floor(atkQty * attackerLossRate));
+      const defQty = defenderShips[type] ?? 0;
+      if (defQty > 0)
+        defenderLosses[type] = Math.min(defQty, Math.floor(defQty * defenderLossRate));
+    }
+  } else if (outcome === PvpOutcome.DRAW) {
+    const lossRate = 0.25;
+    for (const type of Object.values(ShipType)) {
+      const atkQty = attackerShips[type] ?? 0;
+      if (atkQty > 0) lostShips[type] = Math.min(atkQty, Math.floor(atkQty * lossRate));
+      const defQty = defenderShips[type] ?? 0;
+      if (defQty > 0) defenderLosses[type] = Math.min(defQty, Math.floor(defQty * lossRate));
+    }
+  } else {
+    const attackerLossRate = 0.75;
+    const defenderLossRate = 0.15;
+    for (const type of Object.values(ShipType)) {
+      const atkQty = attackerShips[type] ?? 0;
+      if (atkQty > 0) lostShips[type] = Math.min(atkQty, Math.floor(atkQty * attackerLossRate));
+      const defQty = defenderShips[type] ?? 0;
+      if (defQty > 0)
+        defenderLosses[type] = Math.min(defQty, Math.floor(defQty * defenderLossRate));
+    }
+  }
+
+  const survivingShips: Partial<ShipCounts> = {};
+  for (const type of Object.values(ShipType)) {
+    survivingShips[type] = Math.max(0, (attackerShips[type] ?? 0) - (lostShips[type] ?? 0));
+  }
+  const cargoCapacity = fleetCargo(survivingShips);
+
+  const loot: ResourceBundle = {};
+  if (outcome === PvpOutcome.SUCCESS || outcome === PvpOutcome.DRAW) {
+    const lootFactor = outcome === PvpOutcome.SUCCESS ? 0.5 : 0.25;
+    let totalLoot = 0;
+    for (const resource of Object.values(ResourceType)) {
+      const available = targetResources[resource] ?? 0;
+      loot[resource] = Math.floor(available * lootFactor);
+      totalLoot += loot[resource] ?? 0;
+    }
+    if (totalLoot > cargoCapacity) {
+      const scale = cargoCapacity / totalLoot;
+      for (const resource of Object.values(ResourceType)) {
+        loot[resource] = Math.floor((loot[resource] ?? 0) * scale);
+      }
+    }
+  }
+
+  return { outcome, lostShips, defenderLosses, loot };
+}
+
+export interface SpyInput {
+  ships: Partial<ShipCounts>;
+  defensePower: number;
+  sporeSenseLevel?: number;
+}
+
+export interface SpyResult {
+  success: boolean;
+  detectionChance: number;
+}
+
+/** Résout une tentative d'espionnage. */
+export function resolveSpy(input: SpyInput): SpyResult {
+  const { ships, defensePower, sporeSenseLevel = 0 } = input;
+  let spyPower = 0;
+  for (const type of Object.values(ShipType)) {
+    const quantity = ships[type] ?? 0;
+    if (quantity <= 0) continue;
+    const cfg = SHIPS[type];
+    if (cfg.role !== ShipRole.ESPIONAGE) continue;
+    spyPower += (cfg.speed * 4 + cfg.attack + cfg.defense) * quantity;
+  }
+  const bonus = 1 + SPORE_SENSE_BONUS * sporeSenseLevel;
+  const detectionChance = (spyPower * bonus) / (spyPower * bonus + defensePower + 1);
+  const success = detectionChance >= 0.5;
+  return { success, detectionChance: Math.round(detectionChance * 100) / 100 };
 }

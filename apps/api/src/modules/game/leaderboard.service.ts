@@ -31,7 +31,11 @@ export class LeaderboardService {
       const colonies = user.planets.length;
       const ships = user.planets.flatMap((p) => p.ships).reduce((sum, s) => sum + s.quantity, 0);
       const score =
-        buildingScore + researchScore + colonies * 500 + ships * 5 + user.expeditionReports.length * 20;
+        buildingScore +
+        researchScore +
+        colonies * 500 +
+        ships * 5 +
+        user.expeditionReports.length * 20;
       return {
         rank: 0,
         username: user.username,

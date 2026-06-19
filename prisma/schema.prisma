@@ -15,6 +15,12 @@ enum UserRole {
   ADMIN
 }
 
+enum RaceType {
+  MYCELIANS
+  PHOTOSYNTHEX
+  CHITINIDS
+}
+
 enum BuildingType {
   BIOMASS_SYNTHESIZER
   SAP_WELL
@@ -34,6 +40,16 @@ enum ShipType {
   CHITIN_FREIGHTER
   BIOLUMINESCENT_CRUISER
   SPOROGENESIS_TITAN
+  SPORAL_DRONE
+  ACID_BOMBER
+  CHITIN_DESTROYER
+  BIOMASS_DREADNOUGHT
+  SEED_POD
+  SHADOW_SPORE
+  ORBITAL_THORN
+  SPORAL_SWARM
+  LUMINOUS_WARDEN
+  CHITIN_BULWARK
 }
 
 enum PlanetType {
@@ -45,6 +61,30 @@ enum PlanetType {
 }
 
 enum ExpeditionPhase {
+  OUTBOUND
+  RETURNING
+  COMPLETED
+}
+
+enum NpcEncounterType {
+  VOID_RIFT
+  MYCOXIN_NEST
+  ABANDONED_DERELICT
+}
+
+enum PveMissionPhase {
+  TRAVEL
+  COMBAT
+  RETURNING
+  COMPLETED
+}
+
+enum PvpMissionType {
+  SPY
+  ATTACK
+}
+
+enum PvpMissionPhase {
   OUTBOUND
   RETURNING
   COMPLETED
@@ -100,6 +140,17 @@ enum ResearchType {
   TERRAFORMATION
   BIOENGINEERING
   SPORAL_PROPULSION
+  NUTRIENT_CYCLING
+  SUBTERRANEAN_ROOTS
+  SPORAL_ECONOMY
+  CHITIN_ARMOR
+  BIOLOGICAL_WARFARE
+  SWARM_TACTICS
+  ORBITAL_DEFENSE_GRID
+  HYPERSPORE_DRIVE
+  WORMHOLE_MYCOLOGY
+  SPORE_SENSE
+  DEEP_SCAN
 }
 
 enum JobStatus {
@@ -108,27 +159,49 @@ enum JobStatus {
   CANCELLED
 }
 
+enum AllianceRole {
+  LEADER
+  OFFICER
+  MEMBER
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model User {
   id               String   @id @default(uuid())
   email            String   @unique
   username         String   @unique
   passwordHash     String
   role             UserRole @default(PLAYER)
+  race             RaceType @default(MYCELIANS)
+  displayName      String?
+  bio              String?
+  bannerColor      String   @default("#22c55e")
+  avatarSeed       String?
   // Hash du refresh token courant (rotation). Null = pas de session active.
   refreshTokenHash String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  artifactCount     Int      @default(0)
+  artifactCount Int @default(0)
 
-  planets           Planet[]
-  researchLevels    ResearchLevel[]
-  researchJobs      ResearchJob[]
-  colonizationJobs  ColonizationJob[]
-  sessions          Session[]
-  expeditions       ExpeditionMission[]
-  expeditionReports ExpeditionReport[]
-  achievements      PlayerAchievement[]
+  planets              Planet[]
+  researchLevels       ResearchLevel[]
+  researchJobs         ResearchJob[]
+  colonizationJobs     ColonizationJob[]
+  sessions             Session[]
+  expeditions          ExpeditionMission[]
+  expeditionReports    ExpeditionReport[]
+  pveMissions          PveMission[]
+  pvpMissions          PvpMission[]
+  achievements         PlayerAchievement[]
+  allianceMembership   AllianceMember?
+  leadAlliance         Alliance?
+  allianceApplications AllianceApplication[]
 
   @@map("users")
 }
@@ -182,6 +255,9 @@ model Planet {
   ships              PlanetShip[]
   shipProductionJobs ShipProductionJob[]
   expeditions        ExpeditionMission[]
+  pveMissions        PveMission[]
+  outgoingPvp        PvpMission[] @relation("PvpSource")
+  incomingPvp        PvpMission[] @relation("PvpTarget")
 
   @@unique([galaxy, system, position])
   @@index([ownerId])
@@ -365,4 +441,112 @@ model ColonizationJob {
   @@index([userId, status])
   @@index([status, finishesAt])
   @@map("colonization_jobs")
+}
+
+model Alliance {
+  id          String   @id @default(uuid())
+  tag         String   @unique @db.VarChar(4)
+  name        String   @db.VarChar(40)
+  description String?  @db.VarChar(500)
+  bannerColor String   @default("#22c55e") @db.VarChar(7)
+  leaderId    String   @unique
+  leader      User     @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members      AllianceMember[]
+  applications AllianceApplication[]
+
+  @@map("alliances")
+}
+
+model AllianceMember {
+  id         String       @id @default(uuid())
+  allianceId String
+  alliance   Alliance     @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  userId     String       @unique
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       AllianceRole @default(MEMBER)
+  joinedAt   DateTime     @default(now())
+
+  @@index([allianceId])
+  @@map("alliance_members")
+}
+
+model AllianceApplication {
+  id         String            @id @default(uuid())
+  allianceId String
+  alliance   Alliance          @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message    String?           @db.VarChar(500)
+  status     ApplicationStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+
+  @@unique([allianceId, userId])
+  @@index([allianceId, status])
+  @@map("alliance_applications")
+}
+
+model NpcEncounter {
+  id         String          @id @default(uuid())
+  type       NpcEncounterType
+  galaxy     Int
+  system     Int
+  position   Int
+  difficulty Int             @default(1)
+  health     Int             @default(100)
+  maxHealth  Int             @default(100)
+  rewards    Json            @default("{}")
+  expiresAt  DateTime
+  createdAt  DateTime        @default(now())
+  pveMissions PveMission[]
+
+  @@unique([galaxy, system, position])
+  @@index([expiresAt])
+  @@map("npc_encounters")
+}
+
+model PveMission {
+  id             String          @id @default(uuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encounterId    String
+  encounter      NpcEncounter    @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  sourcePlanetId String
+  sourcePlanet   Planet          @relation(fields: [sourcePlanetId], references: [id], onDelete: Cascade)
+  phase          PveMissionPhase @default(TRAVEL)
+  ships          Json
+  travelArrivesAt DateTime
+  combatEndsAt    DateTime
+  returnsAt       DateTime
+  result         Json?
+  createdAt      DateTime        @default(now())
+  completedAt    DateTime?
+
+  @@index([userId, phase])
+  @@index([encounterId])
+  @@map("pve_missions")
+}
+
+model PvpMission {
+  id             String          @id @default(uuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           PvpMissionType
+  sourcePlanetId String
+  sourcePlanet   Planet          @relation("PvpSource", fields: [sourcePlanetId], references: [id], onDelete: Cascade)
+  targetPlanetId String
+  targetPlanet   Planet          @relation("PvpTarget", fields: [targetPlanetId], references: [id], onDelete: Cascade)
+  phase          PvpMissionPhase @default(OUTBOUND)
+  ships          Json            // Record<ShipType, number>
+  arrivesAt      DateTime
+  returnsAt      DateTime
+  result         Json?           // { outcome: 'SUCCESS'|'FAILURE'|'DRAW', loot?: {...}, lostShips: {... }, defenderLosses?: {... }, report?: {... } }
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+
+  @@index([userId, phase])
+  @@index([targetPlanetId, phase])
+  @@map("pvp_missions")
 }

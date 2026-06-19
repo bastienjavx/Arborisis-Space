@@ -29,7 +29,9 @@ export class EventsService {
     const now = new Date();
     const endsAt = new Date(now.getTime() + config.durationHours * 3_600_000);
 
-    await this.prisma.galacticEvent.create({ data: { type: type as import('@prisma/client').GalacticEventType, startAt: now, endsAt } });
+    await this.prisma.galacticEvent.create({
+      data: { type: type as import('@prisma/client').GalacticEventType, startAt: now, endsAt },
+    });
 
     if (type === GalacticEventType.ANCIENT_SIGNAL) {
       await this.prisma.planet.updateMany({

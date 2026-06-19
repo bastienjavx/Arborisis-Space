@@ -21,10 +21,7 @@ function WebGLFallback() {
   );
 }
 
-class ThreeErrorBoundary extends Component<
-  { children: ReactNode },
-  { hasError: boolean }
-> {
+class ThreeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false };

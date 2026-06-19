@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import dynamicNext from 'next/dynamic';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
@@ -11,10 +11,6 @@ import { PlanetProvider } from '@/components/PlanetContext';
 import { EventBanner } from '@/components/EventBanner';
 import { useMe } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const OrganicBackground = dynamicNext(() => import('@/components/OrganicBackground'), {
-  ssr: false,
-});
 
 export default function GameLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -41,28 +37,38 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <PlanetProvider>
-      <OrganicBackground />
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-t from-bark-950/80 via-transparent to-bark-950/80" />
-        <div className="absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.5)]" />
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <Image
+          src="/images/arborisis/hero-living-planet.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center opacity-[0.13] saturate-75"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(110deg,#060b09_0%,rgba(6,11,9,0.96)_34%,rgba(6,11,9,0.82)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_16%,rgba(22,191,108,0.08),transparent_34%)]" />
+        <div className="absolute inset-0 shadow-[inset_0_0_180px_rgba(0,0,0,0.7)]" />
       </div>
       <Nav username={user.username} />
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-6">
-        <div className="mb-4">
-          <EventBanner />
-        </div>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+      <div className="relative z-10 min-h-screen pb-24 lg:pl-[17rem] lg:pb-0">
+        <main className="mx-auto max-w-[92rem] px-4 py-5 sm:px-6 sm:py-7 xl:px-10">
+          <div className="mb-5">
+            <EventBanner />
+          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
     </PlanetProvider>
   );
 }

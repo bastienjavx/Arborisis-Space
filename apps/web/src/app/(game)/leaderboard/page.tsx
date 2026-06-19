@@ -4,14 +4,14 @@ import { useLeaderboard } from '@/lib/queries';
 import { AnimatedCard } from '@/components/AnimatedCard';
 import { PageHeader } from '@/components/PageHeader';
 import { motion } from 'framer-motion';
+import { FiAward } from 'react-icons/fi';
 
 const RANK_COLORS = ['text-yellow-400', 'text-slate-300', 'text-amber-600'];
 
 export default function LeaderboardPage() {
   const { data: entries, isLoading } = useLeaderboard();
 
-  if (isLoading || !entries)
-    return <p className="text-canopy-100/50">Croissance du classement…</p>;
+  if (isLoading || !entries) return <p className="text-canopy-100/50">Croissance du classement…</p>;
 
   return (
     <div className="space-y-6">
@@ -20,8 +20,8 @@ export default function LeaderboardPage() {
         subtitle="Les civilisations les plus florissantes de la Convergence."
       />
 
-      <AnimatedCard className="overflow-hidden p-0">
-        <table className="w-full text-sm">
+      <AnimatedCard className="overflow-x-auto p-0">
+        <table className="min-w-[42rem] w-full text-sm">
           <thead>
             <tr className="border-b border-canopy-700/30 text-canopy-100/50 uppercase text-xs tracking-wider">
               <th className="px-4 py-3 text-left w-12">#</th>
@@ -42,7 +42,14 @@ export default function LeaderboardPage() {
                 className="border-b border-canopy-700/10 hover:bg-canopy-700/10 transition-colors"
               >
                 <td className={`px-4 py-3 font-bold ${RANK_COLORS[i] ?? 'text-canopy-100/40'}`}>
-                  {entry.rank <= 3 ? ['🥇', '🥈', '🥉'][entry.rank - 1] : entry.rank}
+                  {entry.rank <= 3 ? (
+                    <span className="flex items-center gap-1.5">
+                      <FiAward className="h-4 w-4" aria-hidden="true" />
+                      {entry.rank}
+                    </span>
+                  ) : (
+                    entry.rank
+                  )}
                 </td>
                 <td className="px-4 py-3 font-medium text-canopy-100">{entry.username}</td>
                 <td className="px-4 py-3 text-right text-spore-400 font-mono">

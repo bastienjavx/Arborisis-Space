@@ -5,25 +5,53 @@
 import { ResourceBundle } from './constants';
 import {
   AchievementType,
+  AllianceRole,
+  ApplicationStatus,
   BuildingType,
   ExpeditionOutcome,
   ExpeditionPhase,
   GalacticEventType,
   JobKind,
+  NpcEncounterType,
   PlanetType,
+  PveMissionPhase,
+  PveOutcome,
+  PvpMissionPhase,
+  PvpMissionType,
+  PvpOutcome,
+  RaceType,
   ResearchType,
   ResourceType,
+  ShipRole,
   ShipType,
   UserRole,
 } from './enums';
 import { UnmetRequirement } from './formulas';
-import { Coordinates } from './schemas';
+import { Coordinates, type ExpeditionShipType } from './schemas';
 
 export interface AuthUser {
   id: string;
   email: string;
   username: string;
   role: UserRole;
+  race: RaceType;
+  displayName: string | null;
+  bannerColor: string | null;
+  avatarSeed: string | null;
+}
+
+export interface PublicProfile {
+  id: string;
+  username: string;
+  displayName: string | null;
+  race: RaceType;
+  bannerColor: string;
+  bio: string | null;
+  allianceTag: string | null;
+  allianceName: string | null;
+  colonies: number;
+  totalShips: number;
+  score: number;
 }
 
 export interface ResourceState {
@@ -99,6 +127,7 @@ export interface ResearchOverview {
 export interface GalaxySlot {
   coordinates: Coordinates;
   occupied: boolean;
+  planetId: string | null;
   planetName: string | null;
   ownerName: string | null;
   isOwn: boolean;
@@ -114,6 +143,7 @@ export interface ShipView {
   type: ShipType;
   name: string;
   description: string;
+  role: ShipRole;
   available: number;
   cost: ResourceBundle;
   productionTimeSeconds: number;
@@ -140,7 +170,7 @@ export interface ExpeditionView {
   source: Coordinates;
   target: Pick<Coordinates, 'galaxy' | 'system'>;
   phase: ExpeditionPhase;
-  ships: Record<ShipType, number>;
+  ships: Record<ExpeditionShipType, number>;
   arrivesAt: string;
   returnsAt: string;
 }
@@ -152,7 +182,7 @@ export interface ExpeditionReportView {
   rulesetVersion: number;
   roll: number;
   rewards: Record<ResourceType, number>;
-  losses: Record<ShipType, number>;
+  losses: Record<ExpeditionShipType, number>;
   overflow: Record<ResourceType, number>;
   isRead: boolean;
   occurredAt: string;
@@ -181,4 +211,96 @@ export interface AchievementView {
   description: string;
   rewardText: string;
   unlockedAt: string | null;
+}
+
+export interface AllianceView {
+  id: string;
+  tag: string;
+  name: string;
+  description: string | null;
+  bannerColor: string;
+  leaderId: string;
+  memberCount: number;
+  totalScore: number;
+}
+
+export interface AllianceMemberView {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  race: RaceType;
+  role: AllianceRole;
+  joinedAt: string;
+}
+
+export interface AllianceApplicationView {
+  id: string;
+  userId: string;
+  username: string;
+  message: string | null;
+  status: ApplicationStatus;
+  createdAt: string;
+}
+
+export interface AllianceDetailView extends AllianceView {
+  members: AllianceMemberView[];
+  applications?: AllianceApplicationView[];
+}
+
+export interface NpcEncounterView {
+  id: string;
+  type: NpcEncounterType;
+  coordinates: Coordinates;
+  difficulty: number;
+  health: number;
+  maxHealth: number;
+  rewards: ResourceBundle;
+  expiresAt: string;
+}
+
+export interface PveResultView {
+  outcome: PveOutcome;
+  lostShips: Record<ShipType, number>;
+  rewards: ResourceBundle;
+}
+
+export interface PveMissionView {
+  id: string;
+  phase: PveMissionPhase;
+  encounter: NpcEncounterView;
+  sourcePlanetId: string;
+  ships: Record<ShipType, number>;
+  travelArrivesAt: string;
+  combatEndsAt: string;
+  returnsAt: string;
+  result?: PveResultView;
+}
+
+export interface SpyReportView {
+  targetPlanetId: string;
+  resources: Record<ResourceType, number>;
+  buildings: Partial<Record<BuildingType, number>>;
+  fleet: Record<ShipType, number>;
+  defenses: Record<ShipType, number>;
+  defensePower: number;
+}
+
+export interface PvpMissionResultView {
+  outcome: PvpOutcome;
+  loot?: Record<ResourceType, number>;
+  lostShips: Record<ShipType, number>;
+  defenderLosses?: Record<ShipType, number>;
+  report?: SpyReportView;
+}
+
+export interface PvpMissionView {
+  id: string;
+  type: PvpMissionType;
+  source: Coordinates;
+  target: Coordinates;
+  phase: PvpMissionPhase;
+  ships: Record<ShipType, number>;
+  arrivesAt: string;
+  returnsAt: string;
+  result?: PvpMissionResultView;
 }

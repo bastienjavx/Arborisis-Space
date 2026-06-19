@@ -39,6 +39,7 @@ export class GalaxyService {
       return {
         coordinates: { galaxy, system, position },
         occupied: !!planet,
+        planetId: planet?.id ?? null,
         planetName: planet?.name ?? null,
         ownerName: planet?.owner.username ?? null,
         isOwn: planet?.owner.id === userId,

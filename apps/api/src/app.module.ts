@@ -11,7 +11,11 @@ import { OriginGuard } from './common/guards/origin.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { GameModule } from './modules/game/game.module';
 import { HealthModule } from './modules/health/health.module';
+import { AlliancesModule } from './modules/alliances/alliances.module';
+import { PveModule } from './modules/pve/pve.module';
+import { PvpModule } from './modules/pvp/pvp.module';
 import { ProcessorsModule } from './modules/queue/processors.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -58,7 +62,11 @@ import { ProcessorsModule } from './modules/queue/processors.module';
     PrismaModule,
     HealthModule,
     AuthModule,
+    UsersModule,
     GameModule,
+    AlliancesModule,
+    PveModule,
+    PvpModule,
     ProcessorsModule,
   ],
   providers: [

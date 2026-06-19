@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { Request } from 'express';
-import { UserRole, type AuthUser } from '@arborisis/shared';
+import { RaceType, UserRole, type AuthUser } from '@arborisis/shared';
 import type { Env } from '../../../common/config/env';
 
 export const ACCESS_COOKIE = 'access_token';
@@ -13,6 +13,7 @@ export interface JwtPayload {
   sub: string;
   username: string;
   role: UserRole;
+  race: RaceType;
   sid?: string;
 }
 
@@ -41,7 +42,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       id: payload.sub,
       username: payload.username,
       role: payload.role,
+      race: payload.race ?? RaceType.MYCELIANS,
       email: '',
+      displayName: null,
+      bannerColor: null,
+      avatarSeed: null,
       sessionId: payload.sid,
     };
   }

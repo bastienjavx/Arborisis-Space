@@ -7,6 +7,7 @@ import { StatCard } from '@/components/StatCard';
 import { AnimatedCard } from '@/components/AnimatedCard';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
+import { ResourceBar } from '@/components/ResourceBar';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
 import { formatCost, formatDuration } from '@/lib/format';
@@ -46,6 +47,8 @@ export default function BuildingsPage() {
         title="Structures organiques"
         subtitle="Développez les tissus vivants de votre monde."
       />
+
+      <ResourceBar resources={planet.resources} />
 
       <div className="flex flex-wrap gap-3">
         <StatCard
@@ -165,7 +168,7 @@ export default function BuildingsPage() {
                 {busy
                   ? 'Occupé'
                   : locked
-                    ? '🔒 Verrouillé'
+                    ? 'Verrouillé'
                     : b.canAfford
                       ? 'Faire croître'
                       : 'Ressources insuffisantes'}

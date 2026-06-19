@@ -5,6 +5,8 @@ import {
   CONSTRUCTION_QUEUE,
   EXPEDITION_QUEUE,
   GAME_EVENT_QUEUE,
+  PVE_QUEUE,
+  PVP_QUEUE,
   RESEARCH_QUEUE,
   SHIP_PRODUCTION_QUEUE,
 } from './queue.constants';
@@ -22,6 +24,8 @@ import { GameQueueService } from './game-queue.service';
       { name: COLONIZATION_QUEUE },
       { name: SHIP_PRODUCTION_QUEUE },
       { name: EXPEDITION_QUEUE },
+      { name: PVE_QUEUE },
+      { name: PVP_QUEUE },
       { name: GAME_EVENT_QUEUE },
     ),
   ],

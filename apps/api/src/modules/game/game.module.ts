@@ -53,6 +53,13 @@ import { AchievementsService } from './achievements.service';
     EventsService,
     AchievementsService,
   ],
-  exports: [WorldFactoryService, FinalizationService, ExpeditionsService, EventsService],
+  exports: [
+    WorldFactoryService,
+    FinalizationService,
+    ExpeditionsService,
+    EventsService,
+    GameEngineService,
+    PlanetsService,
+  ],
 })
 export class GameModule {}

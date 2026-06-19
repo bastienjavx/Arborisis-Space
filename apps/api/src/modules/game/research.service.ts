@@ -3,6 +3,7 @@ import { JobStatus } from '@prisma/client';
 import {
   BuildingType,
   canAfford,
+  RaceType,
   RESEARCHES,
   ResearchType,
   researchCost,
@@ -35,7 +36,14 @@ export class ResearchService {
 
     const settled = await this.engine.settlePlanet(planetId);
     const resources = this.engine.buildResourceState(settled);
-    const researches = buildResearchViews(settled.buildings, settled.research, resources.amounts);
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const race = user.race as RaceType;
+    const researches = buildResearchViews(
+      settled.buildings,
+      settled.research,
+      resources.amounts,
+      race,
+    );
 
     const active = await this.prisma.researchJob.findFirst({
       where: { userId, status: JobStatus.PENDING },
@@ -59,6 +67,8 @@ export class ResearchService {
         const settled = await this.engine.settlePlanet(planetId, new Date(), tx);
         const { buildings, research } = settled;
         const resources = this.engine.buildResourceState(settled);
+        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+        const race = user.race as RaceType;
         const targetLevel = (research[type] ?? 0) + 1;
         if (targetLevel > RESEARCHES[type].maxLevel) {
           throw new BadRequestException('Niveau maximum atteint pour cette recherche.');
@@ -66,7 +76,7 @@ export class ResearchService {
         if (unmetResearchRequirements(type, { buildings, research }).length > 0) {
           throw new BadRequestException('Prérequis non satisfaits.');
         }
-        const cost = researchCost(type, targetLevel);
+        const cost = researchCost(type, targetLevel, race);
         if (!canAfford(resources.amounts, cost)) {
           throw new BadRequestException('Ressources insuffisantes.');
         }

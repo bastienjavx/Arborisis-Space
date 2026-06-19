@@ -2,12 +2,22 @@
 
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
 import type {
+  AllianceDetailView,
+  AllianceView,
+  ApplyAllianceDto,
+  AttackEncounterDto,
+  AttackPlanetDto,
   BuildBuildingDto,
   ColonizeDto,
+  CreateAllianceDto,
+  DecideApplicationDto,
   PlanetDetail,
   ProduceShipsDto,
+  RenamePlanetDto,
+  SpyPlanetDto,
   StartExpeditionDto,
   StartResearchDto,
+  UpdateProfileDto,
 } from '@arborisis/shared';
 import { api } from './api';
 
@@ -21,9 +31,16 @@ export const keys = {
   fleet: (planetId: string) => ['fleet', planetId] as const,
   expeditions: ['expeditions'] as const,
   expeditionReports: ['expedition-reports'] as const,
+  encounters: ['encounters'] as const,
+  pveMissions: ['pve-missions'] as const,
+  pvpMissions: ['pvp-missions'] as const,
   leaderboard: ['leaderboard'] as const,
   activeEvent: ['active-event'] as const,
   achievements: ['achievements'] as const,
+  alliances: (search: string) => ['alliances', search] as const,
+  alliance: (id: string | undefined) => ['alliance', id ?? 'none'] as const,
+  myAlliance: ['my-alliance'] as const,
+  allianceApplications: ['alliance-applications'] as const,
 };
 
 export function useMe() {
@@ -94,6 +111,30 @@ export function useExpeditionReports() {
   return useQuery({
     queryKey: keys.expeditionReports,
     queryFn: () => api.expeditionReports(),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useEncounters() {
+  return useQuery({
+    queryKey: keys.encounters,
+    queryFn: () => api.encounters(),
+    refetchInterval: 60_000,
+  });
+}
+
+export function usePveMissions() {
+  return useQuery({
+    queryKey: keys.pveMissions,
+    queryFn: () => api.pveMissions(),
+    refetchInterval: 15_000,
+  });
+}
+
+export function usePvpMissions() {
+  return useQuery({
+    queryKey: keys.pvpMissions,
+    queryFn: () => api.pvpMissions(),
     refetchInterval: 15_000,
   });
 }
@@ -174,6 +215,40 @@ export function useMarkReportRead() {
   });
 }
 
+export function useAttackEncounter(encounterId: string, planetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AttackEncounterDto) => api.attackEncounter(encounterId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.pveMissions });
+      void qc.invalidateQueries({ queryKey: keys.encounters });
+      void qc.invalidateQueries({ queryKey: keys.fleet(planetId) });
+    },
+  });
+}
+
+export function useSpyPlanet(sourcePlanetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SpyPlanetDto) => api.spyPlanet(body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.pvpMissions });
+      void qc.invalidateQueries({ queryKey: keys.fleet(sourcePlanetId) });
+    },
+  });
+}
+
+export function useAttackPlanet(sourcePlanetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AttackPlanetDto) => api.attackPlanet(body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.pvpMissions });
+      void qc.invalidateQueries({ queryKey: keys.fleet(sourcePlanetId) });
+    },
+  });
+}
+
 export function useLeaderboard() {
   return useQuery({
     queryKey: keys.leaderboard,
@@ -195,5 +270,141 @@ export function useAchievements() {
     queryKey: keys.achievements,
     queryFn: () => api.achievements(),
     refetchInterval: 60_000,
+  });
+}
+
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateProfileDto) => api.updateProfile(body),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.me }),
+  });
+}
+
+export function useRenamePlanet(planetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RenamePlanetDto) => api.renamePlanet(planetId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.planet(planetId) });
+      void qc.invalidateQueries({ queryKey: keys.planets });
+    },
+  });
+}
+
+// ── Alliances ──
+
+export function useAlliances(search = '') {
+  return useQuery({
+    queryKey: keys.alliances(search),
+    queryFn: () => api.alliances(search),
+  });
+}
+
+export function useMyAlliance() {
+  return useQuery({
+    queryKey: keys.myAlliance,
+    queryFn: () => api.myAlliance(),
+  });
+}
+
+export function useAlliance(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.alliance(id),
+    queryFn: () => api.alliance(id!),
+    enabled: !!id,
+  });
+}
+
+export function useCreateAlliance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateAllianceDto) => api.createAlliance(body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.alliances('') });
+      void qc.invalidateQueries({ queryKey: keys.me });
+    },
+  });
+}
+
+export function useApplyAlliance(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ApplyAllianceDto) => api.applyAlliance(id, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.alliance(id) });
+    },
+  });
+}
+
+export function useAllianceApplications(enabled = true) {
+  return useQuery({
+    queryKey: keys.allianceApplications,
+    queryFn: () => api.allianceApplications(),
+    enabled,
+  });
+}
+
+export function useDecideApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: DecideApplicationDto }) =>
+      api.decideApplication(id, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.allianceApplications });
+      void qc.invalidateQueries({ queryKey: keys.alliance(undefined) });
+    },
+  });
+}
+
+export function useLeaveAlliance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.leaveAlliance(),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.me });
+      void qc.invalidateQueries({ queryKey: keys.alliance(undefined) });
+    },
+  });
+}
+
+export function useKickMember(allianceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => api.kickMember(allianceId, userId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.alliance(allianceId) });
+    },
+  });
+}
+
+export function usePromoteMember(allianceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => api.promoteMember(allianceId, userId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.alliance(allianceId) });
+    },
+  });
+}
+
+export function useDemoteMember(allianceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => api.demoteMember(allianceId, userId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.alliance(allianceId) });
+    },
+  });
+}
+
+export function useDisbandAlliance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.disbandAlliance(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.me });
+      void qc.invalidateQueries({ queryKey: keys.alliances('') });
+    },
   });
 }

@@ -1,22 +1,37 @@
 import type {
+  AllianceApplicationView,
+  AllianceDetailView,
+  AllianceView,
+  ApplyAllianceDto,
+  AttackEncounterDto,
+  AttackPlanetDto,
   AuthUser,
   BuildBuildingDto,
   ColonizeDto,
+  CreateAllianceDto,
+  DecideApplicationDto,
   GalaxySystemView,
   FleetOverview,
   ExpeditionView,
   ExpeditionReportView,
   JobView,
+  NpcEncounterView,
   PlanetDetail,
   PlanetSummary,
+  PublicProfile,
+  PveMissionView,
+  PvpMissionView,
+  RenamePlanetDto,
   ResearchOverview,
   StartResearchDto,
   ProduceShipsDto,
+  SpyPlanetDto,
   StartExpeditionDto,
   ShipProductionJobView,
   LeaderboardEntry,
   ActiveEventView,
   AchievementView,
+  UpdateProfileDto,
 } from '@arborisis/shared';
 
 const BASE = '/api';
@@ -84,7 +99,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
 export const api = {
   // ── Auth ──
-  register: (body: { email: string; username: string; password: string }) =>
+  register: (body: { email: string; username: string; password: string; race: string }) =>
     request<{ user: AuthUser }>('/auth/register', { method: 'POST', body, noRefresh: true }),
   login: (body: { email: string; password: string }) =>
     request<{ user: AuthUser }>('/auth/login', { method: 'POST', body, noRefresh: true }),
@@ -92,9 +107,16 @@ export const api = {
   logoutAll: () => request<{ success: true }>('/auth/logout-all', { method: 'POST' }),
   me: () => request<{ user: AuthUser }>('/auth/me'),
 
+  // ── Profil ──
+  updateProfile: (body: UpdateProfileDto) =>
+    request<{ user: AuthUser }>('/users/me', { method: 'PATCH', body }),
+  publicProfile: (id: string) => request<PublicProfile>(`/users/${id}/profile`),
+
   // ── Planètes ──
   planets: () => request<PlanetSummary[]>('/planets'),
   planet: (id: string) => request<PlanetDetail>(`/planets/${id}`),
+  renamePlanet: (id: string, body: RenamePlanetDto) =>
+    request<PlanetSummary>(`/planets/${id}/name`, { method: 'PATCH', body }),
 
   // ── Bâtiments ──
   upgradeBuilding: (body: BuildBuildingDto) =>
@@ -123,6 +145,39 @@ export const api = {
   expeditionReports: () => request<ExpeditionReportView[]>('/expeditions/reports'),
   markReportRead: (id: string) =>
     request<ExpeditionReportView>(`/expeditions/reports/${id}/read`, { method: 'PATCH' }),
+
+  // ── Alliances ──
+  myAlliance: () => request<AllianceDetailView | null>('/alliances/me'),
+  alliances: (search?: string) =>
+    request<AllianceView[]>(`/alliances${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  alliance: (id: string) => request<AllianceDetailView>(`/alliances/${id}`),
+  createAlliance: (body: CreateAllianceDto) =>
+    request<AllianceView>('/alliances', { method: 'POST', body }),
+  applyAlliance: (id: string, body: ApplyAllianceDto) =>
+    request<void>(`/alliances/${id}/apply`, { method: 'POST', body }),
+  allianceApplications: () => request<AllianceApplicationView[]>('/alliances/applications'),
+  decideApplication: (id: string, body: DecideApplicationDto) =>
+    request<void>(`/alliances/applications/${id}`, { method: 'PATCH', body }),
+  leaveAlliance: () => request<void>('/alliances/leave', { method: 'POST' }),
+  kickMember: (id: string, userId: string) =>
+    request<void>(`/alliances/${id}/kick`, { method: 'POST', body: { userId } }),
+  promoteMember: (id: string, userId: string) =>
+    request<void>(`/alliances/${id}/promote`, { method: 'POST', body: { userId } }),
+  demoteMember: (id: string, userId: string) =>
+    request<void>(`/alliances/${id}/demote`, { method: 'POST', body: { userId } }),
+  disbandAlliance: (id: string) => request<void>(`/alliances/${id}/disband`, { method: 'POST' }),
+
+  // ── PvE ──
+  encounters: () => request<NpcEncounterView[]>('/pve/encounters'),
+  attackEncounter: (id: string, body: AttackEncounterDto) =>
+    request<PveMissionView>(`/pve/encounters/${id}/attack`, { method: 'POST', body }),
+  pveMissions: () => request<PveMissionView[]>('/pve/missions'),
+
+  // ── PvP ──
+  spyPlanet: (body: SpyPlanetDto) => request<PvpMissionView>('/pvp/spy', { method: 'POST', body }),
+  attackPlanet: (body: AttackPlanetDto) =>
+    request<PvpMissionView>('/pvp/attack', { method: 'POST', body }),
+  pvpMissions: () => request<PvpMissionView[]>('/pvp/missions'),
 
   // ── Classement / événements / succès ──
   leaderboard: () => request<LeaderboardEntry[]>('/leaderboard'),

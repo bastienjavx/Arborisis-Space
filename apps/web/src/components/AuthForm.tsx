@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, ApiError } from '@/lib/api';
 import { keys } from '@/lib/queries';
+import { RaceType, RACES } from '@arborisis/shared';
 
 type Mode = 'login' | 'register';
 
@@ -111,6 +112,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [race, setRace] = useState<RaceType>(RaceType.MYCELIANS);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -131,7 +133,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setLoading(true);
     try {
       const res = isRegister
-        ? await api.register({ email, username, password })
+        ? await api.register({ email, username, password, race })
         : await api.login({ email, password });
       qc.setQueryData(keys.me, res.user);
       setSuccess(true);
@@ -242,6 +244,39 @@ export function AuthForm({ mode }: { mode: Mode }) {
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                       />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Race selector (register only) */}
+                <AnimatePresence>
+                  {isRegister && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <label className="label">Race</label>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        {Object.values(RACES).map((cfg) => (
+                          <button
+                            key={cfg.type}
+                            type="button"
+                            onClick={() => setRace(cfg.type)}
+                            className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${
+                              race === cfg.type
+                                ? 'border-canopy-500 bg-canopy-500/20 text-canopy-100'
+                                : 'border-bark-700 bg-bark-900/50 text-canopy-100/70 hover:border-canopy-500/50'
+                            }`}
+                          >
+                            <span className="block font-semibold">{cfg.name}</span>
+                            <span className="block text-[10px] leading-tight opacity-80">
+                              {cfg.description.slice(0, 48)}…
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

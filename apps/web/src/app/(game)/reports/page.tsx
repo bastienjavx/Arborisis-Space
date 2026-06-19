@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ExpeditionOutcome, RESOURCE_TYPES, SHIPS, SHIP_TYPES } from '@arborisis/shared';
+import { ExpeditionOutcome, EXPEDITION_SHIP_TYPES, RESOURCE_TYPES, SHIPS } from '@arborisis/shared';
 import { formatNumber, resourceLabel } from '@/lib/format';
 import { useExpeditionReports, useMarkReportRead } from '@/lib/queries';
 import { AnimatedCard } from '@/components/AnimatedCard';
+import { PageHeader } from '@/components/PageHeader';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const TITLES: Record<ExpeditionOutcome, string> = {
@@ -27,12 +28,10 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-5">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-xl font-semibold text-canopy-100">Rapports d'exploration</h1>
-        <p className="text-sm text-canopy-100/50">
-          Journal auditable des rencontres de vos essaims.
-        </p>
-      </motion.div>
+      <PageHeader
+        title="Rapports d'exploration"
+        subtitle="Journal auditable des rencontres de vos essaims."
+      />
 
       {reports.length === 0 ? (
         <motion.div
@@ -45,7 +44,7 @@ export default function ReportsPage() {
       ) : (
         reports.map((report, index) => {
           const rewards = RESOURCE_TYPES.filter((type) => report.rewards[type] > 0);
-          const losses = SHIP_TYPES.filter((type) => report.losses[type] > 0);
+          const losses = EXPEDITION_SHIP_TYPES.filter((type) => report.losses[type] > 0);
           const overflow = RESOURCE_TYPES.filter((type) => report.overflow[type] > 0);
           const isExpanded = expandedId === report.id;
 

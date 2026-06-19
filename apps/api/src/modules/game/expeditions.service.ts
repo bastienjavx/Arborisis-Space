@@ -15,13 +15,15 @@ import {
   expeditionTravelTimeSeconds,
   fleetCargo,
   GALAXY_COUNT,
+  RaceType,
   ResearchType,
   ResourceType,
-  SHIP_TYPES,
+  EXPEDITION_SHIP_TYPES,
   ShipType,
   storageCap,
   SYSTEMS_PER_GALAXY,
   type ExpeditionReportView,
+  type ExpeditionShipType,
   type ExpeditionView,
   type StartExpeditionDto,
 } from '@arborisis/shared';
@@ -43,6 +45,8 @@ export class ExpeditionsService {
     const source = await this.planets.assertOwnership(userId, dto.planetId);
     this.assertTarget(dto.target.galaxy, dto.target.system);
     const ships = dto.ships;
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const race = user.race as RaceType;
     let mission;
     try {
       mission = await this.prisma.serializable(async (tx) => {
@@ -62,18 +66,18 @@ export class ExpeditionsService {
           throw new BadRequestException('La Propulsion sporale niveau 1 est requise.');
         }
         const inventory = await tx.planetShip.findMany({ where: { planetId: dto.planetId } });
-        for (const type of SHIP_TYPES) {
+        for (const type of EXPEDITION_SHIP_TYPES) {
           const requested = ships[type];
           const available = inventory.find((item) => item.type === type)?.quantity ?? 0;
           if (requested > available)
             throw new BadRequestException('Bio-vaisseaux disponibles insuffisants.');
         }
-        const travelSeconds = expeditionTravelTimeSeconds(source, dto.target, ships);
+        const travelSeconds = expeditionTravelTimeSeconds(source, dto.target, ships, race);
         if (travelSeconds <= 0) throw new BadRequestException('La flotte est vide.');
         const now = new Date();
         const arrivesAt = new Date(now.getTime() + travelSeconds * 1_000);
         const returnsAt = new Date(arrivesAt.getTime() + travelSeconds * 1_000);
-        for (const type of SHIP_TYPES) {
+        for (const type of EXPEDITION_SHIP_TYPES) {
           if (ships[type] > 0) {
             await tx.planetShip.update({
               where: { planetId_type: { planetId: dto.planetId, type } },
@@ -223,10 +227,14 @@ export class ExpeditionsService {
         } else if (outcome === ExpeditionOutcome.INCIDENT) {
           const loss = expeditionIncidentLossPercent(roll) / 100;
           lostScouts = Math.min(scouts, Math.max(scouts > 0 ? 1 : 0, Math.floor(scouts * loss)));
-          lostHarvesters = harvesters > 0 ? Math.min(harvesters, Math.max(1, Math.floor(harvesters * loss))) : 0;
-          lostTendrils = tendrils > 0 ? Math.min(tendrils, Math.max(1, Math.floor(tendrils * loss))) : 0;
-          lostFreighters = freighters > 0 ? Math.min(freighters, Math.max(1, Math.floor(freighters * loss))) : 0;
-          lostCruisers = cruisers > 0 ? Math.min(cruisers, Math.max(1, Math.floor(cruisers * loss))) : 0;
+          lostHarvesters =
+            harvesters > 0 ? Math.min(harvesters, Math.max(1, Math.floor(harvesters * loss))) : 0;
+          lostTendrils =
+            tendrils > 0 ? Math.min(tendrils, Math.max(1, Math.floor(tendrils * loss))) : 0;
+          lostFreighters =
+            freighters > 0 ? Math.min(freighters, Math.max(1, Math.floor(freighters * loss))) : 0;
+          lostCruisers =
+            cruisers > 0 ? Math.min(cruisers, Math.max(1, Math.floor(cruisers * loss))) : 0;
           lostTitans = titans > 0 ? Math.min(titans, Math.max(1, Math.floor(titans * loss))) : 0;
           scouts -= lostScouts;
           harvesters -= lostHarvesters;
@@ -236,9 +244,15 @@ export class ExpeditionsService {
           titans -= lostTitans;
         } else if (outcome === ExpeditionOutcome.ANOMALY) {
           // Artefact arborisien : +5% vitesse de recherche permanente (max 3)
-          const user = await tx.user.findUnique({ where: { id: mission.userId }, select: { artifactCount: true } });
+          const user = await tx.user.findUnique({
+            where: { id: mission.userId },
+            select: { artifactCount: true },
+          });
           if ((user?.artifactCount ?? 0) < 3) {
-            await tx.user.update({ where: { id: mission.userId }, data: { artifactCount: { increment: 1 } } });
+            await tx.user.update({
+              where: { id: mission.userId },
+              data: { artifactCount: { increment: 1 } },
+            });
           }
         } else if (outcome === ExpeditionOutcome.ANCIENT_ARCHIVE) {
           // +200 spores + réduit recherche active de 10%
@@ -402,7 +416,7 @@ export class ExpeditionsService {
         [ShipType.CHITIN_FREIGHTER]: mission.freighterCount,
         [ShipType.BIOLUMINESCENT_CRUISER]: mission.cruiserCount,
         [ShipType.SPOROGENESIS_TITAN]: mission.titanCount,
-      },
+      } as Record<ExpeditionShipType, number>,
       arrivesAt: mission.arrivesAt.toISOString(),
       returnsAt: mission.returnsAt.toISOString(),
     };
@@ -451,7 +465,7 @@ export class ExpeditionsService {
         [ShipType.CHITIN_FREIGHTER]: report.lostFreighters,
         [ShipType.BIOLUMINESCENT_CRUISER]: report.lostCruisers,
         [ShipType.SPOROGENESIS_TITAN]: report.lostTitans,
-      },
+      } as Record<ExpeditionShipType, number>,
       overflow: {
         [ResourceType.BIOMASS]: report.overflowBiomass,
         [ResourceType.SAP]: report.overflowSap,

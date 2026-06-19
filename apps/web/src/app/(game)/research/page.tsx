@@ -8,20 +8,22 @@ import { StatCard } from '@/components/StatCard';
 import { AnimatedCard } from '@/components/AnimatedCard';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
+import { ResourceBar } from '@/components/ResourceBar';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
 import { formatCost, formatDuration } from '@/lib/format';
-import { keys, useResearch, useStartResearch } from '@/lib/queries';
+import { keys, usePlanetDetail, useResearch, useStartResearch } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ResearchPage() {
   const qc = useQueryClient();
   const { selectedId } = usePlanetSelection();
   const { data, isLoading } = useResearch(selectedId);
+  const { data: planet } = usePlanetDetail(selectedId);
   const start = useStartResearch(selectedId ?? '');
   const [error, setError] = useState<string>();
 
-  if (isLoading || !data) return <p className="text-canopy-100/50">Chargement…</p>;
+  if (isLoading || !data || !planet) return <p className="text-canopy-100/50">Chargement…</p>;
 
   const busy = !!data.activeJob;
 
@@ -45,6 +47,8 @@ export default function ResearchPage() {
         title="Mycélium de recherche"
         subtitle="Les recherches profitent à tout l'empire. Les ressources sont prélevées sur la planète active."
       />
+
+      <ResourceBar resources={planet.resources} />
 
       <div className="flex flex-wrap gap-3">
         <StatCard
@@ -155,7 +159,7 @@ export default function ResearchPage() {
                 {busy
                   ? 'Occupé'
                   : locked
-                    ? '🔒 Verrouillé'
+                    ? 'Verrouillé'
                     : r.canAfford
                       ? 'Étudier'
                       : 'Ressources insuffisantes'}

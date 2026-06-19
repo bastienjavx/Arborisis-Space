@@ -1,5 +1,12 @@
-import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
-import type { AuthUser, PlanetDetail, PlanetSummary } from '@arborisis/shared';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch } from '@nestjs/common';
+import {
+  renamePlanetSchema,
+  type AuthUser,
+  type PlanetDetail,
+  type PlanetSummary,
+  type RenamePlanetDto,
+} from '@arborisis/shared';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PlanetsService } from './planets.service';
 
@@ -18,5 +25,14 @@ export class PlanetsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<PlanetDetail> {
     return this.planets.getPlanetDetail(user.id, id);
+  }
+
+  @Patch(':id/name')
+  rename(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(renamePlanetSchema)) dto: RenamePlanetDto,
+  ): Promise<PlanetSummary> {
+    return this.planets.renamePlanet(user.id, id, dto.name);
   }
 }

@@ -1,6 +1,6 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import argon2 from 'argon2';
-import { UserRole } from '@arborisis/shared';
+import { RaceType, UserRole } from '@arborisis/shared';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -53,7 +53,12 @@ describe('AuthService', () => {
     it('refuse un email ou username déjà pris', async () => {
       prisma.user.findFirst.mockResolvedValue({ id: 'u1' });
       await expect(
-        service.register({ email: 'a@b.co', username: 'sylv', password: 'motdepasse12' }),
+        service.register({
+          email: 'a@b.co',
+          username: 'sylv',
+          password: 'motdepasse12',
+          race: RaceType.MYCELIANS,
+        }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -64,6 +69,10 @@ describe('AuthService', () => {
         email: 'a@b.co',
         username: 'sylv',
         role: UserRole.PLAYER,
+        race: RaceType.MYCELIANS,
+        displayName: null,
+        bannerColor: null,
+        avatarSeed: null,
       });
       prisma.user.update.mockResolvedValue({});
 
@@ -71,14 +80,19 @@ describe('AuthService', () => {
         email: 'a@b.co',
         username: 'sylv',
         password: 'motdepasse12',
+        race: RaceType.MYCELIANS,
       });
 
-      expect(worldFactory.initNewPlayer).toHaveBeenCalledWith('u1', prisma);
+      expect(worldFactory.initNewPlayer).toHaveBeenCalledWith('u1', prisma, RaceType.MYCELIANS);
       expect(result.user).toEqual({
         id: 'u1',
         email: 'a@b.co',
         username: 'sylv',
         role: UserRole.PLAYER,
+        race: RaceType.MYCELIANS,
+        displayName: null,
+        bannerColor: null,
+        avatarSeed: null,
       });
       expect(result.tokens.accessToken).toBe('signed-access-token');
       expect(result.tokens.refreshToken).toMatch(/^[^.]+\.[A-Za-z0-9_-]+$/);
@@ -101,6 +115,10 @@ describe('AuthService', () => {
         email: 'a@b.co',
         username: 'sylv',
         role: UserRole.PLAYER,
+        race: RaceType.MYCELIANS,
+        displayName: null,
+        bannerColor: null,
+        avatarSeed: null,
         passwordHash,
       });
       prisma.user.update.mockResolvedValue({});
@@ -119,7 +137,16 @@ describe('AuthService', () => {
       refreshTokenHash: '0'.repeat(64),
       expiresAt: new Date(Date.now() + 60_000),
       revokedAt: null,
-      user: { id: 'u1', email: 'a@b.co', username: 'sylv', role: UserRole.PLAYER },
+      user: {
+        id: 'u1',
+        email: 'a@b.co',
+        username: 'sylv',
+        role: UserRole.PLAYER,
+        race: RaceType.MYCELIANS,
+        displayName: null,
+        bannerColor: null,
+        avatarSeed: null,
+      },
     });
     prisma.session.update.mockResolvedValue({});
 
@@ -141,6 +168,10 @@ describe('AuthService', () => {
       email: 'a@b.co',
       username: 'sylv',
       role: UserRole.PLAYER,
+      race: RaceType.MYCELIANS,
+      displayName: null,
+      bannerColor: null,
+      avatarSeed: null,
       refreshTokenHash,
     });
     prisma.user.updateMany.mockResolvedValue({ count: 1 });

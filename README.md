@@ -2,13 +2,16 @@
 
 Jeu de stratégie spatiale **par navigateur, multijoueur, persistant et asynchrone**.
 Vous cultivez une **civilisation organique** dans une galaxie vivante : ressources
-végétales, bâtiments biologiques, recherches, terraformation et essaimage de colonies.
+végétales, bâtiments biologiques, recherches, terraformation, essaimage de colonies,
+flottes de combat, alliances et guerres de spores.
 
 > Inspiré des grands codes du genre (type OGame) mais avec une identité propre :
 > écologie spatiale, technologies organiques, expansion par les spores.
 
-Ceci est le **MVP** : une tranche verticale jouable, server-authoritative (anti-triche),
-testée, dockerisée et déployable sur Railway.
+Le jeu est désormais une version enrichie : **3 races jouables**, **16 bio-vaisseaux**
+avec des rôles de combat, support, transport et défense, **15 recherches**, un système
+d'**alliances** complet, du **PvE** contre des anomalies galactiques et du **PvP**
+(espionnage + raids) entre joueurs.
 
 ---
 
@@ -49,8 +52,8 @@ et schémas servent au serveur (autorité) et au client (prévisualisation).
 - **Backend** : Node 22, TypeScript strict, NestJS, PostgreSQL + Prisma, Redis + BullMQ,
   JWT d'accès + sessions rotatives (cookies httpOnly), argon2, Helmet, rate limiting,
   logs pino et health check Terminus.
-- **Frontend** : Next.js 14, TypeScript strict, TailwindCSS (thème sombre premium,
-  mobile-first), TanStack Query.
+- **Frontend** : Next.js 15, TypeScript strict, TailwindCSS (thème sombre premium,
+  mobile-first), TanStack Query, React Three Fiber pour les scènes spatiales.
 - **DevOps** : Docker, docker-compose, Railway, GitHub Actions, migrations Prisma.
 
 ## Démarrage rapide
@@ -102,17 +105,23 @@ docker compose up --build
 
 ## Boucle de jeu
 
-1. Chaque joueur démarre avec un **Noyau-Monde**.
+1. Chaque joueur choisit une **race** (Mycélians, Photosynthex, Chitinids) avec des
+   bonus de production, de vitesse ou de combat propres, puis démarre avec un **Noyau-Monde**.
 2. Les **ressources** (Biomasse, Sève, Minéraux, Spores) s'accumulent dans le temps,
-   bornées par le stockage et modulées par l'énergie (**Photosynthèse**) et la
-   **stabilité écologique**.
+   bornées par le stockage et modulées par l'énergie (**Photosynthèse**), la
+   **stabilité écologique**, la race et les recherches avancées.
 3. On construit/améliore des **bâtiments** (file de construction temporisée).
-4. On lance des **recherches** (empire-wide) qui débloquent bonus et structures.
+4. On lance des **recherches** (empire-wide) : 15 technologies réparties entre économie,
+   propulsion, militaire et renseignement.
 5. Une fois la **Propulsion sporale** recherchée, on **essaime** vers un emplacement
    libre de la galaxie pour fonder une **colonie**.
-6. Le **Berceau Orbital** produit des Éclaireurs sporiques et des Moissonneurs
-   symbiotiques. Une flotte peut partir en expédition PvE, rencontrer un événement
-   auditable puis rapatrier gains et survivants.
+6. Le **Berceau Orbital** produit **16 bio-vaisseaux** répartis en rôles
+   (combat, transport, espionnage, défense, support). Certains vaisseaux sont exclusifs
+   à une race.
+7. Les flottes partent en **expédition**, en **raid PvE** contre des anomalies hostiles,
+   ou en **mission PvP** pour espionner / piller d'autres joueurs.
+8. Les **alliances** permettent de fédérer des joueurs, gérer des candidatures et
+   coordonner des actions galactiques.
 
 Équilibrage entièrement centralisé dans `packages/shared/src/constants.ts`.
 
@@ -132,7 +141,7 @@ docker compose up --build
 - Les expéditions utilisent un tirage cryptographique serveur (`0..9999`) dont la valeur,
   la version des règles, les gains et les pertes restent enregistrés dans le rapport.
 
-### API flottes et exploration
+### API principales
 
 | Route                                     | Usage                                 |
 | ----------------------------------------- | ------------------------------------- |
@@ -141,6 +150,16 @@ docker compose up --build
 | `GET/POST /api/expeditions`               | Liste ou lance une expédition         |
 | `GET /api/expeditions/reports`            | Rapports persistants                  |
 | `PATCH /api/expeditions/reports/:id/read` | Marque un rapport comme lu            |
+| `GET/POST /api/alliances`                 | Rechercher / créer une alliance       |
+| `GET /api/alliances/:id`                  | Détail d'une alliance                 |
+| `POST /api/alliances/:id/apply`           | Postuler à une alliance               |
+| `GET/PATCH /api/alliances/applications`   | Voir / traiter les candidatures       |
+| `GET /api/pve/encounters`                 | Anomalies hostiles disponibles        |
+| `POST /api/pve/encounters/:id/attack`     | Lancer un raid PvE                    |
+| `GET /api/pve/missions`                   | Missions PvE actives                  |
+| `POST /api/pvp/spy`                       | Espionner une planète ennemie         |
+| `POST /api/pvp/attack`                    | Attaquer une planète ennemie          |
+| `GET /api/pvp/missions`                   | Missions PvP actives                  |
 
 Détails dans [`SECURITY.md`](./SECURITY.md).
 

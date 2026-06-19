@@ -8,13 +8,14 @@ import {
   FIELDS_PER_TERRAFORMATION,
   GalacticEventType,
   PlanetType,
-  ProductionResult,
+  RaceType,
   ResearchType,
   ResourceType,
   STABILITY_MAX,
   STABILITY_MIN,
   STABILITY_SYMBIOSIS_BONUS,
   storageCap,
+  type ProductionResult,
   type ResourceState,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -70,7 +71,7 @@ export class GameEngineService {
     }
     const planet = await db.planet.findUniqueOrThrow({
       where: { id: planetId },
-      include: { buildings: true },
+      include: { buildings: true, owner: true },
     });
     const researchLevels = await db.researchLevel.findMany({
       where: { userId: planet.ownerId },
@@ -86,6 +87,7 @@ export class GameEngineService {
       research,
       stability: planet.stability,
       planetType: planet.planetType as PlanetType,
+      race: planet.owner.race as RaceType,
     });
 
     // Apply SPORE_BLOOM event: +50% production
@@ -157,9 +159,7 @@ export class GameEngineService {
   }
 
   /** Retourne l'événement galactique actif (endsAt > now), ou null. */
-  async getActiveEvent(
-    db?: Prisma.TransactionClient,
-  ): Promise<GalacticEvent | null> {
+  async getActiveEvent(db?: Prisma.TransactionClient): Promise<GalacticEvent | null> {
     const client = db ?? this.prisma;
     return client.galacticEvent.findFirst({
       where: { endsAt: { gt: new Date() } },

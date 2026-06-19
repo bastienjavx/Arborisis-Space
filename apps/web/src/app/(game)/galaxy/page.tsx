@@ -1,7 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { GALAXY_COUNT, SYSTEMS_PER_GALAXY, type GalaxySlot } from '@arborisis/shared';
+import { useMemo, useState } from 'react';
+import {
+  GALAXY_COUNT,
+  SHIPS,
+  ShipType,
+  SHIP_TYPES,
+  SYSTEMS_PER_GALAXY,
+  type GalaxySlot,
+  type ShipCounts,
+} from '@arborisis/shared';
 import { GalaxyView } from '@/components/three';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
@@ -10,16 +18,204 @@ import { AnimatedCard } from '@/components/AnimatedCard';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { ApiError } from '@/lib/api';
-import { useColonizations, useColonize, useGalaxy } from '@/lib/queries';
+import {
+  useColonizations,
+  useColonize,
+  useFleet,
+  useGalaxy,
+  usePlanets,
+  useAttackPlanet,
+  useSpyPlanet,
+} from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FiChevronLeft, FiChevronRight, FiCrosshair, FiEye } from 'react-icons/fi';
+
+interface PvpModalProps {
+  slot: GalaxySlot;
+  mode: 'spy' | 'attack';
+  planets: {
+    id: string;
+    name: string;
+    coordinates: { galaxy: number; system: number; position: number };
+  }[];
+  onClose: () => void;
+}
+
+function PvpModal({ slot, mode, planets, onClose }: PvpModalProps) {
+  const [sourcePlanetId, setSourcePlanetId] = useState(planets[0]?.id ?? '');
+  const { data: fleet } = useFleet(sourcePlanetId || undefined);
+  const [ships, setShips] = useState<Record<ShipType, number>>(
+    Object.fromEntries(SHIP_TYPES.map((type) => [type, 0])) as Record<ShipType, number>,
+  );
+  const [error, setError] = useState<string>();
+  const spy = useSpyPlanet(sourcePlanetId);
+  const attack = useAttackPlanet(sourcePlanetId);
+  const isPending = spy.isPending || attack.isPending;
+
+  const docked = useMemo(() => {
+    if (!fleet) return {} as ShipCounts;
+    return Object.fromEntries(
+      SHIP_TYPES.map((type) => [type, fleet.ships.find((s) => s.type === type)?.available ?? 0]),
+    ) as ShipCounts;
+  }, [fleet]);
+
+  function reset() {
+    setShips(Object.fromEntries(SHIP_TYPES.map((type) => [type, 0])) as Record<ShipType, number>);
+    setError(undefined);
+  }
+
+  function submit() {
+    if (!sourcePlanetId) {
+      setError('Sélectionnez une planète source.');
+      return;
+    }
+    if (!slot.planetId) {
+      setError('Cible invalide.');
+      return;
+    }
+    const body = {
+      sourcePlanetId,
+      targetPlanetId: slot.planetId,
+      ships,
+    };
+    setError(undefined);
+    const mutation = mode === 'spy' ? spy : attack;
+    mutation.mutate(body, {
+      onSuccess: () => {
+        reset();
+        onClose();
+      },
+      onError: (e) => setError(e instanceof ApiError ? e.message : 'Une erreur est survenue.'),
+    });
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-bark-950/80 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl"
+      >
+        <AnimatedCard
+          glowColor={mode === 'attack' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(123, 102, 240, 0.25)'}
+          className="space-y-4"
+        >
+          <div>
+            <h2 className="font-medium text-canopy-100">
+              {mode === 'spy' ? 'Espionner' : 'Attaquer'} {slot.planetName}
+            </h2>
+            <p className="text-xs text-canopy-100/50">
+              Cible {slot.coordinates.galaxy}:{slot.coordinates.system}:{slot.coordinates.position}{' '}
+              · propriétaire {slot.ownerName}
+            </p>
+          </div>
+
+          <label>
+            <span className="label">Planète source</span>
+            <select
+              className="input w-full"
+              value={sourcePlanetId}
+              onChange={(e) => {
+                setSourcePlanetId(e.target.value);
+                reset();
+              }}
+            >
+              {planets.map((planet) => (
+                <option key={planet.id} value={planet.id}>
+                  {planet.name} · {planet.coordinates.galaxy}:{planet.coordinates.system}:
+                  {planet.coordinates.position}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {fleet && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {SHIP_TYPES.map((type) => {
+                const ship = fleet.ships.find((s) => s.type === type);
+                const available = docked[type] ?? 0;
+                if (mode === 'spy' && SHIPS[type].role !== 'ESPIONAGE') return null;
+                if (mode === 'attack' && available <= 0) return null;
+                if (
+                  mode === 'attack' &&
+                  !['COMBAT', 'DEFENSE', 'SUPPORT'].includes(SHIPS[type].role)
+                )
+                  return null;
+                if (!ship) return null;
+                return (
+                  <motion.label
+                    key={type}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <span className="label">
+                      {ship.name} (max. {available})
+                    </span>
+                    <motion.input
+                      className="input"
+                      type="number"
+                      min={0}
+                      max={available}
+                      value={ships[type]}
+                      onChange={(e) =>
+                        setShips((value) => ({
+                          ...value,
+                          [type]: Math.min(available, Math.max(0, Number(e.target.value))),
+                        }))
+                      }
+                      whileFocus={{ scale: 1.02 }}
+                    />
+                  </motion.label>
+                );
+              })}
+            </div>
+          )}
+
+          <AnimatePresence>
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-sm text-red-400"
+              >
+                {error}
+              </motion.p>
+            )}
+          </AnimatePresence>
+
+          <div className="flex gap-3">
+            <AnimatedButton disabled={isPending || !fleet} onClick={submit} glow>
+              {mode === 'spy' ? 'Lancer espionnage' : "Lancer l'attaque"}
+            </AnimatedButton>
+            <AnimatedButton variant="ghost" onClick={onClose} disabled={isPending}>
+              Annuler
+            </AnimatedButton>
+          </div>
+        </AnimatedCard>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 export default function GalaxyPage() {
   const { selectedId } = usePlanetSelection();
   const [galaxy, setGalaxy] = useState(1);
   const [system, setSystem] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState<GalaxySlot | null>(null);
+  const [modalSlot, setModalSlot] = useState<GalaxySlot | null>(null);
+  const [modalMode, setModalMode] = useState<'spy' | 'attack' | null>(null);
   const { data, isLoading } = useGalaxy(galaxy, system);
   const { data: inbound } = useColonizations();
+  const { data: planets } = usePlanets();
   const colonize = useColonize();
   const [error, setError] = useState<string>();
 
@@ -68,11 +264,11 @@ export default function GalaxyPage() {
                 }
               />
             </div>
-            <AnimatedButton variant="ghost" onClick={() => step(-1)}>
-              ◀
+            <AnimatedButton variant="ghost" onClick={() => step(-1)} ariaLabel="Système précédent">
+              <FiChevronLeft aria-hidden="true" />
             </AnimatedButton>
-            <AnimatedButton variant="ghost" onClick={() => step(1)}>
-              ▶
+            <AnimatedButton variant="ghost" onClick={() => step(1)} ariaLabel="Système suivant">
+              <FiChevronRight aria-hidden="true" />
             </AnimatedButton>
           </div>
         </div>
@@ -105,9 +301,7 @@ export default function GalaxyPage() {
             exit={{ opacity: 0, height: 0 }}
           >
             <AnimatedCard glow="purple">
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-canopy-100/60">
-                Essaimages en route
-              </h2>
+              <h2 className="section-title mb-2">Essaimages en route</h2>
               <ul className="space-y-1 text-sm">
                 {inbound.map((j) => (
                   <motion.li
@@ -156,8 +350,8 @@ export default function GalaxyPage() {
             />
           </AnimatedCard>
 
-          <AnimatedCard glow="green" className="overflow-hidden p-0">
-            <table className="w-full text-sm">
+          <AnimatedCard glow="green" className="overflow-x-auto p-0">
+            <table className="min-w-[38rem] w-full text-sm">
               <thead className="bg-bark-850 text-left text-xs uppercase tracking-wide text-canopy-100/40">
                 <tr>
                   <th className="px-4 py-2">Pos.</th>
@@ -199,7 +393,7 @@ export default function GalaxyPage() {
                     </td>
                     <td className="px-4 py-2 text-canopy-100/60">{slot.ownerName ?? ''}</td>
                     <td className="px-4 py-2 text-right">
-                      {!slot.occupied && (
+                      {!slot.occupied ? (
                         <AnimatedButton
                           variant="ghost"
                           className="px-3 py-1"
@@ -209,7 +403,34 @@ export default function GalaxyPage() {
                         >
                           Essaimer
                         </AnimatedButton>
-                      )}
+                      ) : !slot.isOwn ? (
+                        <div className="flex justify-end gap-2">
+                          <AnimatedButton
+                            variant="ghost"
+                            className="px-2 py-1"
+                            onClick={() => {
+                              setModalSlot(slot);
+                              setModalMode('spy');
+                              setError(undefined);
+                            }}
+                            ariaLabel="Espionner"
+                          >
+                            <FiEye className="h-4 w-4" aria-hidden="true" />
+                          </AnimatedButton>
+                          <AnimatedButton
+                            variant="ghost"
+                            className="px-2 py-1"
+                            onClick={() => {
+                              setModalSlot(slot);
+                              setModalMode('attack');
+                              setError(undefined);
+                            }}
+                            ariaLabel="Attaquer"
+                          >
+                            <FiCrosshair className="h-4 w-4" aria-hidden="true" />
+                          </AnimatedButton>
+                        </div>
+                      ) : null}
                     </td>
                   </motion.tr>
                 ))}
@@ -218,6 +439,17 @@ export default function GalaxyPage() {
           </AnimatedCard>
         </>
       )}
+
+      <AnimatePresence>
+        {modalSlot && modalMode && planets && (
+          <PvpModal
+            slot={modalSlot}
+            mode={modalMode}
+            planets={planets}
+            onClose={() => setModalSlot(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

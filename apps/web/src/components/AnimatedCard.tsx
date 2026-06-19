@@ -12,6 +12,7 @@ interface AnimatedCardProps {
   glowColor?: string;
   glow?: GlowPreset;
   hover?: boolean;
+  onClick?: () => void;
 }
 
 const defaultGlowColor = 'rgba(22, 191, 108, 0.25)';
@@ -29,6 +30,7 @@ export function AnimatedCard({
   glowColor,
   glow,
   hover = true,
+  onClick,
 }: AnimatedCardProps) {
   const resolvedGlowColor = glowColor ?? (glow ? glowPresets[glow] : defaultGlowColor);
 
@@ -37,24 +39,26 @@ export function AnimatedCard({
       initial={{ opacity: 0, y: 24, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{
-        duration: 0.6,
+        duration: 0.45,
         delay,
         ease: [0.22, 1, 0.36, 1],
       }}
-      whileHover={hover ? { y: -4, scale: 1.01, transition: { duration: 0.3 } } : undefined}
-      className={`group relative rounded-2xl border border-canopy-700/20 bg-bark-900/70 p-5 shadow-lg backdrop-blur ${className}`}
+      whileHover={hover ? { y: -2, transition: { duration: 0.22 } } : undefined}
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-2xl border border-canopy-700/15 bg-bark-900/75 p-5 shadow-xl shadow-black/20 backdrop-blur-xl transition-colors hover:border-canopy-500/25 ${className}`}
       style={{
-        boxShadow: `0 4px 24px -4px rgba(0,0,0,0.4), 0 0 0 0 ${resolvedGlowColor}`,
+        boxShadow: `0 12px 36px -22px rgba(0,0,0,0.75), 0 0 0 0 ${resolvedGlowColor}`,
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget;
-        el.style.boxShadow = `0 8px 32px -4px rgba(0,0,0,0.5), 0 0 24px 4px ${resolvedGlowColor}`;
+        el.style.boxShadow = `0 16px 42px -24px rgba(0,0,0,0.85), 0 0 28px -12px ${resolvedGlowColor}`;
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget;
-        el.style.boxShadow = `0 4px 24px -4px rgba(0,0,0,0.4), 0 0 0 0 ${resolvedGlowColor}`;
+        el.style.boxShadow = `0 12px 36px -22px rgba(0,0,0,0.75), 0 0 0 0 ${resolvedGlowColor}`;
       }}
     >
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-canopy-300/20 to-transparent" />
       {children}
     </motion.div>
   );

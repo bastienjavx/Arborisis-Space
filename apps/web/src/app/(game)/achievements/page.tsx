@@ -4,6 +4,7 @@ import { useAchievements } from '@/lib/queries';
 import { AnimatedCard } from '@/components/AnimatedCard';
 import { PageHeader } from '@/components/PageHeader';
 import { motion } from 'framer-motion';
+import { FiAward, FiGift, FiLock } from 'react-icons/fi';
 
 export default function AchievementsPage() {
   const { data: achievements, isLoading } = useAchievements();
@@ -23,9 +24,7 @@ export default function AchievementsPage() {
 
       {unlocked.length > 0 && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-canopy-300/70">
-            Déverrouillés
-          </h2>
+          <h2 className="section-title mb-3">Déverrouillés</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {unlocked.map((a, i) => (
               <motion.div
@@ -36,12 +35,17 @@ export default function AchievementsPage() {
               >
                 <AnimatedCard glow="green" className="h-full">
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl">🌿</span>
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-canopy-500/20 bg-canopy-500/10 text-canopy-300">
+                      <FiAward className="h-5 w-5" aria-hidden="true" />
+                    </span>
                     <div className="min-w-0">
-                      <h3 className="font-medium text-canopy-100 truncate">{a.name}</h3>
-                      <p className="text-xs text-canopy-100/50 mt-0.5">{a.description}</p>
+                      <h3 className="truncate font-medium text-canopy-100">{a.name}</h3>
+                      <p className="mt-0.5 text-xs leading-5 text-canopy-100/50">{a.description}</p>
                       {a.rewardText && (
-                        <p className="text-xs text-spore-400 mt-1">✦ {a.rewardText}</p>
+                        <p className="mt-2 flex items-center gap-1.5 text-xs text-spore-400">
+                          <FiGift className="h-3.5 w-3.5" aria-hidden="true" />
+                          {a.rewardText}
+                        </p>
                       )}
                       {a.unlockedAt && (
                         <p className="text-[10px] text-canopy-100/30 mt-1.5">
@@ -59,9 +63,7 @@ export default function AchievementsPage() {
 
       {locked.length > 0 && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-canopy-100/30">
-            Verrouillés
-          </h2>
+          <h2 className="section-title mb-3 text-canopy-100/30">Verrouillés</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {locked.map((a, i) => (
               <motion.div
@@ -72,7 +74,9 @@ export default function AchievementsPage() {
               >
                 <AnimatedCard className="h-full opacity-40">
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl grayscale">🌿</span>
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-canopy-700/15 bg-bark-950/30 text-canopy-100/30">
+                      <FiLock className="h-4 w-4" aria-hidden="true" />
+                    </span>
                     <div className="min-w-0">
                       <h3 className="font-medium text-canopy-100 truncate">{a.name}</h3>
                       <p className="text-xs text-canopy-100/50 mt-0.5">{a.description}</p>

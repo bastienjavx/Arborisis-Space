@@ -15,8 +15,11 @@ import {
   ExpeditionOutcome,
   GalacticEventType,
   PlanetType,
+  RaceType,
   ResearchType,
+  RESEARCH_TYPES,
   ResourceType,
+  ShipRole,
   ShipType,
 } from './enums';
 
@@ -66,11 +69,42 @@ export interface ShipConfig {
   type: ShipType;
   name: string;
   description: string;
+  role: ShipRole;
   cost: ResourceBundle;
   baseTimeSeconds: number;
   cargo: number;
   speed: number;
   requiresNurseryLevel: number;
+  /** Attaque de base (sera multipliée par les bonus de recherche et de race). */
+  attack: number;
+  /** Défense de base. */
+  defense: number;
+  /** Points de structure (coque). */
+  hull: number;
+  /** Facteur de bonus racial applicable (1.0 = neutre). */
+  racialBonusFactor?: number;
+  /** Races autorisées à produire ce vaisseau (vide = toutes). */
+  restrictedToRaces?: RaceType[];
+}
+
+export interface RaceConfig {
+  type: RaceType;
+  name: string;
+  description: string;
+  /** Bonus/malus multiplicatifs appliqués à la production de ressources. */
+  productionBonus: Partial<Record<ResourceType, number>>;
+  /** Bonus/malus sur la vitesse des vaisseaux (1.0 = neutre). */
+  shipSpeedFactor: number;
+  /** Bonus/malus sur les coûts de recherche (1.0 = neutre). */
+  researchCostFactor: number;
+  /** Bonus/malus sur la force défensive orbitaire (1.0 = neutre). */
+  defenseFactor: number;
+  /** Bonus/malus sur la puissance d'attaque des vaisseaux (1.0 = neutre). */
+  attackFactor: number;
+  /** Vaisseau exclusif offert à la création du joueur. */
+  startingShip: ShipType | null;
+  /** Couleur d'empire par défaut (Tailwind / hex). */
+  defaultColor: string;
 }
 
 /** Vitesse globale de l'univers (multiplie production & divise les temps). */
@@ -94,6 +128,65 @@ export const STARTING_RESOURCES: ResourceBundle = {
   [ResourceType.SAP]: 400,
   [ResourceType.MINERALS]: 300,
   [ResourceType.SPORES]: 0,
+};
+
+export const RACES: Record<RaceType, RaceConfig> = {
+  [RaceType.MYCELIANS]: {
+    type: RaceType.MYCELIANS,
+    name: 'Mycéliens',
+    description:
+      'Un réseau fongique conscient qui colonise les mondes par l’essaimage. Maîtres de la biomasse.',
+    productionBonus: { [ResourceType.BIOMASS]: 1.1 },
+    shipSpeedFactor: 0.95,
+    researchCostFactor: 1.0,
+    defenseFactor: 1.0,
+    attackFactor: 1.0,
+    startingShip: ShipType.SPORAL_SWARM,
+    defaultColor: '#22c55e',
+  },
+  [RaceType.PHOTOSYNTHEX]: {
+    type: RaceType.PHOTOSYNTHEX,
+    name: 'Photosynthex',
+    description:
+      'Civilisation végétale convertissant la lumière stellaire en savoir. Experts en énergie et recherche.',
+    productionBonus: { [ResourceType.SAP]: 1.1 },
+    shipSpeedFactor: 1.0,
+    researchCostFactor: 0.9,
+    defenseFactor: 1.0,
+    attackFactor: 1.0,
+    startingShip: ShipType.LUMINOUS_WARDEN,
+    defaultColor: '#f59e0b',
+  },
+  [RaceType.CHITINIDS]: {
+    type: RaceType.CHITINIDS,
+    name: 'Chitinids',
+    description:
+      'Ruche insectoïde blindée par des carapaces minérales. Constructeurs défensifs et mineurs.',
+    productionBonus: { [ResourceType.MINERALS]: 1.15, [ResourceType.BIOMASS]: 0.9 },
+    shipSpeedFactor: 1.0,
+    researchCostFactor: 1.0,
+    defenseFactor: 1.15,
+    attackFactor: 1.0,
+    startingShip: ShipType.CHITIN_BULWARK,
+    defaultColor: '#6366f1',
+  },
+};
+
+/** Production passive ajustée selon la race. */
+export function racePassiveProduction(_race: RaceType): ResourceBundle {
+  // Les modificateurs raciaux sont appliqués dans computeProduction sur la production totale.
+  return { ...PASSIVE_PRODUCTION };
+}
+
+/** Ressources de départ ajustées selon la race. */
+export function raceStartingResources(_race: RaceType): ResourceBundle {
+  // Les ressources de départ restent identiques quelle que soit la race.
+  return { ...STARTING_RESOURCES };
+}
+
+/** Coût de création d'une alliance. */
+export const ALLIANCE_CREATION_COST: ResourceBundle = {
+  [ResourceType.SPORES]: 1_000,
 };
 
 /** Ressources de départ d'une colonie (essaimage). */
@@ -126,6 +219,28 @@ export const STABILITY_PRODUCTION_FLOOR = 0.5;
 export const GENETIC_ENGINEERING_BONUS = 0.05;
 /** Bonus de production d'énergie par niveau de Photosynthèse avancée. */
 export const ADVANCED_PHOTOSYNTHESIS_BONUS = 0.05;
+
+// ── Recherches avancées ──
+/** Bonus de production de biomasse par niveau de Cycle des nutriments. */
+export const NUTRIENT_CYCLING_BONUS = 0.05;
+/** Bonus de production de sève par niveau de Racines souterraines. */
+export const SUBTERRANEAN_ROOTS_BONUS = 0.05;
+/** Bonus de production de spores par niveau d'Économie sporale. */
+export const SPORAL_ECONOMY_BONUS = 0.05;
+/** Bonus de défense des vaisseaux par niveau d'Armure de chitine. */
+export const CHITIN_ARMOR_BONUS = 0.05;
+/** Bonus d'attaque des vaisseaux par niveau de Guerre biologique. */
+export const BIOLOGICAL_WARFARE_BONUS = 0.05;
+/** Bonus de vitesse des vaisseaux légers par niveau de Tactiques d'essaim. */
+export const SWARM_TACTICS_BONUS = 0.05;
+/** Bonus de défense orbitaire par niveau de Grille défensive orbitale. */
+export const ORBITAL_DEFENSE_GRID_BONUS = 0.05;
+/** Bonus de vitesse globale des vaisseaux par niveau de Moteur hyperspore. */
+export const HYPERSPORE_DRIVE_BONUS = 0.05;
+/** Réduction des temps de trajet intergalactiques par niveau de Mycologie des vers. */
+export const WORMHOLE_MYCOLOGY_BONUS = 0.1;
+/** Bonus de chance d'espionnage par niveau de Sens sporal. */
+export const SPORE_SENSE_BONUS = 0.05;
 
 /** Emplacements (champs) de base d'une planète + bonus par Terraformation. */
 export const BASE_PLANET_FIELDS = 12;
@@ -365,7 +480,7 @@ export const GALACTIC_EVENTS: Record<GalacticEventType, GalacticEventConfig> = {
   [GalacticEventType.CONVERGENCE_PULSE]: {
     type: GalacticEventType.CONVERGENCE_PULSE,
     name: 'Pulsion de Convergence',
-    description: "La mémoire collective des Tisserands amplifie les esprits chercheurs.",
+    description: 'La mémoire collective des Tisserands amplifie les esprits chercheurs.',
     durationHours: 4,
     effectDescription: 'Temps de recherche × 0.7 pendant 4h',
   },
@@ -443,7 +558,7 @@ export const ACHIEVEMENTS: Record<AchievementType, AchievementConfig> = {
   [AchievementType.SCHOLAR]: {
     type: AchievementType.SCHOLAR,
     name: 'Érudit',
-    description: 'Débloquer les 6 types de recherche (≥ niveau 1).',
+    description: `Débloquer les ${RESEARCH_TYPES.length} types de recherche (≥ niveau 1).`,
     rewardText: 'Toutes les branches du savoir sont explorées.',
   },
   [AchievementType.TITAN_BREEDER]: {
@@ -498,7 +613,7 @@ export const ACHIEVEMENTS: Record<AchievementType, AchievementConfig> = {
     type: AchievementType.SPORAL_SAGE,
     name: 'Sage Sporique',
     description: 'Atteindre Propulsion Sporale niveau 10.',
-    rewardText: 'Le cosmos entier s\'ouvre à votre essaimage.',
+    rewardText: "Le cosmos entier s'ouvre à votre essaimage.",
   },
   [AchievementType.THE_CONVERGENCE]: {
     type: AchievementType.THE_CONVERGENCE,
@@ -515,21 +630,23 @@ export interface ExpeditionOutcomeConfig {
 }
 
 export const EXPEDITION_OUTCOME_TABLE: ExpeditionOutcomeConfig[] = [
-  { outcome: ExpeditionOutcome.RESOURCE_CACHE,    minRoll: 0,    maxRoll: 4999 },
-  { outcome: ExpeditionOutcome.RARE_SPORES,       minRoll: 5000, maxRoll: 6499 },
-  { outcome: ExpeditionOutcome.DERELICT_SHIP,     minRoll: 6500, maxRoll: 7499 },
-  { outcome: ExpeditionOutcome.INCIDENT,          minRoll: 7500, maxRoll: 8499 },
-  { outcome: ExpeditionOutcome.ANOMALY,           minRoll: 8500, maxRoll: 9099 },
-  { outcome: ExpeditionOutcome.ANCIENT_ARCHIVE,   minRoll: 9100, maxRoll: 9499 },
-  { outcome: ExpeditionOutcome.VOID_ECHO,         minRoll: 9500, maxRoll: 9799 },
+  { outcome: ExpeditionOutcome.RESOURCE_CACHE, minRoll: 0, maxRoll: 4999 },
+  { outcome: ExpeditionOutcome.RARE_SPORES, minRoll: 5000, maxRoll: 6499 },
+  { outcome: ExpeditionOutcome.DERELICT_SHIP, minRoll: 6500, maxRoll: 7499 },
+  { outcome: ExpeditionOutcome.INCIDENT, minRoll: 7500, maxRoll: 8499 },
+  { outcome: ExpeditionOutcome.ANOMALY, minRoll: 8500, maxRoll: 9099 },
+  { outcome: ExpeditionOutcome.ANCIENT_ARCHIVE, minRoll: 9100, maxRoll: 9499 },
+  { outcome: ExpeditionOutcome.VOID_ECHO, minRoll: 9500, maxRoll: 9799 },
   { outcome: ExpeditionOutcome.CONVERGENCE_BLOOM, minRoll: 9800, maxRoll: 9999 },
 ];
 
 export const SHIPS: Record<ShipType, ShipConfig> = {
+  // ── Civils / support ──
   [ShipType.SPORAL_SCOUT]: {
     type: ShipType.SPORAL_SCOUT,
     name: 'Éclaireur sporique',
     description: 'Organisme rapide dont les filaments sondent les anomalies galactiques.',
+    role: ShipRole.SUPPORT,
     cost: {
       [ResourceType.BIOMASS]: 250,
       [ResourceType.MINERALS]: 150,
@@ -539,11 +656,15 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     cargo: 100,
     speed: 10,
     requiresNurseryLevel: 1,
+    attack: 5,
+    defense: 5,
+    hull: 50,
   },
   [ShipType.SYMBIOTIC_HARVESTER]: {
     type: ShipType.SYMBIOTIC_HARVESTER,
     name: 'Moissonneur symbiotique',
     description: 'Large organisme de collecte conçu pour ramener les découvertes.',
+    role: ShipRole.TRANSPORT,
     cost: {
       [ResourceType.BIOMASS]: 600,
       [ResourceType.MINERALS]: 300,
@@ -554,11 +675,15 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     cargo: 1_000,
     speed: 6,
     requiresNurseryLevel: 2,
+    attack: 2,
+    defense: 10,
+    hull: 150,
   },
   [ShipType.MYCELIAL_TENDRIL]: {
     type: ShipType.MYCELIAL_TENDRIL,
     name: 'Filament Mycélial',
     description: 'Filament ultra-rapide qui sonde les anomalies à la vitesse du spore.',
+    role: ShipRole.ESPIONAGE,
     cost: {
       [ResourceType.BIOMASS]: 150,
       [ResourceType.MINERALS]: 80,
@@ -568,11 +693,15 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     cargo: 50,
     speed: 20,
     requiresNurseryLevel: 1,
+    attack: 1,
+    defense: 2,
+    hull: 25,
   },
   [ShipType.CHITIN_FREIGHTER]: {
     type: ShipType.CHITIN_FREIGHTER,
     name: 'Frégat de Chitine',
     description: 'Mastodonte de transport blindé par une carapace chitineuse.',
+    role: ShipRole.TRANSPORT,
     cost: {
       [ResourceType.BIOMASS]: 1_200,
       [ResourceType.MINERALS]: 800,
@@ -583,11 +712,15 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     cargo: 3_000,
     speed: 4,
     requiresNurseryLevel: 3,
+    attack: 4,
+    defense: 20,
+    hull: 300,
   },
   [ShipType.BIOLUMINESCENT_CRUISER]: {
     type: ShipType.BIOLUMINESCENT_CRUISER,
     name: 'Croiseur Bioluminescent',
     description: 'Organisme intermédiaire aux filaments phosphorescents, polyvalent et redoutable.',
+    role: ShipRole.COMBAT,
     cost: {
       [ResourceType.BIOMASS]: 900,
       [ResourceType.MINERALS]: 500,
@@ -598,11 +731,16 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     cargo: 500,
     speed: 8,
     requiresNurseryLevel: 4,
+    attack: 35,
+    defense: 25,
+    hull: 400,
   },
   [ShipType.SPOROGENESIS_TITAN]: {
     type: ShipType.SPOROGENESIS_TITAN,
     name: 'Titan Sporogenèse',
-    description: 'Léviathan organique capable de transporter une civilisation entière entre les étoiles.',
+    description:
+      'Léviathan organique capable de transporter une civilisation entière entre les étoiles.',
+    role: ShipRole.COMBAT,
     cost: {
       [ResourceType.BIOMASS]: 5_000,
       [ResourceType.MINERALS]: 3_000,
@@ -613,6 +751,210 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     cargo: 8_000,
     speed: 2,
     requiresNurseryLevel: 6,
+    attack: 100,
+    defense: 80,
+    hull: 1_500,
+  },
+
+  // ── Militaires ──
+  [ShipType.SPORAL_DRONE]: {
+    type: ShipType.SPORAL_DRONE,
+    name: 'Drone sporique',
+    description: 'Petit organisme de combat formant des nuées dissuasives, rapide mais fragile.',
+    role: ShipRole.COMBAT,
+    cost: {
+      [ResourceType.BIOMASS]: 120,
+      [ResourceType.MINERALS]: 60,
+      [ResourceType.SPORES]: 20,
+    },
+    baseTimeSeconds: 90,
+    cargo: 0,
+    speed: 18,
+    requiresNurseryLevel: 2,
+    attack: 12,
+    defense: 3,
+    hull: 30,
+  },
+  [ShipType.ACID_BOMBER]: {
+    type: ShipType.ACID_BOMBER,
+    name: 'Bombardier d’acide',
+    description: 'Vaisseau d’assaut qui projette des enzymes corrosifs sur les défenses.',
+    role: ShipRole.COMBAT,
+    cost: {
+      [ResourceType.BIOMASS]: 800,
+      [ResourceType.MINERALS]: 400,
+      [ResourceType.SAP]: 300,
+      [ResourceType.SPORES]: 120,
+    },
+    baseTimeSeconds: 600,
+    cargo: 100,
+    speed: 7,
+    requiresNurseryLevel: 4,
+    attack: 70,
+    defense: 15,
+    hull: 250,
+  },
+  [ShipType.CHITIN_DESTROYER]: {
+    type: ShipType.CHITIN_DESTROYER,
+    name: 'Destroyer de chitine',
+    description: 'Navire de ligne lourd, conçu pour briser les formations ennemies.',
+    role: ShipRole.COMBAT,
+    cost: {
+      [ResourceType.BIOMASS]: 2_000,
+      [ResourceType.MINERALS]: 1_200,
+      [ResourceType.SAP]: 600,
+      [ResourceType.SPORES]: 250,
+    },
+    baseTimeSeconds: 1_200,
+    cargo: 200,
+    speed: 5,
+    requiresNurseryLevel: 5,
+    attack: 90,
+    defense: 70,
+    hull: 800,
+  },
+  [ShipType.BIOMASS_DREADNOUGHT]: {
+    type: ShipType.BIOMASS_DREADNOUGHT,
+    name: 'Dreadnought de biomasse',
+    description: 'Colosse de guerre organique capable de sièger des mondes entiers.',
+    role: ShipRole.COMBAT,
+    cost: {
+      [ResourceType.BIOMASS]: 8_000,
+      [ResourceType.MINERALS]: 5_000,
+      [ResourceType.SAP]: 3_000,
+      [ResourceType.SPORES]: 1_000,
+    },
+    baseTimeSeconds: 4_800,
+    cargo: 500,
+    speed: 2,
+    requiresNurseryLevel: 8,
+    attack: 250,
+    defense: 200,
+    hull: 3_000,
+  },
+
+  // ── Spécialisés ──
+  [ShipType.SEED_POD]: {
+    type: ShipType.SEED_POD,
+    name: 'Capsule germinale',
+    description: 'Vaisseau lent mais très capacieux, utilisé pour le transport massif.',
+    role: ShipRole.TRANSPORT,
+    cost: {
+      [ResourceType.BIOMASS]: 400,
+      [ResourceType.MINERALS]: 200,
+      [ResourceType.SAP]: 100,
+      [ResourceType.SPORES]: 30,
+    },
+    baseTimeSeconds: 240,
+    cargo: 5_000,
+    speed: 3,
+    requiresNurseryLevel: 2,
+    attack: 0,
+    defense: 5,
+    hull: 100,
+  },
+  [ShipType.SHADOW_SPORE]: {
+    type: ShipType.SHADOW_SPORE,
+    name: 'Spore de l’ombre',
+    description: 'Organisme furtif spécialisé dans l’espionnage et la contre-renseignement.',
+    role: ShipRole.ESPIONAGE,
+    cost: {
+      [ResourceType.BIOMASS]: 300,
+      [ResourceType.MINERALS]: 150,
+      [ResourceType.SPORES]: 100,
+    },
+    baseTimeSeconds: 300,
+    cargo: 10,
+    speed: 25,
+    requiresNurseryLevel: 3,
+    attack: 2,
+    defense: 8,
+    hull: 40,
+  },
+  [ShipType.ORBITAL_THORN]: {
+    type: ShipType.ORBITAL_THORN,
+    name: 'Épine orbitale',
+    description: 'Plateforme défensive stationnaire protégeant les approches planétaires.',
+    role: ShipRole.DEFENSE,
+    cost: {
+      [ResourceType.BIOMASS]: 1_000,
+      [ResourceType.MINERALS]: 800,
+      [ResourceType.SAP]: 200,
+      [ResourceType.SPORES]: 150,
+    },
+    baseTimeSeconds: 900,
+    cargo: 0,
+    speed: 0,
+    requiresNurseryLevel: 4,
+    attack: 60,
+    defense: 120,
+    hull: 600,
+  },
+
+  // ── Raciaux exclusifs ──
+  [ShipType.SPORAL_SWARM]: {
+    type: ShipType.SPORAL_SWARM,
+    name: 'Essaim sporique',
+    description: 'Nuée d’organismes mycéliens qui submergent l’ennemi. Exclusive aux Mycéliens.',
+    role: ShipRole.COMBAT,
+    restrictedToRaces: [RaceType.MYCELIANS],
+    cost: {
+      [ResourceType.BIOMASS]: 200,
+      [ResourceType.MINERALS]: 100,
+      [ResourceType.SPORES]: 40,
+    },
+    baseTimeSeconds: 120,
+    cargo: 0,
+    speed: 16,
+    requiresNurseryLevel: 2,
+    attack: 18,
+    defense: 4,
+    hull: 35,
+    racialBonusFactor: 1.1,
+  },
+  [ShipType.LUMINOUS_WARDEN]: {
+    type: ShipType.LUMINOUS_WARDEN,
+    name: 'Gardien lumineux',
+    description:
+      'Vaisseau-photocyte qui soigne et renforce les alliés. Exclusive aux Photosynthex.',
+    role: ShipRole.SUPPORT,
+    restrictedToRaces: [RaceType.PHOTOSYNTHEX],
+    cost: {
+      [ResourceType.BIOMASS]: 500,
+      [ResourceType.MINERALS]: 200,
+      [ResourceType.SAP]: 400,
+      [ResourceType.SPORES]: 80,
+    },
+    baseTimeSeconds: 420,
+    cargo: 200,
+    speed: 9,
+    requiresNurseryLevel: 3,
+    attack: 10,
+    defense: 35,
+    hull: 300,
+    racialBonusFactor: 1.1,
+  },
+  [ShipType.CHITIN_BULWARK]: {
+    type: ShipType.CHITIN_BULWARK,
+    name: 'Rempart de chitine',
+    description:
+      'Mur vivant blindé capable d’encaisser des salves entières. Exclusive aux Chitinids.',
+    role: ShipRole.DEFENSE,
+    restrictedToRaces: [RaceType.CHITINIDS],
+    cost: {
+      [ResourceType.BIOMASS]: 1_500,
+      [ResourceType.MINERALS]: 1_000,
+      [ResourceType.SAP]: 300,
+      [ResourceType.SPORES]: 120,
+    },
+    baseTimeSeconds: 1_000,
+    cargo: 100,
+    speed: 3,
+    requiresNurseryLevel: 4,
+    attack: 30,
+    defense: 150,
+    hull: 1_000,
+    racialBonusFactor: 1.15,
   },
 };
 
@@ -689,5 +1031,132 @@ export const RESEARCHES: Record<ResearchType, ResearchConfig> = {
     baseTimeSeconds: 2_400,
     timeFactor: 1.8,
     requires: { research: { [ResearchType.BIOENGINEERING]: 2 } },
+  },
+
+  // ── Économie avancée ──
+  [ResearchType.NUTRIENT_CYCLING]: {
+    type: ResearchType.NUTRIENT_CYCLING,
+    name: 'Cycle des nutriments',
+    description: '+5% de production de biomasse par niveau.',
+    baseCost: { [ResourceType.SPORES]: 400, [ResourceType.BIOMASS]: 800 },
+    costFactor: 1.75,
+    maxLevel: 15,
+    baseTimeSeconds: 900,
+    timeFactor: 1.6,
+    requires: { research: { [ResearchType.GENETIC_ENGINEERING]: 3 } },
+  },
+  [ResearchType.SUBTERRANEAN_ROOTS]: {
+    type: ResearchType.SUBTERRANEAN_ROOTS,
+    name: 'Racines souterraines',
+    description: '+5% de production de sève par niveau.',
+    baseCost: { [ResourceType.SPORES]: 400, [ResourceType.SAP]: 600 },
+    costFactor: 1.75,
+    maxLevel: 15,
+    baseTimeSeconds: 900,
+    timeFactor: 1.6,
+    requires: { research: { [ResearchType.GENETIC_ENGINEERING]: 3 } },
+  },
+  [ResearchType.SPORAL_ECONOMY]: {
+    type: ResearchType.SPORAL_ECONOMY,
+    name: 'Économie sporale',
+    description: '+5% de production de spores par niveau.',
+    baseCost: { [ResourceType.SPORES]: 600, [ResourceType.BIOMASS]: 1_000 },
+    costFactor: 1.85,
+    maxLevel: 12,
+    baseTimeSeconds: 1_200,
+    timeFactor: 1.7,
+    requires: { research: { [ResearchType.GENETIC_ENGINEERING]: 5 } },
+  },
+
+  // ── Militaire ──
+  [ResearchType.CHITIN_ARMOR]: {
+    type: ResearchType.CHITIN_ARMOR,
+    name: 'Armure de chitine',
+    description: '+5% de défense des vaisseaux par niveau.',
+    baseCost: { [ResourceType.SPORES]: 500, [ResourceType.MINERALS]: 1_200 },
+    costFactor: 1.8,
+    maxLevel: 15,
+    baseTimeSeconds: 1_200,
+    timeFactor: 1.7,
+    requires: { research: { [ResearchType.BIOENGINEERING]: 3 } },
+  },
+  [ResearchType.BIOLOGICAL_WARFARE]: {
+    type: ResearchType.BIOLOGICAL_WARFARE,
+    name: 'Guerre biologique',
+    description: '+5% d’attaque des vaisseaux par niveau.',
+    baseCost: { [ResourceType.SPORES]: 600, [ResourceType.BIOMASS]: 1_000 },
+    costFactor: 1.8,
+    maxLevel: 15,
+    baseTimeSeconds: 1_200,
+    timeFactor: 1.7,
+    requires: { research: { [ResearchType.BIOENGINEERING]: 3 } },
+  },
+  [ResearchType.SWARM_TACTICS]: {
+    type: ResearchType.SWARM_TACTICS,
+    name: 'Tactiques d’essaim',
+    description: '+5% de vitesse des vaisseaux légers par niveau.',
+    baseCost: { [ResourceType.SPORES]: 700, [ResourceType.SAP]: 800 },
+    costFactor: 1.75,
+    maxLevel: 10,
+    baseTimeSeconds: 1_500,
+    timeFactor: 1.7,
+    requires: { research: { [ResearchType.CHITIN_ARMOR]: 2 } },
+  },
+  [ResearchType.ORBITAL_DEFENSE_GRID]: {
+    type: ResearchType.ORBITAL_DEFENSE_GRID,
+    name: 'Grille défensive orbitale',
+    description: '+5% de défense orbitaire par niveau.',
+    baseCost: { [ResourceType.SPORES]: 800, [ResourceType.MINERALS]: 1_500 },
+    costFactor: 1.9,
+    maxLevel: 12,
+    baseTimeSeconds: 1_800,
+    timeFactor: 1.7,
+    requires: { research: { [ResearchType.CHITIN_ARMOR]: 2 } },
+  },
+
+  // ── Propulsion & renseignement ──
+  [ResearchType.HYPERSPORE_DRIVE]: {
+    type: ResearchType.HYPERSPORE_DRIVE,
+    name: 'Moteur hyperspore',
+    description: '+5% de vitesse de flotte par niveau.',
+    baseCost: { [ResourceType.SPORES]: 1_000, [ResourceType.SAP]: 1_200 },
+    costFactor: 1.9,
+    maxLevel: 10,
+    baseTimeSeconds: 2_000,
+    timeFactor: 1.8,
+    requires: { research: { [ResearchType.SPORAL_PROPULSION]: 3 } },
+  },
+  [ResearchType.WORMHOLE_MYCOLOGY]: {
+    type: ResearchType.WORMHOLE_MYCOLOGY,
+    name: 'Mycologie des vers',
+    description: '-10% de temps de trajet intergalactique par niveau.',
+    baseCost: { [ResourceType.SPORES]: 1_500, [ResourceType.MINERALS]: 2_000 },
+    costFactor: 2,
+    maxLevel: 5,
+    baseTimeSeconds: 3_600,
+    timeFactor: 1.8,
+    requires: { research: { [ResearchType.HYPERSPORE_DRIVE]: 3 } },
+  },
+  [ResearchType.SPORE_SENSE]: {
+    type: ResearchType.SPORE_SENSE,
+    name: 'Sens sporal',
+    description: '+5% de chance d’espionnage par niveau.',
+    baseCost: { [ResourceType.SPORES]: 600, [ResourceType.SAP]: 400 },
+    costFactor: 1.7,
+    maxLevel: 10,
+    baseTimeSeconds: 1_000,
+    timeFactor: 1.6,
+    requires: { research: { [ResearchType.BIOENGINEERING]: 2 } },
+  },
+  [ResearchType.DEEP_SCAN]: {
+    type: ResearchType.DEEP_SCAN,
+    name: 'Scan profond',
+    description: 'Améliore la qualité des rapports d’espionnage.',
+    baseCost: { [ResourceType.SPORES]: 800, [ResourceType.MINERALS]: 600 },
+    costFactor: 1.8,
+    maxLevel: 8,
+    baseTimeSeconds: 1_200,
+    timeFactor: 1.7,
+    requires: { research: { [ResearchType.SPORE_SENSE]: 3 } },
   },
 };

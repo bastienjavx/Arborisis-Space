@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { ACHIEVEMENTS, AchievementType, type AchievementView } from '@arborisis/shared';
+import {
+  ACHIEVEMENTS,
+  AchievementType,
+  RESEARCH_TYPES,
+  type AchievementView,
+} from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
@@ -33,9 +38,14 @@ export class AchievementsService {
     const alreadyUnlocked = new Set(existing.map((a) => a.type));
     const toGrant: AchievementType[] = [];
 
-    const totalBuildingLevels = planets.flatMap((p) => p.buildings).reduce((s, b) => s + b.level, 0);
+    const totalBuildingLevels = planets
+      .flatMap((p) => p.buildings)
+      .reduce((s, b) => s + b.level, 0);
     const totalShips = planets.flatMap((p) => p.ships).reduce((s, s2) => s + s2.quantity, 0);
-    const titanCount = planets.flatMap((p) => p.ships).filter((s) => s.type === 'SPOROGENESIS_TITAN').reduce((s, s2) => s + s2.quantity, 0);
+    const titanCount = planets
+      .flatMap((p) => p.ships)
+      .filter((s) => s.type === 'SPOROGENESIS_TITAN')
+      .reduce((s, s2) => s + s2.quantity, 0);
     const researchMap = new Map(research.map((r) => [r.type, r.level]));
     const colonyCount = planets.length;
 
@@ -44,29 +54,50 @@ export class AchievementsService {
     };
 
     check(AchievementType.FIRST_SPROUT, totalBuildingLevels >= 1);
-    check(AchievementType.RESEARCH_PIONEER, research.some((r) => r.level >= 1));
+    check(
+      AchievementType.RESEARCH_PIONEER,
+      research.some((r) => r.level >= 1),
+    );
     check(AchievementType.COSMIC_TRAVELER, reports.length >= 1);
     check(AchievementType.COLONIAL_FUNGUS, colonyCount >= 2);
     check(AchievementType.FLEET_COMMANDER, totalShips >= 10);
-    check(AchievementType.SPORE_MASTER, planets.some((p) => p.buildings.some((b) => b.type === 'SPORANGE' && b.level >= 5)));
-    check(AchievementType.ANCIENT_DISCOVERY, reports.some((r) => r.outcome === 'ANOMALY'));
+    check(
+      AchievementType.SPORE_MASTER,
+      planets.some((p) => p.buildings.some((b) => b.type === 'SPORANGE' && b.level >= 5)),
+    );
+    check(
+      AchievementType.ANCIENT_DISCOVERY,
+      reports.some((r) => r.outcome === 'ANOMALY'),
+    );
     check(AchievementType.GALACTIC_HIVE, colonyCount >= 6);
     check(AchievementType.MASTER_BUILDER, totalBuildingLevels >= 50);
-    check(AchievementType.SCHOLAR, new Set(research.filter((r) => r.level >= 1).map((r) => r.type)).size >= 6);
+    check(
+      AchievementType.SCHOLAR,
+      new Set(research.filter((r) => r.level >= 1).map((r) => r.type)).size >=
+        RESEARCH_TYPES.length,
+    );
     check(AchievementType.TITAN_BREEDER, titanCount >= 1);
     check(AchievementType.HUNDRED_SHIPS, totalShips >= 100);
     check(AchievementType.CONVERGENCE_HERALD, (user?.artifactCount ?? 0) >= 3);
-    check(AchievementType.RESOURCE_BARON, planets.some((p) => p.biomass >= 100_000));
-    check(AchievementType.PEACEFUL_EXPLORER, (() => {
-      const sorted = [...reports].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
-      let consecutive = 0;
-      let max = 0;
-      for (const r of sorted) {
-        if (r.outcome === 'INCIDENT') { max = Math.max(max, consecutive); consecutive = 0; }
-        else consecutive++;
-      }
-      return Math.max(max, consecutive) >= 50;
-    })());
+    check(
+      AchievementType.RESOURCE_BARON,
+      planets.some((p) => p.biomass >= 100_000),
+    );
+    check(
+      AchievementType.PEACEFUL_EXPLORER,
+      (() => {
+        const sorted = [...reports].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+        let consecutive = 0;
+        let max = 0;
+        for (const r of sorted) {
+          if (r.outcome === 'INCIDENT') {
+            max = Math.max(max, consecutive);
+            consecutive = 0;
+          } else consecutive++;
+        }
+        return Math.max(max, consecutive) >= 50;
+      })(),
+    );
     check(AchievementType.SPORAL_SAGE, (researchMap.get('SPORAL_PROPULSION') ?? 0) >= 10);
     check(AchievementType.THE_CONVERGENCE, colonyCount >= 11);
 

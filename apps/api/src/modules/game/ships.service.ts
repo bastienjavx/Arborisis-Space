@@ -3,6 +3,7 @@ import { JobStatus } from '@prisma/client';
 import {
   BuildingType,
   canAfford,
+  RaceType,
   SHIPS,
   SHIP_TYPES,
   shipCost,
@@ -30,7 +31,10 @@ export class ShipsService {
   async overview(userId: string, planetId: string): Promise<FleetOverview> {
     await this.planets.assertOwnership(userId, planetId);
     await this.finalization.finalizeDueShipProduction(planetId);
-    const settled = await this.engine.settlePlanet(planetId);
+    const [settled, user] = await Promise.all([
+      this.engine.settlePlanet(planetId),
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+    ]);
     const [inventory, job] = await Promise.all([
       this.prisma.planetShip.findMany({ where: { planetId } }),
       this.prisma.shipProductionJob.findFirst({
@@ -39,21 +43,27 @@ export class ShipsService {
       }),
     ]);
     const nursery = settled.buildings[BuildingType.ORBITAL_NURSERY] ?? 0;
+    const race = user.race as RaceType;
     const amounts = this.engine.buildResourceState(settled).amounts;
     return {
-      ships: SHIP_TYPES.map((type) => ({
-        type,
-        name: SHIPS[type].name,
-        description: SHIPS[type].description,
-        available: inventory.find((item) => item.type === type)?.quantity ?? 0,
-        cost: SHIPS[type].cost,
-        productionTimeSeconds: shipProductionTimeSeconds(type, 1, nursery),
-        cargo: SHIPS[type].cargo,
-        speed: SHIPS[type].speed,
-        requiredNurseryLevel: SHIPS[type].requiresNurseryLevel,
-        unlocked: nursery >= SHIPS[type].requiresNurseryLevel,
-        canAfford: canAfford(amounts, SHIPS[type].cost),
-      })),
+      ships: SHIP_TYPES.map((type) => {
+        const cfg = SHIPS[type];
+        const raceLocked = cfg.restrictedToRaces && !cfg.restrictedToRaces.includes(race);
+        return {
+          type,
+          name: cfg.name,
+          description: cfg.description,
+          role: cfg.role,
+          available: inventory.find((item) => item.type === type)?.quantity ?? 0,
+          cost: cfg.cost,
+          productionTimeSeconds: shipProductionTimeSeconds(type, 1, nursery),
+          cargo: cfg.cargo,
+          speed: cfg.speed,
+          requiredNurseryLevel: cfg.requiresNurseryLevel,
+          unlocked: !raceLocked && nursery >= cfg.requiresNurseryLevel,
+          canAfford: canAfford(amounts, cfg.cost),
+        };
+      }),
       productionJob: job ? this.jobView(job) : null,
     };
   }
@@ -70,8 +80,14 @@ export class ShipsService {
         if (pending) throw new ConflictException('Une production est déjà en cours.');
 
         const settled = await this.engine.settlePlanet(dto.planetId, new Date(), tx);
+        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+        const race = user.race as RaceType;
         const nursery = settled.buildings[BuildingType.ORBITAL_NURSERY] ?? 0;
-        if (nursery < SHIPS[dto.type].requiresNurseryLevel) {
+        const cfg = SHIPS[dto.type];
+        if (cfg.restrictedToRaces && !cfg.restrictedToRaces.includes(race)) {
+          throw new BadRequestException('Ce vaisseau est exclusif à une autre race.');
+        }
+        if (nursery < cfg.requiresNurseryLevel) {
           throw new BadRequestException('Niveau de Berceau Orbital insuffisant.');
         }
         const cost = shipCost(dto.type, dto.quantity);

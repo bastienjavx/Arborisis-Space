@@ -80,4 +80,31 @@ export class PlanetsService {
       constructionJob: activeJob ? constructionJobView(activeJob) : null,
     };
   }
+
+  async renamePlanet(userId: string, planetId: string, name: string): Promise<PlanetSummary> {
+    await this.assertOwnership(userId, planetId);
+    const existing = await this.prisma.planet.findFirst({
+      where: { ownerId: userId, name, id: { not: planetId } },
+    });
+    if (existing) throw new ForbiddenException('Vous possédez déjà une planète avec ce nom.');
+
+    const updated = await this.prisma.planet.update({
+      where: { id: planetId },
+      data: { name },
+      include: { buildings: true },
+    });
+
+    const research = await this.prisma.researchLevel.findMany({ where: { userId } });
+    const terraform = research.find((r) => r.type === ResearchType.TERRAFORMATION)?.level ?? 0;
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      coordinates: planetCoordinates(updated),
+      isHomeworld: updated.isHomeworld,
+      planetType: updated.planetType as PlanetType,
+      usedFields: updated.buildings.reduce((sum, b) => sum + b.level, 0),
+      maxFields: planetFields(terraform),
+    };
+  }
 }

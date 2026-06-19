@@ -2,6 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { BUILDINGS, type BuildingType } from '@arborisis/shared';
+import { useState } from 'react';
 import { AnimatedCard } from '@/components/AnimatedCard';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import GlowText from '@/components/GlowText';
@@ -9,11 +10,65 @@ import { ParticleBackground } from '@/components/ParticleBackground';
 import { StaggerContainer, StaggerItem } from '@/components/StaggerContainer';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ResourceBar } from '@/components/ResourceBar';
-import { keys, usePlanetDetail } from '@/lib/queries';
+import { keys, usePlanetDetail, useRenamePlanet } from '@/lib/queries';
 import { PlanetView } from '@/components/three';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
 import { motion } from 'framer-motion';
+
+function RenameButton({ planetId, currentName }: { planetId: string; currentName: string }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(currentName);
+  const rename = useRenamePlanet(planetId);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (name.trim() && name.trim() !== currentName) {
+      await rename.mutateAsync({ name: name.trim() });
+    }
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <form onSubmit={onSubmit} className="flex items-center gap-2">
+        <input
+          type="text"
+          className="input h-8 py-1 text-base"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={32}
+          minLength={3}
+          autoFocus
+        />
+        <button type="submit" className="text-xs text-canopy-300 hover:underline">
+          OK
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(false);
+            setName(currentName);
+          }}
+          className="text-xs text-canopy-100/50 hover:text-canopy-100"
+        >
+          Annuler
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="ml-2 text-xs text-canopy-100/40 transition hover:text-canopy-300"
+      title="Renommer la planète"
+    >
+      ✎
+    </button>
+  );
+}
 
 export default function PlayPage() {
   const qc = useQueryClient();
@@ -44,7 +99,12 @@ export default function PlayPage() {
       <ParticleBackground count={20} color="#16bf6c" />
 
       <PageHeader
-        title={planet.name}
+        title={
+          <span className="inline-flex items-center">
+            {planet.name}
+            <RenameButton planetId={planet.id} currentName={planet.name} />
+          </span>
+        }
         subtitle={`${planet.isHomeworld ? 'Noyau-Monde' : 'Colonie'} · ${planet.coordinates.galaxy}:${planet.coordinates.system}:${planet.coordinates.position}`}
       >
         <StatCard
@@ -66,9 +126,7 @@ export default function PlayPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <AnimatedCard delay={0.4} glow="green">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-canopy-100/60">
-              Construction en cours
-            </h2>
+            <h2 className="section-title mb-3">Construction en cours</h2>
             {planet.constructionJob ? (
               <div className="flex items-center justify-between">
                 <span>
@@ -94,9 +152,7 @@ export default function PlayPage() {
           </AnimatedCard>
 
           <AnimatedCard delay={0.5} glow="green">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-canopy-100/60">
-              Structures notables
-            </h2>
+            <h2 className="section-title mb-3">Structures notables</h2>
             {topBuildings.length > 0 ? (
               <StaggerContainer staggerDelay={0.08} className="space-y-1 text-sm">
                 {topBuildings.map((b) => (
@@ -121,9 +177,7 @@ export default function PlayPage() {
         </div>
 
         <AnimatedCard delay={0.6} glow="purple" className="min-h-[16rem] lg:min-h-full">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-canopy-100/60">
-            Vue orbitale
-          </h2>
+          <h2 className="section-title mb-2">Vue orbitale</h2>
           <PlanetView className="h-64 w-full lg:h-[calc(100%-2rem)]" />
         </AnimatedCard>
       </div>

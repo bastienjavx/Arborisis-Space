@@ -6,10 +6,12 @@ import {
   GALAXY_COUNT,
   PlanetType,
   POSITIONS_PER_SYSTEM,
+  RACES,
+  RaceType,
+  raceStartingResources,
   RESEARCH_TYPES,
   ResourceType,
   STABILITY_DEFAULT,
-  STARTING_RESOURCES,
   SYSTEMS_PER_GALAXY,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -22,7 +24,11 @@ export class WorldFactoryService {
    * Initialise un nouveau joueur : niveaux de recherche à 0 + Noyau-Monde
    * sur un emplacement libre tiré au sort. Idempotent par sécurité.
    */
-  async initNewPlayer(userId: string, transaction?: Prisma.TransactionClient): Promise<void> {
+  async initNewPlayer(
+    userId: string,
+    transaction?: Prisma.TransactionClient,
+    race: RaceType = RaceType.MYCELIANS,
+  ): Promise<void> {
     const initialize = async (tx: Prisma.TransactionClient): Promise<void> => {
       for (const type of RESEARCH_TYPES) {
         await tx.researchLevel.upsert({
@@ -35,6 +41,7 @@ export class WorldFactoryService {
       const existing = await tx.planet.findFirst({ where: { ownerId: userId, isHomeworld: true } });
       if (existing) return;
 
+      const startingResources = raceStartingResources(race);
       const coords = await this.pickFreeCoordinates(tx);
       const planet = await tx.planet.create({
         data: {
@@ -46,16 +53,25 @@ export class WorldFactoryService {
           system: coords.system,
           position: coords.position,
           stability: STABILITY_DEFAULT,
-          biomass: STARTING_RESOURCES[ResourceType.BIOMASS] ?? 0,
-          sap: STARTING_RESOURCES[ResourceType.SAP] ?? 0,
-          minerals: STARTING_RESOURCES[ResourceType.MINERALS] ?? 0,
-          spores: STARTING_RESOURCES[ResourceType.SPORES] ?? 0,
+          biomass: startingResources[ResourceType.BIOMASS] ?? 0,
+          sap: startingResources[ResourceType.SAP] ?? 0,
+          minerals: startingResources[ResourceType.MINERALS] ?? 0,
+          spores: startingResources[ResourceType.SPORES] ?? 0,
           lastResourceUpdate: new Date(),
         },
       });
       await tx.planetBuilding.createMany({
         data: BUILDING_TYPES.map((type) => ({ planetId: planet.id, type, level: 0 })),
       });
+
+      const startingShip = RACES[race].startingShip;
+      if (startingShip) {
+        await tx.planetShip.upsert({
+          where: { planetId_type: { planetId: planet.id, type: startingShip } },
+          update: { quantity: { increment: 1 } },
+          create: { planetId: planet.id, type: startingShip, quantity: 1 },
+        });
+      }
     };
     if (transaction) await initialize(transaction);
     else await this.prisma.serializable(initialize);
@@ -96,10 +112,10 @@ export class WorldFactoryService {
 
   private randomPlanetType(): PlanetType {
     const rand = Math.random();
-    if (rand < 0.30) return PlanetType.VERDANT;
+    if (rand < 0.3) return PlanetType.VERDANT;
     if (rand < 0.55) return PlanetType.MINERAL;
-    if (rand < 0.80) return PlanetType.SAP_RICH;
-    if (rand < 0.90) return PlanetType.SPORE_NEBULA;
+    if (rand < 0.8) return PlanetType.SAP_RICH;
+    if (rand < 0.9) return PlanetType.SPORE_NEBULA;
     return PlanetType.BARREN;
   }
 

@@ -35,9 +35,15 @@ export class AuthService {
       try {
         user = await this.prisma.serializable(async (tx) => {
           const created = await tx.user.create({
-            data: { email: dto.email, username: dto.username, passwordHash },
+            data: {
+              email: dto.email,
+              username: dto.username,
+              passwordHash,
+              race: dto.race,
+              bannerColor: undefined,
+            },
           });
-          await this.worldFactory.initNewPlayer(created.id, tx);
+          await this.worldFactory.initNewPlayer(created.id, tx, dto.race);
           return created;
         });
         break;
@@ -187,6 +193,7 @@ export class AuthService {
       sub: user.id,
       username: user.username,
       role: user.role,
+      race: user.race,
       sid: sessionId,
     };
     return this.jwt.signAsync(payload, {
@@ -222,12 +229,20 @@ export class AuthService {
     email: string;
     username: string;
     role: string;
+    race: string;
+    displayName: string | null;
+    bannerColor: string | null;
+    avatarSeed: string | null;
   }): AuthUser {
     return {
       id: user.id,
       email: user.email,
       username: user.username,
       role: user.role as AuthUser['role'],
+      race: user.race as AuthUser['race'],
+      displayName: user.displayName,
+      bannerColor: user.bannerColor,
+      avatarSeed: user.avatarSeed,
     };
   }
 }

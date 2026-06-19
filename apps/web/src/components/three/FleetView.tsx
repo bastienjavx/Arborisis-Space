@@ -13,6 +13,16 @@ const SHIP_COLORS: Record<ShipType, string> = {
   [ShipType.CHITIN_FREIGHTER]: '#f59e0b',
   [ShipType.BIOLUMINESCENT_CRUISER]: '#a78bfa',
   [ShipType.SPOROGENESIS_TITAN]: '#f97316',
+  [ShipType.SPORAL_DRONE]: '#4ade80',
+  [ShipType.ACID_BOMBER]: '#84cc16',
+  [ShipType.CHITIN_DESTROYER]: '#d946ef',
+  [ShipType.BIOMASS_DREADNOUGHT]: '#7c2d12',
+  [ShipType.SEED_POD]: '#fbbf24',
+  [ShipType.SHADOW_SPORE]: '#475569',
+  [ShipType.ORBITAL_THORN]: '#0ea5e9',
+  [ShipType.SPORAL_SWARM]: '#2dd4bf',
+  [ShipType.LUMINOUS_WARDEN]: '#fde047',
+  [ShipType.CHITIN_BULWARK]: '#991b1b',
 };
 
 interface BioShipProps {

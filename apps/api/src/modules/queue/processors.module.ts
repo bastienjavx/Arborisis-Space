@@ -1,12 +1,18 @@
 import { Logger, Module, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { GameModule } from '../game/game.module';
 import { FinalizationService } from '../game/finalization.service';
+import { PveModule } from '../pve/pve.module';
+import { PveService } from '../pve/pve.service';
+import { PvpModule } from '../pvp/pvp.module';
+import { PvpService } from '../pvp/pvp.service';
 import { QueueModule } from './queue.module';
 import { ColonizationProcessor } from './processors/colonization.processor';
 import { ConstructionProcessor } from './processors/construction.processor';
 import { ResearchProcessor } from './processors/research.processor';
 import { ShipProductionProcessor } from './processors/ship-production.processor';
 import { ExpeditionProcessor } from './processors/expedition.processor';
+import { PveProcessor } from './processors/pve.processor';
+import { PvpProcessor } from './processors/pvp.processor';
 import { EventProcessor } from './processors/event.processor';
 import { GameQueueService } from './game-queue.service';
 import { ExpeditionsService } from '../game/expeditions.service';
@@ -17,13 +23,15 @@ import { ExpeditionsService } from '../game/expeditions.service';
  * finaliser tout job échu pendant une éventuelle indisponibilité.
  */
 @Module({
-  imports: [QueueModule, GameModule],
+  imports: [QueueModule, GameModule, PveModule, PvpModule],
   providers: [
     ConstructionProcessor,
     ResearchProcessor,
     ColonizationProcessor,
     ShipProductionProcessor,
     ExpeditionProcessor,
+    PveProcessor,
+    PvpProcessor,
     EventProcessor,
   ],
 })
@@ -36,11 +44,15 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     private readonly finalization: FinalizationService,
     private readonly queues: GameQueueService,
     private readonly expeditions: ExpeditionsService,
+    private readonly pve: PveService,
+    private readonly pvp: PvpService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
     await this.finalization.sweepAllDue();
     await this.expeditions.sweepAllDue();
+    await this.pve.sweepAllDue();
+    await this.pvp.sweepAllDue();
     await this.queues.reconcilePending();
     await this.queues.scheduleNextEvent().catch(() => void 0);
     this.timer = setInterval(() => {
@@ -61,6 +73,8 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     try {
       await this.finalization.sweepAllDue();
       await this.expeditions.sweepAllDue();
+      await this.pve.sweepAllDue();
+      await this.pvp.sweepAllDue();
       await this.queues.reconcilePending();
     } finally {
       this.reconciling = false;

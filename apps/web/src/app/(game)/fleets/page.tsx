@@ -5,7 +5,9 @@ import {
   GALAXY_COUNT,
   SHIPS,
   ShipType,
+  SHIP_TYPES,
   SYSTEMS_PER_GALAXY,
+  type ExpeditionShipType,
   type ShipCounts,
 } from '@arborisis/shared';
 import { FleetView } from '@/components/three';
@@ -33,22 +35,24 @@ export default function FleetsPage() {
   const { data: missions } = useExpeditions();
   const produce = useProduceShips(selectedId ?? '');
   const launch = useStartExpedition(selectedId ?? '');
-  const [quantities, setQuantities] = useState<Record<ShipType, number>>({
-    [ShipType.SPORAL_SCOUT]: 1,
-    [ShipType.SYMBIOTIC_HARVESTER]: 1,
-    [ShipType.MYCELIAL_TENDRIL]: 1,
-    [ShipType.CHITIN_FREIGHTER]: 1,
-    [ShipType.BIOLUMINESCENT_CRUISER]: 1,
-    [ShipType.SPOROGENESIS_TITAN]: 1,
-  });
-  const [ships, setShips] = useState<ShipCounts>({
-    [ShipType.SPORAL_SCOUT]: 0,
-    [ShipType.SYMBIOTIC_HARVESTER]: 0,
-    [ShipType.MYCELIAL_TENDRIL]: 0,
-    [ShipType.CHITIN_FREIGHTER]: 0,
-    [ShipType.BIOLUMINESCENT_CRUISER]: 0,
-    [ShipType.SPOROGENESIS_TITAN]: 0,
-  });
+  const [quantities, setQuantities] = useState<Record<ShipType, number>>(
+    Object.fromEntries(SHIP_TYPES.map((type) => [type, 1])) as Record<ShipType, number>,
+  );
+  const EXPEDITION_SHIP_TYPES: ExpeditionShipType[] = [
+    ShipType.SPORAL_SCOUT,
+    ShipType.SYMBIOTIC_HARVESTER,
+    ShipType.MYCELIAL_TENDRIL,
+    ShipType.CHITIN_FREIGHTER,
+    ShipType.BIOLUMINESCENT_CRUISER,
+    ShipType.SPOROGENESIS_TITAN,
+  ];
+
+  const [ships, setShips] = useState<Record<ExpeditionShipType, number>>(
+    Object.fromEntries(EXPEDITION_SHIP_TYPES.map((type) => [type, 0])) as Record<
+      ExpeditionShipType,
+      number
+    >,
+  );
   const [galaxy, setGalaxy] = useState(1);
   const [system, setSystem] = useState(1);
   const [error, setError] = useState<string>();
@@ -60,14 +64,9 @@ export default function FleetsPage() {
   if (isLoading || !fleet || !planet)
     return <p className="text-canopy-100/50">Croissance du hangar…</p>;
 
-  const dockedShips: ShipCounts = {
-    [ShipType.SPORAL_SCOUT]: fleet.ships.find((s) => s.type === ShipType.SPORAL_SCOUT)?.available ?? 0,
-    [ShipType.SYMBIOTIC_HARVESTER]: fleet.ships.find((s) => s.type === ShipType.SYMBIOTIC_HARVESTER)?.available ?? 0,
-    [ShipType.MYCELIAL_TENDRIL]: fleet.ships.find((s) => s.type === ShipType.MYCELIAL_TENDRIL)?.available ?? 0,
-    [ShipType.CHITIN_FREIGHTER]: fleet.ships.find((s) => s.type === ShipType.CHITIN_FREIGHTER)?.available ?? 0,
-    [ShipType.BIOLUMINESCENT_CRUISER]: fleet.ships.find((s) => s.type === ShipType.BIOLUMINESCENT_CRUISER)?.available ?? 0,
-    [ShipType.SPOROGENESIS_TITAN]: fleet.ships.find((s) => s.type === ShipType.SPOROGENESIS_TITAN)?.available ?? 0,
-  };
+  const dockedShips: ShipCounts = Object.fromEntries(
+    SHIP_TYPES.map((type) => [type, fleet.ships.find((s) => s.type === type)?.available ?? 0]),
+  ) as ShipCounts;
 
   function message(reason: unknown) {
     setError(reason instanceof ApiError ? reason.message : 'Une erreur est survenue.');
@@ -91,9 +90,7 @@ export default function FleetsPage() {
       <AnimatedCard delay={0.15} glow="purple" className="overflow-hidden p-0">
         <div className="grid lg:grid-cols-3">
           <div className="p-5 lg:col-span-1">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-canopy-100/60">
-              Essaim orbital
-            </h2>
+            <h2 className="section-title mb-2">Essaim orbital</h2>
             <p className="text-sm text-canopy-100/50">
               {fleet.ships.reduce((sum, s) => sum + s.available, 0)} bio-vaisseaux en orbite.
             </p>
@@ -149,9 +146,7 @@ export default function FleetsPage() {
       </AnimatePresence>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-canopy-100/60">
-          Berceau orbital
-        </h2>
+        <h2 className="section-title mb-3">Berceau orbital</h2>
         <div className="grid gap-4 md:grid-cols-2">
           {fleet.ships.map((ship, index) => (
             <AnimatedCard key={ship.type} delay={index * 0.1} hover>
@@ -159,6 +154,9 @@ export default function FleetsPage() {
                 <div>
                   <h3 className="font-medium text-canopy-100">{ship.name}</h3>
                   <p className="mt-1 text-xs text-canopy-100/50">{ship.description}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-canopy-100/40">
+                    {ship.role}
+                  </p>
                 </div>
                 <span className="whitespace-nowrap text-canopy-300">{ship.available} dispo.</span>
               </div>
@@ -272,32 +270,36 @@ export default function FleetsPage() {
                   whileFocus={{ scale: 1.02 }}
                 />
               </motion.label>
-              {fleet.ships.map((ship, index) => (
-                <motion.label
-                  key={ship.type}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 + index * 0.05 }}
-                >
-                  <span className="label">
-                    {ship.name} (max. {ship.available})
-                  </span>
-                  <motion.input
-                    className="input"
-                    type="number"
-                    min={ship.type === ShipType.SPORAL_SCOUT ? 1 : 0}
-                    max={ship.available}
-                    value={ships[ship.type]}
-                    onChange={(e) =>
-                      setShips((value) => ({
-                        ...value,
-                        [ship.type]: Math.min(ship.available, Math.max(0, Number(e.target.value))),
-                      }))
-                    }
-                    whileFocus={{ scale: 1.02 }}
-                  />
-                </motion.label>
-              ))}
+              {EXPEDITION_SHIP_TYPES.map((type, index) => {
+                const ship = fleet.ships.find((s) => s.type === type);
+                if (!ship) return null;
+                return (
+                  <motion.label
+                    key={type}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + index * 0.05 }}
+                  >
+                    <span className="label">
+                      {ship.name} (max. {ship.available})
+                    </span>
+                    <motion.input
+                      className="input"
+                      type="number"
+                      min={type === ShipType.SPORAL_SCOUT ? 1 : 0}
+                      max={ship.available}
+                      value={ships[type]}
+                      onChange={(e) =>
+                        setShips((value) => ({
+                          ...value,
+                          [type]: Math.min(ship.available, Math.max(0, Number(e.target.value))),
+                        }))
+                      }
+                      whileFocus={{ scale: 1.02 }}
+                    />
+                  </motion.label>
+                );
+              })}
             </div>
             <AnimatedButton
               disabled={launch.isPending || ships[ShipType.SPORAL_SCOUT] < 1}

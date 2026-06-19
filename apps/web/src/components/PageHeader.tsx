@@ -2,9 +2,10 @@
 
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
+import { FiActivity } from 'react-icons/fi';
 
 interface PageHeaderProps {
-  title: string;
+  title: ReactNode;
   subtitle?: string;
   children?: ReactNode;
   delay?: number;
@@ -16,20 +17,22 @@ export function PageHeader({ title, subtitle, children, delay = 0 }: PageHeaderP
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay }}
-      className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+      className="relative overflow-hidden rounded-2xl border border-canopy-700/15 bg-bark-900/45 px-5 py-5 backdrop-blur-xl sm:flex sm:items-end sm:justify-between sm:px-6 sm:py-6"
     >
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-canopy-100">
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-canopy-400/60 to-transparent" />
+      <div className="relative">
+        <div className="mb-3 flex items-center gap-2">
+          <FiActivity className="h-3.5 w-3.5 text-canopy-400" aria-hidden="true" />
+          <span className="section-kicker">Interface impériale</span>
+        </div>
+        <h1 className="text-2xl font-semibold tracking-[-0.035em] text-canopy-50 sm:text-3xl">
           {title}
-          <motion.span
-            className="ml-2 inline-block h-2 w-2 rounded-full bg-canopy-500"
-            animate={{ scale: [1, 1.3, 1], opacity: [0.7, 1, 0.7] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          />
         </h1>
-        {subtitle && <p className="text-sm text-canopy-100/50">{subtitle}</p>}
+        {subtitle && (
+          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-canopy-100/48">{subtitle}</p>
+        )}
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="relative mt-4 flex items-center gap-2 sm:mt-0">{children}</div>}
     </motion.div>
   );
 }
