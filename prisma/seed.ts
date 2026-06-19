@@ -145,7 +145,7 @@ async function main() {
   });
 
   // Passer bastienjavaux@gmail.com en ADMIN s'il existe dans la DB.
-  const adminEmail = 'bastienjavaux@gmail.com';
+  const adminEmail = 'bastienjavaux@icloud.com';
   const adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
   if (adminUser) {
     await prisma.user.update({ where: { email: adminEmail }, data: { role: 'ADMIN' } });
