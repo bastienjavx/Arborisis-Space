@@ -16,6 +16,7 @@ import {
   type FinalizeJobData,
 } from './queue.constants';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { getActiveUniverseId } from '../../common/prisma/universe-scope.storage';
 
 /**
  * Planifie la finalisation différée des jobs métier (construction, recherche,
@@ -164,7 +165,8 @@ export class GameQueueService {
     queueJobId = jobId,
   ): Promise<void> {
     try {
-      await queue.add(FINALIZE_JOB, { jobId }, this.opts(queueJobId, finishesAt));
+      const universeId = getActiveUniverseId() ?? 'default';
+      await queue.add(FINALIZE_JOB, { jobId, universeId }, this.opts(queueJobId, finishesAt));
     } catch (error) {
       this.logger.error(
         { err: error, queue: queue.name, jobId },

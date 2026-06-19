@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
+import { runWithJobUniverse } from '../../../common/prisma/universe-scope.storage';
 import { FinalizationService } from '../../game/finalization.service';
 import { CONSTRUCTION_QUEUE, type FinalizeJobData } from '../queue.constants';
 
@@ -13,7 +14,9 @@ export class ConstructionProcessor extends WorkerHost {
   }
 
   async process(job: Job<FinalizeJobData>): Promise<void> {
-    await this.finalization.finalizeConstruction(job.data.jobId);
+    await runWithJobUniverse(job.data, () =>
+      this.finalization.finalizeConstruction(job.data.jobId),
+    );
     this.logger.debug(`Construction finalisée : ${job.data.jobId}`);
   }
 }

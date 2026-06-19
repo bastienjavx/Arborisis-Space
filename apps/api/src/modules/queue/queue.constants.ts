@@ -13,4 +13,5 @@ export const TRIGGER_EVENT_JOB = 'TRIGGER_EVENT';
 /** Données portées par un job de file : l'identifiant du job métier à finaliser. */
 export interface FinalizeJobData {
   jobId: string;
+  universeId: string;
 }

@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
+import { runWithJobUniverse } from '../../../common/prisma/universe-scope.storage';
 import { FinalizationService } from '../../game/finalization.service';
 import { FINALIZE_JOB, SHIP_PRODUCTION_QUEUE, type FinalizeJobData } from '../queue.constants';
 
@@ -13,7 +14,9 @@ export class ShipProductionProcessor extends WorkerHost {
 
   async process(job: Job<FinalizeJobData>): Promise<void> {
     if (job.name !== FINALIZE_JOB) return;
-    await this.finalization.finalizeShipProduction(job.data.jobId);
+    await runWithJobUniverse(job.data, () =>
+      this.finalization.finalizeShipProduction(job.data.jobId),
+    );
     this.logger.debug(`Production de vaisseaux finalisée : ${job.data.jobId}`);
   }
 }
