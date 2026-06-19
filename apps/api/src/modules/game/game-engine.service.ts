@@ -7,6 +7,7 @@ import {
   computeStabilityDecay,
   FIELDS_PER_TERRAFORMATION,
   GalacticEventType,
+  PlanetSpecialization,
   PlanetType,
   RaceType,
   ResearchType,
@@ -88,6 +89,7 @@ export class GameEngineService {
       stability: planet.stability,
       planetType: planet.planetType as PlanetType,
       race: planet.owner.race as RaceType,
+      specialization: (planet.specialization as PlanetSpecialization) ?? null,
     });
 
     // Apply SPORE_BLOOM event: +50% production

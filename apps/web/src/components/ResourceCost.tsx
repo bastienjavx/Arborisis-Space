@@ -1,22 +1,30 @@
-'use client';
+import { RESOURCE_TYPES, ResourceType, type ResourceBundle } from '@arborisis/shared';
+import { FiCircle, FiDroplet, FiHexagon } from 'react-icons/fi';
+import { formatNumber, resourceLabel } from '@/lib/format';
 
-import type { ResourceBundle } from '@arborisis/shared';
+const RESOURCE_ICONS = {
+  [ResourceType.BIOMASS]: FiDroplet,
+  [ResourceType.SAP]: FiCircle,
+  [ResourceType.MINERALS]: FiHexagon,
+  [ResourceType.SPORES]: FiCircle,
+};
 
-interface ResourceCostProps {
-  cost: ResourceBundle;
-  className?: string;
-}
-
-export function ResourceCost({ cost, className = '' }: ResourceCostProps) {
+export function ResourceCost({ cost }: { cost: ResourceBundle }) {
   return (
-    <div className={`flex flex-wrap gap-2 text-xs text-canopy-100/70 ${className}`}>
-      {Object.entries(cost).map(([resource, amount]) =>
-        amount > 0 ? (
-          <span key={resource} className="rounded-md bg-bark-950/50 px-2 py-1">
-            {resource}: {amount}
+    <div className="flex flex-wrap gap-x-3 gap-y-1">
+      {RESOURCE_TYPES.filter((resource) => (cost[resource] ?? 0) > 0).map((resource) => {
+        const Icon = RESOURCE_ICONS[resource];
+        return (
+          <span
+            key={resource}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-canopy-100/58"
+            title={resourceLabel(resource)}
+          >
+            <Icon className="h-3.5 w-3.5 text-canopy-300/55" aria-hidden="true" />
+            {formatNumber(cost[resource] ?? 0)}
           </span>
-        ) : null,
-      )}
+        );
+      })}
     </div>
   );
 }

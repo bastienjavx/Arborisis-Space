@@ -22,7 +22,17 @@ import {
   usePromoteMember,
 } from '@/lib/queries';
 import { motion } from 'framer-motion';
-import { FiSearch, FiUsers, FiShield, FiMessageSquare } from 'react-icons/fi';
+import {
+  FiCheck,
+  FiLogOut,
+  FiMoreHorizontal,
+  FiSearch,
+  FiShield,
+  FiTrash2,
+  FiUser,
+  FiUsers,
+  FiX,
+} from 'react-icons/fi';
 
 const ROLE_LABELS: Record<AllianceRole, string> = {
   [AllianceRole.LEADER]: 'Chef',
@@ -202,24 +212,29 @@ function MemberRow({
     <motion.li
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
-      className="flex items-center justify-between gap-3 border-b border-canopy-700/10 py-3 last:border-0"
+      className="grid gap-3 border-b border-canopy-700/10 px-3 py-3 last:border-0 sm:grid-cols-[minmax(12rem,1fr)_7rem_minmax(10rem,auto)] sm:items-center"
     >
       <div className="flex items-center gap-3">
-        <div
-          className="h-9 w-9 rounded-full"
-          style={{ backgroundColor: RACES[member.race].defaultColor }}
-        />
-        <div>
-          <p className="font-medium text-canopy-100">
+        <span
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border bg-bark-950/60"
+          style={{ borderColor: `${RACES[member.race].defaultColor}66` }}
+        >
+          <FiUser
+            className="h-4 w-4"
+            style={{ color: RACES[member.race].defaultColor }}
+            aria-hidden="true"
+          />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm text-canopy-100/82">
             {member.displayName || member.username}
             {isMe && <span className="ml-2 text-xs text-canopy-100/40">(vous)</span>}
           </p>
-          <p className="text-xs text-canopy-100/50">
-            {RACES[member.race].name} • {ROLE_LABELS[member.role]}
-          </p>
+          <p className="mt-0.5 text-[10px] text-canopy-100/35">{RACES[member.race].name}</p>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs text-canopy-100/55">{ROLE_LABELS[member.role]}</span>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {canPromote && (
           <AnimatedButton
             variant="ghost"
@@ -268,110 +283,165 @@ function AllianceDetail({ alliance }: { alliance: AllianceDetailView }) {
   const { data: applications } = useAllianceApplications(isOfficer);
 
   return (
-    <div className="space-y-6">
-      <AnimatedCard glowColor={`${alliance.bannerColor}40`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div
-              className="flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold text-bark-950"
-              style={{ backgroundColor: alliance.bannerColor }}
-            >
-              {alliance.tag}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-canopy-100">{alliance.name}</h2>
-              <p className="text-sm text-canopy-100/60">
-                <FiUsers className="mr-1 inline" />
-                {alliance.memberCount} membres • score {alliance.totalScore.toLocaleString('fr-FR')}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {isLeader && (
-              <AnimatedButton
-                variant="danger"
-                onClick={() => disband.mutate(alliance.id)}
-                disabled={disband.isPending}
+    <div className="grid gap-5 xl:grid-cols-[minmax(32rem,1.25fr)_minmax(20rem,0.7fr)]">
+      <div className="mycelium-panel overflow-hidden">
+        <div className="border-b border-canopy-700/15 p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <span
+                className="grid h-16 w-16 shrink-0 place-items-center rounded-full border bg-bark-950/60 font-display text-lg"
+                style={{ borderColor: `${alliance.bannerColor}66`, color: alliance.bannerColor }}
               >
-                Dissoudre
-              </AnimatedButton>
-            )}
-            <AnimatedButton
-              variant="ghost"
-              onClick={() => leave.mutate()}
-              disabled={leave.isPending}
-            >
-              Quitter
-            </AnimatedButton>
+                {alliance.tag}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate font-display text-3xl text-canopy-50/90">
+                    {alliance.name}
+                  </h2>
+                  <span className="rounded border border-canopy-700/20 px-2 py-0.5 text-[10px] text-canopy-100/42">
+                    [{alliance.tag}]
+                  </span>
+                </div>
+                {alliance.description && (
+                  <p className="mt-2 text-sm text-canopy-100/55">{alliance.description}</p>
+                )}
+                <div className="mt-4 flex flex-wrap gap-5 text-xs text-canopy-100/48">
+                  <span className="inline-flex items-center gap-2">
+                    <FiUsers className="h-4 w-4 text-canopy-300/60" aria-hidden="true" />
+                    {alliance.memberCount} membres
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <FiShield className="h-4 w-4 text-canopy-300/60" aria-hidden="true" />
+                    Vous êtes {myMembership ? ROLE_LABELS[myMembership.role] : 'visiteur'}
+                  </span>
+                  <span>Score {alliance.totalScore.toLocaleString('fr-FR')}</span>
+                </div>
+              </div>
+            </div>
+            <FiMoreHorizontal className="h-5 w-5 text-canopy-100/35" aria-hidden="true" />
           </div>
         </div>
-        {alliance.description && (
-          <p className="mt-4 text-sm text-canopy-100/70">{alliance.description}</p>
-        )}
-      </AnimatedCard>
 
-      <AnimatedCard>
-        <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-canopy-100">
-          <FiShield />
-          Membres
-        </h3>
-        <ul>
-          {alliance.members.map((member) => (
-            <MemberRow
-              key={member.userId}
-              member={member}
-              isLeader={isLeader}
-              isOfficer={isOfficer}
-              isMe={member.userId === userId}
-              allianceId={alliance.id}
-            />
-          ))}
-        </ul>
-      </AnimatedCard>
-
-      {isOfficer && applications && applications.length > 0 && (
-        <AnimatedCard>
-          <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-canopy-100">
-            <FiMessageSquare />
-            Candidatures
-          </h3>
-          <ul className="space-y-3">
-            {applications.map((app) => (
-              <motion.li
-                key={app.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border border-canopy-700/10 bg-bark-900/40 p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-canopy-100">{app.username}</p>
-                  <div className="flex gap-2">
-                    <AnimatedButton
-                      variant="ghost"
-                      className="px-2.5 py-1.5 text-xs"
-                      onClick={() => decide.mutate({ id: app.id, body: { decision: 'ACCEPT' } })}
-                      disabled={decide.isPending}
-                    >
-                      Accepter
-                    </AnimatedButton>
-                    <AnimatedButton
-                      variant="danger"
-                      className="px-2.5 py-1.5 text-xs"
-                      onClick={() => decide.mutate({ id: app.id, body: { decision: 'REJECT' } })}
-                      disabled={decide.isPending}
-                    >
-                      Refuser
-                    </AnimatedButton>
-                  </div>
-                </div>
-                {app.message && (
-                  <p className="mt-2 text-sm italic text-canopy-100/60">“{app.message}”</p>
-                )}
-              </motion.li>
+        <div className="px-3 py-4 sm:px-5">
+          <div className="flex items-center justify-between px-3 pb-3">
+            <h3 className="section-title">Membres ({alliance.memberCount})</h3>
+            <span className="text-[10px] uppercase tracking-[0.13em] text-canopy-100/28">
+              Rôle · actions
+            </span>
+          </div>
+          <ul className="overflow-hidden rounded-xl border border-canopy-700/15">
+            {alliance.members.map((member) => (
+              <MemberRow
+                key={member.userId}
+                member={member}
+                isLeader={isLeader}
+                isOfficer={isOfficer}
+                isMe={member.userId === userId}
+                allianceId={alliance.id}
+              />
             ))}
           </ul>
-        </AnimatedCard>
-      )}
+        </div>
+      </div>
+
+      <aside className="space-y-5">
+        {isOfficer && (
+          <section className="mycelium-panel overflow-hidden">
+            <div className="flex items-center justify-between border-b border-canopy-700/15 px-5 py-4">
+              <h3 className="section-title">Demandes en attente</h3>
+              <span className="text-xs text-canopy-300/60">{applications?.length ?? 0}</span>
+            </div>
+            {applications && applications.length > 0 ? (
+              <ul className="divide-y divide-canopy-700/10 px-5">
+                {applications.map((application) => (
+                  <motion.li
+                    key={application.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 py-4"
+                  >
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-spore-500/20 text-spore-400/65">
+                      <FiUser className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-canopy-100/75">{application.username}</p>
+                      <p className="mt-1 line-clamp-1 text-[10px] text-canopy-100/32">
+                        {application.message || 'Sans message'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        decide.mutate({ id: application.id, body: { decision: 'ACCEPT' } })
+                      }
+                      disabled={decide.isPending}
+                      className="grid h-9 w-9 place-items-center rounded-lg border border-canopy-500/25 text-canopy-300 transition hover:bg-canopy-500/10 disabled:opacity-40"
+                      aria-label={`Accepter ${application.username}`}
+                    >
+                      <FiCheck className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        decide.mutate({ id: application.id, body: { decision: 'REJECT' } })
+                      }
+                      disabled={decide.isPending}
+                      className="grid h-9 w-9 place-items-center rounded-lg border border-red-500/20 text-red-300/75 transition hover:bg-red-500/10 disabled:opacity-40"
+                      aria-label={`Refuser ${application.username}`}
+                    >
+                      <FiX className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </motion.li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-5 py-6 text-sm text-canopy-100/38">Aucune demande en attente.</p>
+            )}
+          </section>
+        )}
+
+        <section className="mycelium-panel overflow-hidden">
+          <div className="border-b border-canopy-700/15 px-5 py-4">
+            <h3 className="section-title">Actions de guilde</h3>
+            <p className="mt-1 text-xs text-canopy-100/35">
+              Ces actions affectent votre participation.
+            </p>
+          </div>
+          <div className="space-y-3 p-4">
+            <button
+              type="button"
+              onClick={() => leave.mutate()}
+              disabled={leave.isPending}
+              className="flex w-full items-center gap-3 rounded-xl border border-canopy-700/15 px-4 py-4 text-left transition hover:bg-canopy-500/[0.035] disabled:opacity-40"
+            >
+              <FiLogOut className="h-4 w-4 text-canopy-100/45" aria-hidden="true" />
+              <span>
+                <span className="block text-sm text-canopy-100/72">Quitter la guilde</span>
+                <span className="mt-1 block text-xs text-canopy-100/32">
+                  Vous quitterez {alliance.name}.
+                </span>
+              </span>
+            </button>
+            {isLeader && (
+              <button
+                type="button"
+                onClick={() => disband.mutate(alliance.id)}
+                disabled={disband.isPending}
+                className="flex w-full items-center gap-3 rounded-xl border border-red-500/15 px-4 py-4 text-left transition hover:bg-red-500/[0.045] disabled:opacity-40"
+              >
+                <FiTrash2 className="h-4 w-4 text-red-300/65" aria-hidden="true" />
+                <span>
+                  <span className="block text-sm text-red-300/80">Dissoudre la guilde</span>
+                  <span className="mt-1 block text-xs text-canopy-100/32">
+                    Cette action est définitive.
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
+        </section>
+      </aside>
     </div>
   );
 }
@@ -381,7 +451,6 @@ function AllianceBrowser() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const { data: alliances, isLoading } = useAlliances(debouncedSearch);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -394,23 +463,16 @@ function AllianceBrowser() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1">
-          <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-canopy-100/40" />
-          <input
-            type="text"
-            className="input w-full pl-9"
-            placeholder="Rechercher une alliance..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <AnimatedButton onClick={() => setShowCreate((s) => !s)}>
-          {showCreate ? 'Annuler' : 'Fonder une alliance'}
-        </AnimatedButton>
+      <div className="relative max-w-2xl">
+        <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-canopy-100/40" />
+        <input
+          type="text"
+          className="input w-full pl-9"
+          placeholder="Rechercher une alliance..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
-
-      {showCreate && <CreateAllianceForm onCreated={() => setShowCreate(false)} />}
 
       {isLoading || !alliances ? (
         <p className="text-canopy-100/50">Recherche en cours…</p>
@@ -487,16 +549,58 @@ function AllianceDetailBrowser({ allianceId, onBack }: { allianceId: string; onB
 export default function AlliancePage() {
   const { data: user } = useMe();
   const { data: myAlliance, isLoading } = useMyAlliance();
+  const [tab, setTab] = useState<'mine' | 'discover' | 'create'>('mine');
 
   if (isLoading || !user) return <p className="text-canopy-100/50">Germination…</p>;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Alliance"
-        subtitle="Unissez vos forces avec d’autres civilisations organiques."
-      />
-      {myAlliance ? <AllianceDetail alliance={myAlliance} /> : <AllianceBrowser />}
+    <div className="space-y-5">
+      <PageHeader title="Alliance" subtitle="Unissez vos forces et partagez votre prospérité." />
+      <div className="flex gap-8 border-b border-canopy-700/15 px-1" role="tablist">
+        {(
+          [
+            ['mine', 'Ma guilde'],
+            ['discover', 'Découvrir'],
+            ['create', 'Créer'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={tab === value}
+            onClick={() => setTab(value)}
+            className={`relative pb-3 text-sm transition ${
+              tab === value ? 'text-canopy-100' : 'text-canopy-100/42 hover:text-canopy-100/70'
+            }`}
+          >
+            {label}
+            {tab === value && (
+              <motion.span
+                layoutId="alliance-tab"
+                className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-canopy-300"
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'mine' &&
+        (myAlliance ? (
+          <AllianceDetail alliance={myAlliance} />
+        ) : (
+          <div className="mycelium-panel grid min-h-64 place-items-center px-5 py-10 text-center">
+            <div>
+              <FiUsers className="mx-auto h-10 w-10 text-canopy-300/35" aria-hidden="true" />
+              <h2 className="mt-4 font-display text-xl text-canopy-100/72">Aucune guilde</h2>
+              <p className="mt-2 text-sm text-canopy-100/38">
+                Découvrez une alliance existante ou fondez la vôtre.
+              </p>
+            </div>
+          </div>
+        ))}
+      {tab === 'discover' && <AllianceBrowser />}
+      {tab === 'create' && <CreateAllianceForm onCreated={() => setTab('mine')} />}
     </div>
   );
 }

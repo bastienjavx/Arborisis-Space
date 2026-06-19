@@ -1,6 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { JobStatus } from '@prisma/client';
+import { JobStatus, TransferPhase } from '@prisma/client';
 import { Queue } from 'bullmq';
 import {
   COLONIZATION_QUEUE,
@@ -12,10 +12,13 @@ import {
   PVP_QUEUE,
   RESEARCH_QUEUE,
   SHIP_PRODUCTION_QUEUE,
+  SPAWN_NPC_JOB,
+  TRANSFER_QUEUE,
   TRIGGER_EVENT_JOB,
   type FinalizeJobData,
 } from './queue.constants';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
+import { NPC_SPAWN_INTERVAL_MS } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getCurrentUniverseId } from '../universe/universe-context';
 
@@ -37,6 +40,7 @@ export class GameQueueService {
     @InjectQueue(PVE_QUEUE) private readonly pve: Queue<FinalizeJobData>,
     @InjectQueue(PVP_QUEUE) private readonly pvp: Queue<FinalizeJobData>,
     @InjectQueue(GAME_EVENT_QUEUE) private readonly eventQueue: Queue,
+    @InjectQueue(TRANSFER_QUEUE) private readonly transferQueue: Queue<FinalizeJobData>,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -88,6 +92,25 @@ export class GameQueueService {
     );
   }
 
+  async scheduleNextNpcSpawn(delayMs = NPC_SPAWN_INTERVAL_MS): Promise<void> {
+    const universeId = await this.resolveUniverseId();
+    await this.eventQueue.add(
+      SPAWN_NPC_JOB,
+      { universeId },
+      {
+        delay: delayMs,
+        removeOnComplete: true,
+        removeOnFail: 10,
+        attempts: 3,
+        backoff: { type: 'exponential' as const, delay: 5_000 },
+      },
+    );
+  }
+
+  async scheduleTransfer(jobId: string, arrivesAt: Date): Promise<void> {
+    await this.safeAdd(this.transferQueue, jobId, arrivesAt);
+  }
+
   async scheduleExpedition(jobId: string, phase: string, finishesAt: Date): Promise<void> {
     // BullMQ interdit « : » dans les identifiants personnalisés.
     await this.safeAdd(this.expedition, jobId, finishesAt, `${jobId}-${phase}`);
@@ -115,6 +138,7 @@ export class GameQueueService {
       pveReturning,
       pvpOutbound,
       pvpReturning,
+      transfers,
     ] = await Promise.all([
       this.prisma.constructionJob.findMany({ where: { status: JobStatus.PENDING } }),
       this.prisma.researchJob.findMany({ where: { status: JobStatus.PENDING } }),
@@ -127,6 +151,7 @@ export class GameQueueService {
       this.prisma.pveMission.findMany({ where: { phase: 'RETURNING' } }),
       this.prisma.pvpMission.findMany({ where: { phase: 'OUTBOUND' } }),
       this.prisma.pvpMission.findMany({ where: { phase: 'RETURNING' } }),
+      this.prisma.resourceTransferMission.findMany({ where: { phase: TransferPhase.OUTBOUND } }),
       this.prisma.session.deleteMany({
         where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }] },
       }),
@@ -157,7 +182,17 @@ export class GameQueueService {
       ...pvpReturning.map((mission) =>
         this.safeAdd(this.pvp, mission.id, mission.returnsAt, `${mission.id}-RETURNING`),
       ),
+      ...transfers.map((mission) =>
+        this.safeAdd(this.transferQueue, mission.id, mission.arrivesAt),
+      ),
     ]);
+
+    // S'assure qu'un job de spawn NPC est toujours planifié.
+    const eventJobs = await this.eventQueue.getJobs(['delayed', 'wait']);
+    const hasSpawnJob = eventJobs.some((job) => job.name === SPAWN_NPC_JOB);
+    if (!hasSpawnJob) {
+      await this.scheduleNextNpcSpawn(0);
+    }
   }
 
   private async resolveUniverseId(): Promise<string> {

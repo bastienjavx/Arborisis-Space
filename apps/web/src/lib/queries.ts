@@ -14,15 +14,19 @@ import type {
   PlanetDetail,
   ProduceShipsDto,
   RenamePlanetDto,
+  ResourceTransferMissionView,
+  SetSpecializationDto,
   SpyPlanetDto,
   StartExpeditionDto,
   StartResearchDto,
+  TransferResourcesDto,
   UpdateProfileDto,
 } from '@arborisis/shared';
 import { api } from './api';
 
 export const keys = {
   me: ['me'] as const,
+  publicProfile: (id: string) => ['public-profile', id] as const,
   planets: ['planets'] as const,
   planet: (id: string) => ['planet', id] as const,
   research: (planetId: string) => ['research', planetId] as const,
@@ -34,6 +38,7 @@ export const keys = {
   encounters: ['encounters'] as const,
   pveMissions: ['pve-missions'] as const,
   pvpMissions: ['pvp-missions'] as const,
+  transfers: ['transfers'] as const,
   leaderboard: ['leaderboard'] as const,
   activeEvent: ['active-event'] as const,
   achievements: ['achievements'] as const,
@@ -49,6 +54,14 @@ export function useMe() {
     queryFn: () => api.me().then((r) => r.user),
     retry: false,
     staleTime: 60_000,
+  });
+}
+
+export function usePublicProfile(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.publicProfile(id ?? 'none'),
+    queryFn: () => api.publicProfile(id!),
+    enabled: !!id,
   });
 }
 
@@ -135,6 +148,14 @@ export function usePvpMissions() {
   return useQuery({
     queryKey: keys.pvpMissions,
     queryFn: () => api.pvpMissions(),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useTransfers() {
+  return useQuery<ResourceTransferMissionView[]>({
+    queryKey: keys.transfers,
+    queryFn: () => api.transfers(),
     refetchInterval: 15_000,
   });
 }
@@ -249,6 +270,17 @@ export function useAttackPlanet(sourcePlanetId: string) {
   });
 }
 
+export function useLaunchTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: TransferResourcesDto) => api.launchTransfer(body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.transfers });
+      void qc.invalidateQueries({ queryKey: keys.planets });
+    },
+  });
+}
+
 export function useLeaderboard() {
   return useQuery({
     queryKey: keys.leaderboard,
@@ -277,7 +309,10 @@ export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: UpdateProfileDto) => api.updateProfile(body),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.me }),
+    onSuccess: ({ user }) => {
+      void qc.invalidateQueries({ queryKey: keys.me });
+      void qc.invalidateQueries({ queryKey: keys.publicProfile(user.id) });
+    },
   });
 }
 
@@ -285,6 +320,17 @@ export function useRenamePlanet(planetId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: RenamePlanetDto) => api.renamePlanet(planetId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.planet(planetId) });
+      void qc.invalidateQueries({ queryKey: keys.planets });
+    },
+  });
+}
+
+export function useSetSpecialization(planetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SetSpecializationDto) => api.setSpecialization(planetId, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.planet(planetId) });
       void qc.invalidateQueries({ queryKey: keys.planets });

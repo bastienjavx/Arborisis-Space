@@ -54,7 +54,7 @@ export default function LandingPage() {
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
           <Link
             href="/"
-            className="gradient-text text-2xl font-semibold tracking-[-0.04em] sm:text-3xl"
+            className="font-display text-3xl tracking-[-0.04em] text-canopy-50 sm:text-4xl"
             aria-label="Arborisis — accueil"
           >
             Arborisis
@@ -144,8 +144,7 @@ export default function LandingPage() {
               className="object-cover object-[62%_center] sm:object-center"
             />
           </motion.div>
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,#060b09_0%,rgba(6,11,9,0.96)_28%,rgba(6,11,9,0.38)_58%,rgba(6,11,9,0.08)_100%)]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-bark-950 via-transparent to-bark-950/20" />
+          <div className="absolute inset-0 bg-bark-950/55" />
 
           <div className="relative mx-auto flex min-h-[680px] max-w-7xl items-center px-5 py-20 lg:px-8">
             <motion.div
@@ -157,8 +156,8 @@ export default function LandingPage() {
               <p className="mb-6 text-xs font-semibold uppercase tracking-[0.28em] text-canopy-300/80">
                 Stratégie spatiale organique
               </p>
-              <h1 className="max-w-xl text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-white sm:text-7xl lg:text-[5.5rem]">
-                Cultivez une civilisation <span className="gradient-text">organique.</span>
+              <h1 className="font-display max-w-xl text-5xl leading-[0.98] tracking-[-0.055em] text-white sm:text-7xl lg:text-[5.5rem]">
+                Cultivez un empire <span className="text-canopy-300">vivant.</span>
               </h1>
               <p className="mt-7 max-w-lg text-base leading-7 text-canopy-100/65 sm:text-lg">
                 Faites germer votre empire sur des mondes vivants, développez des technologies
@@ -206,7 +205,7 @@ export default function LandingPage() {
               {GAMEPLAY.map((item, index) => (
                 <motion.article
                   key={item.title}
-                  className={`group overflow-hidden rounded-2xl border border-canopy-700/20 bg-bark-900/55 shadow-2xl shadow-transparent transition duration-500 ${item.glow}`}
+                  className={`group overflow-hidden rounded-xl border border-canopy-700/20 bg-bark-900/55 shadow-2xl shadow-transparent transition duration-500 ${item.glow}`}
                   initial={{ opacity: 0, y: 32 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.25 }}
@@ -220,7 +219,7 @@ export default function LandingPage() {
                       sizes="(min-width: 1024px) 33vw, 100vw"
                       className="object-cover transition duration-700 ease-out group-hover:scale-[1.04]"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-bark-900/75 to-transparent" />
+                    <div className="absolute inset-0 bg-bark-950/20" />
                   </div>
                   <div className="p-6 sm:p-7">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-canopy-100/35">
@@ -239,7 +238,6 @@ export default function LandingPage() {
           id="rejoindre"
           className="relative overflow-hidden border-t border-canopy-700/15 px-5 py-28 lg:px-8"
         >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_130%,rgba(22,191,108,0.16),transparent_45%)]" />
           <motion.div
             className="relative mx-auto max-w-3xl text-center"
             initial={{ opacity: 0, y: 24 }}

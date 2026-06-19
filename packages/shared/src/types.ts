@@ -13,6 +13,7 @@ import {
   GalacticEventType,
   JobKind,
   NpcEncounterType,
+  PlanetSpecialization,
   PlanetType,
   PveMissionPhase,
   PveOutcome,
@@ -111,6 +112,7 @@ export interface PlanetSummary {
   usedFields: number;
   maxFields: number;
   planetType: PlanetType;
+  specialization: PlanetSpecialization | null;
 }
 
 export interface PlanetDetail extends PlanetSummary {
@@ -322,3 +324,14 @@ export interface UniverseView extends UniverseSummaryView {
 }
 
 export type ListUniversesView = UniverseSummaryView[];
+
+export interface ResourceTransferMissionView {
+  id: string;
+  sourcePlanetId: string;
+  sourcePlanetName: string;
+  targetPlanetId: string;
+  targetPlanetName: string;
+  ships: Record<ShipType, number>;
+  resources: Record<ResourceType, number>;
+  arrivesAt: string;
+}

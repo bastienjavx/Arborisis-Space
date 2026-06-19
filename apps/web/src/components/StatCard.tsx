@@ -25,7 +25,7 @@ export function StatCard({ label, value, hint, icon, delay = 0, color = 'green' 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
-      className={`flex min-w-[9.5rem] flex-col rounded-xl border bg-bark-950/55 px-4 py-3 shadow-lg shadow-black/10 backdrop-blur ${colorClasses[color]}`}
+      className={`flex min-w-[9.5rem] flex-col rounded-lg border bg-bark-950/45 px-4 py-3 shadow-lg shadow-black/10 backdrop-blur ${colorClasses[color]}`}
     >
       <div className="mb-1.5 flex items-center gap-2 text-canopy-100/40">
         {icon && <span className="text-lg">{icon}</span>}

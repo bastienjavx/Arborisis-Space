@@ -3,6 +3,7 @@ import { GameModule } from '../game/game.module';
 import { FinalizationService } from '../game/finalization.service';
 import { PveModule } from '../pve/pve.module';
 import { PveService } from '../pve/pve.service';
+import { NpcSpawnerService } from '../pve/npc-spawner.service';
 import { PvpModule } from '../pvp/pvp.module';
 import { PvpService } from '../pvp/pvp.service';
 import { QueueModule } from './queue.module';
@@ -14,6 +15,7 @@ import { ExpeditionProcessor } from './processors/expedition.processor';
 import { PveProcessor } from './processors/pve.processor';
 import { PvpProcessor } from './processors/pvp.processor';
 import { EventProcessor } from './processors/event.processor';
+import { TransferProcessor } from './processors/transfer.processor';
 import { GameQueueService } from './game-queue.service';
 import { ExpeditionsService } from '../game/expeditions.service';
 
@@ -33,6 +35,7 @@ import { ExpeditionsService } from '../game/expeditions.service';
     PveProcessor,
     PvpProcessor,
     EventProcessor,
+    TransferProcessor,
   ],
 })
 export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -46,6 +49,7 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     private readonly expeditions: ExpeditionsService,
     private readonly pve: PveService,
     private readonly pvp: PvpService,
+    private readonly npcSpawner: NpcSpawnerService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -55,6 +59,8 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     await this.pvp.sweepAllDue();
     await this.queues.reconcilePending();
     await this.queues.scheduleNextEvent().catch(() => void 0);
+    await this.npcSpawner.spawnBatch().catch(() => void 0);
+    await this.queues.scheduleNextNpcSpawn(0).catch(() => void 0);
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
         this.logger.error(error, 'Échec du cycle de réconciliation.'),

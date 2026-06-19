@@ -60,6 +60,18 @@ enum PlanetType {
   BARREN
 }
 
+enum PlanetSpecialization {
+  PRODUCTION
+  MILITARY
+  RESEARCH
+  FORTRESS
+}
+
+enum TransferPhase {
+  OUTBOUND
+  COMPLETED
+}
+
 enum ExpeditionPhase {
   OUTBOUND
   RETURNING
@@ -70,6 +82,14 @@ enum NpcEncounterType {
   VOID_RIFT
   MYCOXIN_NEST
   ABANDONED_DERELICT
+  FUNGAL_HIVEMIND
+  VOID_LEVIATHAN
+  CRYSTALLINE_GUARDIAN
+  BIOMASS_CORRUPTED
+  ANCIENT_SENTINEL
+  CHITIN_WARLORD
+  SPORAL_PARASITE
+  MYCOSPORE_SWARM
 }
 
 enum PveMissionPhase {
@@ -231,6 +251,7 @@ model User {
   allianceMembership   AllianceMember?
   leadAlliance         Alliance?
   allianceApplications AllianceApplication[]
+  transferMissions     ResourceTransferMission[]
 
   @@map("users")
 }
@@ -268,6 +289,9 @@ model Planet {
   // Stabilité écologique 0..100.
   stability Float @default(100)
 
+  // Spécialisation planétaire (bonus/malus ciblés).
+  specialization PlanetSpecialization?
+
   // Stocks de ressources (recalculés serveur depuis lastResourceUpdate).
   biomass  Float @default(0)
   sap      Float @default(0)
@@ -289,6 +313,8 @@ model Planet {
   pveMissions        PveMission[]
   outgoingPvp        PvpMission[] @relation("PvpSource")
   incomingPvp        PvpMission[] @relation("PvpTarget")
+  outgoingTransfers  ResourceTransferMission[] @relation("TransferSource")
+  incomingTransfers  ResourceTransferMission[] @relation("TransferTarget")
 
   @@unique([universeId, galaxy, system, position])
   @@index([ownerId])
@@ -587,4 +613,24 @@ model PvpMission {
   @@index([userId, phase])
   @@index([targetPlanetId, phase])
   @@map("pvp_missions")
+}
+
+model ResourceTransferMission {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourcePlanetId String
+  sourcePlanet   Planet        @relation("TransferSource", fields: [sourcePlanetId], references: [id], onDelete: Cascade)
+  targetPlanetId String
+  targetPlanet   Planet        @relation("TransferTarget", fields: [targetPlanetId], references: [id], onDelete: Cascade)
+  ships          Json
+  resources      Json
+  phase          TransferPhase @default(OUTBOUND)
+  arrivesAt      DateTime
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@index([userId, phase])
+  @@index([phase, arrivesAt])
+  @@map("resource_transfer_missions")
 }

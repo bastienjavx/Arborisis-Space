@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { JobStatus } from '@prisma/client';
+import { JobStatus, TransferPhase } from '@prisma/client';
+import { ShipType } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 import { WorldFactoryService } from './world-factory.service';
@@ -161,5 +162,47 @@ export class FinalizationService {
         `Balayage : ${c.length} construction(s), ${r.length} recherche(s), ${col.length} essaimage(s), ${ships.length} production(s) finalisé(s).`,
       );
     }
+  }
+
+  async finalizeDueTransfersForUser(userId: string, now = new Date()): Promise<void> {
+    const due = await this.prisma.resourceTransferMission.findMany({
+      where: { userId, phase: TransferPhase.OUTBOUND, arrivesAt: { lte: now } },
+    });
+    for (const m of due) {
+      await this.finalizeTransferById(m.id, now);
+    }
+  }
+
+  async finalizeTransferById(missionId: string, now = new Date()): Promise<void> {
+    const mission = await this.prisma.resourceTransferMission.findUnique({
+      where: { id: missionId },
+    });
+    if (!mission || mission.phase !== TransferPhase.OUTBOUND || mission.arrivesAt > now) return;
+
+    const resources = mission.resources as Record<string, number>;
+    const ships = mission.ships as Record<string, number>;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.planet.update({
+        where: { id: mission.targetPlanetId },
+        data: {
+          biomass: { increment: resources['BIOMASS'] ?? 0 },
+          sap: { increment: resources['SAP'] ?? 0 },
+          minerals: { increment: resources['MINERALS'] ?? 0 },
+          spores: { increment: resources['SPORES'] ?? 0 },
+        },
+      });
+      for (const [type, qty] of Object.entries(ships)) {
+        await tx.planetShip.upsert({
+          where: { planetId_type: { planetId: mission.targetPlanetId, type: type as ShipType } },
+          update: { quantity: { increment: qty } },
+          create: { planetId: mission.targetPlanetId, type: type as ShipType, quantity: qty },
+        });
+      }
+      await tx.resourceTransferMission.update({
+        where: { id: missionId },
+        data: { phase: TransferPhase.COMPLETED, completedAt: now },
+      });
+    });
   }
 }

@@ -187,6 +187,14 @@ export enum NpcEncounterType {
   VOID_RIFT = 'VOID_RIFT',
   MYCOXIN_NEST = 'MYCOXIN_NEST',
   ABANDONED_DERELICT = 'ABANDONED_DERELICT',
+  FUNGAL_HIVEMIND = 'FUNGAL_HIVEMIND',
+  VOID_LEVIATHAN = 'VOID_LEVIATHAN',
+  CRYSTALLINE_GUARDIAN = 'CRYSTALLINE_GUARDIAN',
+  BIOMASS_CORRUPTED = 'BIOMASS_CORRUPTED',
+  ANCIENT_SENTINEL = 'ANCIENT_SENTINEL',
+  CHITIN_WARLORD = 'CHITIN_WARLORD',
+  SPORAL_PARASITE = 'SPORAL_PARASITE',
+  MYCOSPORE_SWARM = 'MYCOSPORE_SWARM',
 }
 
 export const NPC_ENCOUNTER_TYPES = Object.values(NpcEncounterType);
@@ -292,3 +300,13 @@ export enum RaceType {
 }
 
 export const RACE_TYPES = Object.values(RaceType);
+
+/** Spécialisation d'une planète — confère des bonus/malus ciblés. */
+export enum PlanetSpecialization {
+  PRODUCTION = 'PRODUCTION',
+  MILITARY = 'MILITARY',
+  RESEARCH = 'RESEARCH',
+  FORTRESS = 'FORTRESS',
+}
+
+export const PLANET_SPECIALIZATIONS = Object.values(PlanetSpecialization);

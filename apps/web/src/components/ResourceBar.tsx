@@ -14,9 +14,11 @@ import { AnimatedCounter } from './AnimatedCounter';
 export function ResourceBar({
   resources,
   compact = false,
+  className = '',
 }: {
   resources: ResourceState;
   compact?: boolean;
+  className?: string;
 }) {
   const base = useRef({ amounts: resources.amounts, at: Date.now() });
   const [display, setDisplay] = useState(resources.amounts);
@@ -40,7 +42,9 @@ export function ResourceBar({
   }, [resources]);
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 text-sm sm:grid sm:grid-cols-5 sm:overflow-visible">
+    <div
+      className={`${compact ? 'grid grid-cols-6 gap-0 overflow-visible' : 'flex gap-2 overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible'} text-sm ${className}`}
+    >
       {RESOURCE_TYPES.map((r) => {
         const full = display[r] >= resources.capacity[r];
         const ResourceIcon =
@@ -51,9 +55,7 @@ export function ResourceBar({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 * RESOURCE_TYPES.indexOf(r) }}
-            className={`relative min-w-[9.5rem] overflow-hidden rounded-xl border border-canopy-700/15 bg-bark-900/70 px-3.5 backdrop-blur-xl sm:min-w-0 ${
-              compact ? 'py-1.5' : 'py-3'
-            }`}
+            className={`relative min-w-[9.5rem] overflow-hidden border-canopy-700/15 bg-bark-900/45 backdrop-blur-xl sm:min-w-0 ${compact ? 'border-r px-4 py-2 last:border-r-0' : 'rounded-xl border px-3.5 py-3'}`}
           >
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -68,10 +70,9 @@ export function ResourceBar({
               </div>
               <ResourceIcon className="h-4 w-4 shrink-0 text-canopy-400/60" aria-hidden="true" />
             </div>
-            <span className="mt-1 text-[10px] text-canopy-100/35">
+            <span className={`${compact ? 'mt-0.5' : 'mt-1'} text-[10px] text-canopy-100/35`}>
               +{formatNumber(resources.perHour[r])}/h · cap. {formatNumber(resources.capacity[r])}
             </span>
-            <span className="absolute inset-x-0 bottom-0 h-px bg-canopy-500/25" />
           </motion.div>
         );
       })}
@@ -79,7 +80,7 @@ export function ResourceBar({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="min-w-[9.5rem] rounded-xl border border-canopy-700/15 bg-bark-900/70 px-3.5 py-3 backdrop-blur-xl sm:min-w-0"
+        className={`min-w-[9.5rem] border-canopy-700/15 bg-bark-900/45 backdrop-blur-xl sm:min-w-0 ${compact ? 'border-r px-4 py-2' : 'rounded-xl border px-3.5 py-3'}`}
       >
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -106,7 +107,7 @@ export function ResourceBar({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="min-w-[9.5rem] rounded-xl border border-canopy-700/15 bg-bark-900/70 px-3.5 py-3 backdrop-blur-xl sm:min-w-0"
+        className={`min-w-[9.5rem] bg-bark-900/45 backdrop-blur-xl sm:min-w-0 ${compact ? 'px-4 py-2' : 'rounded-xl border border-canopy-700/15 px-3.5 py-3'}`}
       >
         <div className="flex items-center justify-between gap-3">
           <div>

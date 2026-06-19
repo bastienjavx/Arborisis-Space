@@ -5,15 +5,16 @@ import { useQueryClient } from '@tanstack/react-query';
 import { RESEARCHES, type ResearchType } from '@arborisis/shared';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
-import { AnimatedCard } from '@/components/AnimatedCard';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { ResourceBar } from '@/components/ResourceBar';
+import { ResourceCost } from '@/components/ResourceCost';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
-import { formatCost, formatDuration } from '@/lib/format';
+import { formatDuration } from '@/lib/format';
 import { keys, usePlanetDetail, useResearch, useStartResearch } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FiClock, FiLock, FiShare2 } from 'react-icons/fi';
 
 export default function ResearchPage() {
   const qc = useQueryClient();
@@ -45,26 +46,34 @@ export default function ResearchPage() {
     <div className="space-y-5">
       <PageHeader
         title="Mycélium de recherche"
-        subtitle="Les recherches profitent à tout l'empire. Les ressources sont prélevées sur la planète active."
-      />
+        subtitle="Recherchez et développez les connaissances du réseau mycélien."
+      >
+        <div className="flex flex-wrap gap-2">
+          <StatCard
+            label="Niveau total"
+            value={data.researches.reduce((sum, research) => sum + research.level, 0).toString()}
+            color="purple"
+            delay={0.1}
+          />
+          <StatCard
+            label="Technologies"
+            value={data.researches.length.toString()}
+            hint={`${data.researches.filter((research) => research.level > 0).length} débloquées`}
+            color="gold"
+            delay={0.15}
+          />
+        </div>
+      </PageHeader>
 
-      <ResourceBar resources={planet.resources} />
-
-      <div className="flex flex-wrap gap-3">
-        <StatCard
-          label="Niveau total"
-          value={data.researches.reduce((sum, r) => sum + r.level, 0).toString()}
-          color="purple"
-          delay={0.1}
-        />
-        <StatCard
-          label="Technologies"
-          value={data.researches.length.toString()}
-          hint={`${data.researches.filter((r) => r.level > 0).length} débloquées`}
-          color="gold"
-          delay={0.15}
-        />
+      <div className="flex flex-wrap gap-x-6 gap-y-2 px-1 text-xs text-canopy-100/42">
+        <span className="inline-flex items-center gap-2">
+          <FiShare2 className="h-4 w-4 text-spore-400/60" aria-hidden="true" />
+          Portée : tout l’empire
+        </span>
+        <span>Ressources : {planet.name}</span>
       </div>
+
+      <ResourceBar resources={planet.resources} className="lg:hidden" />
 
       <AnimatePresence>
         {data.activeJob && (
@@ -73,30 +82,31 @@ export default function ResearchPage() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
           >
-            <AnimatedCard
-              className="flex items-center justify-between border-spore-500/40"
-              glow="purple"
-            >
-              <div>
-                <p className="text-sm text-canopy-100/60">
-                  {RESEARCHES[data.activeJob.targetType as ResearchType]?.name} → niveau{' '}
-                  {data.activeJob.targetLevel}
-                </p>
-                <p className="font-mono text-spore-400">
+            <section className="mycelium-panel overflow-hidden">
+              <div className="border-b border-canopy-700/15 px-5 py-3">
+                <h2 className="section-title">Recherche active</h2>
+              </div>
+              <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-spore-500/25 bg-spore-500/5 text-spore-400">
+                  <FiShare2 className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-canopy-50">
+                    {RESEARCHES[data.activeJob.targetType as ResearchType]?.name} → niveau{' '}
+                    {data.activeJob.targetLevel}
+                  </p>
+                  <p className="mt-1 text-xs text-canopy-100/38">Propagation dans tout l’empire</p>
+                </div>
+                <div className="min-w-0 flex-[1.5] text-spore-400">
                   <AnimatedCountdown
                     finishesAt={data.activeJob.finishesAt}
                     onDone={() => qc.invalidateQueries({ queryKey: keys.research(selectedId!) })}
                     showRing
                     totalSeconds={totalResearchTime}
                   />
-                </p>
+                </div>
               </div>
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className="h-3 w-3 rounded-full bg-spore-500"
-              />
-            </AnimatedCard>
+            </section>
           </motion.div>
         )}
       </AnimatePresence>
@@ -107,66 +117,111 @@ export default function ResearchPage() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="text-sm text-red-400"
+            className="rounded-lg border border-red-500/20 bg-red-950/30 px-4 py-3 text-sm text-red-300"
           >
             {error}
           </motion.p>
         )}
       </AnimatePresence>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {data.researches.map((r, index) => {
-          const locked = r.unmet.length > 0;
-          const canStart = !busy && !locked && r.canAfford && !start.isPending;
-          return (
-            <AnimatedCard
-              key={r.type}
-              delay={index * 0.08}
-              hover={!locked}
-              className={locked ? 'grayscale opacity-60' : ''}
-              glow={!locked && canStart ? 'purple' : 'none'}
-            >
-              <div>
-                <div className="flex items-baseline justify-between">
-                  <h3 className="font-medium text-canopy-100">{r.name}</h3>
-                  <span className="text-sm text-spore-400">niv. {r.level}</span>
-                </div>
-                <p className="mt-1 text-xs text-canopy-100/50">{r.description}</p>
-              </div>
+      <section className="mycelium-panel overflow-hidden">
+        <div className="border-b border-canopy-700/15 px-5 py-4">
+          <h2 className="section-title">Technologies</h2>
+        </div>
+        <div className="hidden grid-cols-[minmax(16rem,1.6fr)_6rem_minmax(13rem,1.1fr)_7rem_minmax(11rem,1fr)_9rem] gap-4 border-b border-canopy-700/15 bg-spore-500/[0.02] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-canopy-100/32 xl:grid">
+          <span>Technologie</span>
+          <span>Niveau</span>
+          <span>Coût</span>
+          <span>Durée</span>
+          <span>Prérequis</span>
+          <span className="text-right">Action</span>
+        </div>
+        <div className="divide-y divide-canopy-700/10">
+          {data.researches.map((research, index) => {
+            const locked = research.unmet.length > 0;
+            const isActive = data.activeJob?.targetType === research.type;
+            const canStart = !busy && !locked && research.canAfford && !start.isPending;
+            const buttonLabel = isActive
+              ? 'En cours'
+              : busy
+                ? 'Mycélium occupé'
+                : locked
+                  ? 'Verrouillé'
+                  : research.canAfford
+                    ? 'Rechercher'
+                    : 'Ressources requises';
 
-              <div className="mt-auto space-y-1 text-xs text-canopy-100/60">
-                <p>
-                  <span className="text-canopy-100/40">Coût niv. {r.level + 1} :</span>{' '}
-                  {formatCost(r.nextLevelCost)}
-                </p>
-                <p>
-                  <span className="text-canopy-100/40">Durée :</span>{' '}
-                  {formatDuration(r.nextLevelTimeSeconds)}
-                </p>
-                {locked && (
-                  <p className="text-sap-400">
-                    Requis : {r.unmet.map((u) => `${u.type} niv. ${u.requiredLevel}`).join(', ')}
-                  </p>
-                )}
-              </div>
-
-              <AnimatedButton
-                variant="primary"
-                onClick={() => onStart(r.type)}
-                disabled={!canStart}
-                glow={canStart}
+            return (
+              <motion.article
+                key={research.type}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.045, 0.4) }}
+                className={`grid gap-4 px-5 py-4 transition hover:bg-spore-500/[0.025] xl:grid-cols-[minmax(16rem,1.6fr)_6rem_minmax(13rem,1.1fr)_7rem_minmax(11rem,1fr)_9rem] xl:items-center ${locked ? 'opacity-55' : ''}`}
               >
-                {busy
-                  ? 'Occupé'
-                  : locked
-                    ? 'Verrouillé'
-                    : r.canAfford
-                      ? 'Étudier'
-                      : 'Ressources insuffisantes'}
-              </AnimatedButton>
-            </AnimatedCard>
-          );
-        })}
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-spore-500/20 bg-spore-500/[0.035] text-spore-400/70">
+                    <FiShare2 className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm text-canopy-50/90">{research.name}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">
+                      {research.description}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between xl:block">
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-canopy-100/30 xl:hidden">
+                    Niveau
+                  </span>
+                  <span className="font-display text-xl text-canopy-100/85">
+                    {research.level} <span className="text-spore-400/55">→</span>{' '}
+                    {research.level + 1}
+                  </span>
+                </div>
+                <div>
+                  <span className="mb-2 block text-[10px] uppercase tracking-[0.12em] text-canopy-100/30 xl:hidden">
+                    Coût
+                  </span>
+                  <ResourceCost cost={research.nextLevelCost} />
+                </div>
+                <div className="flex items-center gap-2 text-xs text-canopy-100/50">
+                  <FiClock className="h-4 w-4 text-spore-400/55" aria-hidden="true" />
+                  {formatDuration(research.nextLevelTimeSeconds)}
+                </div>
+                <div className="text-xs leading-5">
+                  {locked ? (
+                    <span className="text-red-300/75">
+                      {research.unmet
+                        .map(
+                          (requirement) => `${requirement.type} niv. ${requirement.requiredLevel}`,
+                        )
+                        .join(', ')}
+                    </span>
+                  ) : (
+                    <span className="text-canopy-100/42">Conditions remplies</span>
+                  )}
+                </div>
+                <AnimatedButton
+                  variant="ghost"
+                  onClick={() => onStart(research.type)}
+                  disabled={!canStart}
+                  loading={start.isPending && start.variables?.type === research.type}
+                  className="w-full whitespace-nowrap xl:w-36"
+                  ariaLabel={`${buttonLabel} ${research.name}`}
+                >
+                  {locked && <FiLock className="h-3.5 w-3.5" aria-hidden="true" />}
+                  {buttonLabel}
+                </AnimatedButton>
+              </motion.article>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-2 rounded-xl border border-canopy-700/15 bg-bark-950/35 px-5 py-4 text-xs text-canopy-100/42 sm:flex-row sm:justify-between">
+        <span>Les technologies de recherche s’appliquent à tout l’empire.</span>
+        <span>Les ressources sont prélevées sur {planet.name}.</span>
       </div>
     </div>
   );

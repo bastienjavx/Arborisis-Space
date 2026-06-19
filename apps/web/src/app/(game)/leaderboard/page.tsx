@@ -1,35 +1,38 @@
 'use client';
 
-import { useLeaderboard } from '@/lib/queries';
-import { AnimatedCard } from '@/components/AnimatedCard';
+import { useLeaderboard, useMe } from '@/lib/queries';
 import { PageHeader } from '@/components/PageHeader';
 import { motion } from 'framer-motion';
-import { FiAward } from 'react-icons/fi';
+import { FiAward, FiGlobe, FiNavigation, FiUser } from 'react-icons/fi';
 
-const RANK_COLORS = ['text-yellow-400', 'text-slate-300', 'text-amber-600'];
+const RANK_STYLES = [
+  'border-sap-400/35 bg-sap-400/[0.045] text-sap-400',
+  'border-canopy-100/25 bg-canopy-100/[0.025] text-canopy-100/75',
+  'border-amber-600/30 bg-amber-600/[0.035] text-amber-500',
+];
 
 export default function LeaderboardPage() {
   const { data: entries, isLoading } = useLeaderboard();
+  const { data: user } = useMe();
 
   if (isLoading || !entries) return <p className="text-canopy-100/50">Croissance du classement…</p>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Classement galactique"
-        subtitle="Les civilisations les plus florissantes de la Convergence."
+        subtitle="Les civilisations les plus florissantes de la galaxie."
       />
 
-      <AnimatedCard className="overflow-x-auto p-0">
-        <table className="min-w-[42rem] w-full text-sm">
+      <section className="mycelium-panel overflow-x-auto">
+        <table className="w-full min-w-[44rem] text-sm">
           <thead>
-            <tr className="border-b border-canopy-700/30 text-canopy-100/50 uppercase text-xs tracking-wider">
-              <th className="px-4 py-3 text-left w-12">#</th>
-              <th className="px-4 py-3 text-left">Civilisation</th>
-              <th className="px-4 py-3 text-right">Score</th>
-              <th className="px-4 py-3 text-right hidden sm:table-cell">Colonies</th>
-              <th className="px-4 py-3 text-right hidden md:table-cell">Vaisseaux</th>
-              <th className="px-4 py-3 text-right hidden lg:table-cell">Dernière activité</th>
+            <tr className="border-b border-canopy-700/20 bg-canopy-500/[0.018] text-[10px] uppercase tracking-[0.14em] text-canopy-100/32">
+              <th className="w-24 px-5 py-3 text-left">Rang</th>
+              <th className="px-5 py-3 text-left">Civilisation / Stratège</th>
+              <th className="px-5 py-3 text-left">Expansion</th>
+              <th className="px-5 py-3 text-left">Flotte</th>
+              <th className="px-5 py-3 text-right">Score</th>
             </tr>
           </thead>
           <tbody>
@@ -39,30 +42,62 @@ export default function LeaderboardPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="border-b border-canopy-700/10 hover:bg-canopy-700/10 transition-colors"
+                className={`border-b transition-colors last:border-0 ${
+                  entry.username === user?.username
+                    ? 'border-canopy-300/35 bg-canopy-500/[0.075] shadow-[inset_3px_0_rgba(126,236,174,0.65)]'
+                    : i < 3
+                      ? RANK_STYLES[i]
+                      : 'border-canopy-700/10 hover:bg-canopy-500/[0.025]'
+                }`}
               >
-                <td className={`px-4 py-3 font-bold ${RANK_COLORS[i] ?? 'text-canopy-100/40'}`}>
+                <td className="px-5 py-3.5">
                   {entry.rank <= 3 ? (
-                    <span className="flex items-center gap-1.5">
-                      <FiAward className="h-4 w-4" aria-hidden="true" />
-                      {entry.rank}
+                    <span className="inline-flex h-10 min-w-10 items-center justify-center gap-1 rounded-full border border-current/30 px-2 font-display text-lg">
+                      <FiAward className="h-3.5 w-3.5" aria-hidden="true" /> {entry.rank}
                     </span>
                   ) : (
-                    entry.rank
+                    <span className="pl-3 font-display text-lg text-canopy-100/48">
+                      {entry.rank}
+                    </span>
                   )}
                 </td>
-                <td className="px-4 py-3 font-medium text-canopy-100">{entry.username}</td>
-                <td className="px-4 py-3 text-right text-spore-400 font-mono">
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-canopy-700/25 bg-bark-950/55 text-canopy-300/55">
+                      <FiUser className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="font-display text-lg text-canopy-100/85">{entry.username}</p>
+                      <p className="mt-0.5 text-[10px] text-canopy-100/32">
+                        {entry.username === user?.username
+                          ? 'Vous'
+                          : `Actif le ${new Date(entry.lastActive).toLocaleDateString('fr-FR')}`}
+                      </p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-5 py-3.5">
+                  <span className="inline-flex items-center gap-2 text-xs text-canopy-100/55">
+                    <FiGlobe className="h-4 w-4 text-canopy-300/50" aria-hidden="true" />
+                    {entry.colonies} colonies
+                  </span>
+                </td>
+                <td className="px-5 py-3.5">
+                  <span className="inline-flex items-center gap-2 text-xs text-canopy-100/55">
+                    <FiNavigation className="h-4 w-4 text-spore-400/50" aria-hidden="true" />
+                    {entry.ships.toLocaleString('fr-FR')}
+                  </span>
+                </td>
+                <td
+                  className={`px-5 py-3.5 text-right font-display text-xl ${
+                    i === 0
+                      ? 'text-sap-400'
+                      : entry.username === user?.username
+                        ? 'text-canopy-300'
+                        : 'text-canopy-100/58'
+                  }`}
+                >
                   {entry.score.toLocaleString('fr-FR')}
-                </td>
-                <td className="px-4 py-3 text-right text-canopy-100/60 hidden sm:table-cell">
-                  {entry.colonies}
-                </td>
-                <td className="px-4 py-3 text-right text-canopy-100/60 hidden md:table-cell">
-                  {entry.ships.toLocaleString('fr-FR')}
-                </td>
-                <td className="px-4 py-3 text-right text-canopy-100/40 text-xs hidden lg:table-cell">
-                  {new Date(entry.lastActive).toLocaleDateString('fr-FR')}
                 </td>
               </motion.tr>
             ))}
@@ -73,7 +108,7 @@ export default function LeaderboardPage() {
             Aucune civilisation répertoriée pour l'instant.
           </p>
         )}
-      </AnimatedCard>
+      </section>
     </div>
   );
 }

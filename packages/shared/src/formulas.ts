@@ -32,6 +32,7 @@ import {
   RESEARCH_NEXUS_SPEEDUP,
   ResourceBundle,
   SHIPS,
+  SPECIALIZATION_CONFIGS,
   SPORE_SENSE_BONUS,
   SPORAL_ECONOMY_BONUS,
   STABILITY_DECAY_RATE,
@@ -47,6 +48,7 @@ import {
 import {
   BuildingType,
   ExpeditionOutcome,
+  PlanetSpecialization,
   PlanetType,
   PveOutcome,
   PvpOutcome,
@@ -56,6 +58,7 @@ import {
   RESOURCE_TYPES,
   ShipRole,
   ShipType,
+  SHIP_TYPES,
 } from './enums';
 
 // ──────────────────────────── Helpers ResourceBundle ────────────────────────
@@ -168,6 +171,7 @@ export interface ProductionInput {
   stability: number;
   planetType?: PlanetType;
   race?: RaceType;
+  specialization?: PlanetSpecialization | null;
 }
 
 export interface ProductionResult {
@@ -237,6 +241,13 @@ export function computeProduction(input: ProductionInput): ProductionResult {
       ) / 100;
   }
 
+  if (input.specialization) {
+    const specMult = SPECIALIZATION_CONFIGS[input.specialization].productionMultiplier;
+    for (const r of RESOURCE_TYPES) {
+      perHour[r] = Math.round(perHour[r] * specMult * 100) / 100;
+    }
+  }
+
   return { perHour, energyProduced, energyConsumed, energyRatio };
 }
 
@@ -287,11 +298,16 @@ export function researchTimeSeconds(
   type: ResearchType,
   targetLevel: number,
   researchNexusLevel = 0,
+  specialization?: PlanetSpecialization | null,
 ): number {
   if (targetLevel < 1) return 0;
   const cfg = RESEARCHES[type];
   const base = cfg.baseTimeSeconds * Math.pow(cfg.timeFactor, targetLevel - 1);
-  const seconds = base / (1 + researchNexusLevel * RESEARCH_NEXUS_SPEEDUP) / UNIVERSE_SPEED;
+  const specFactor = specialization
+    ? SPECIALIZATION_CONFIGS[specialization].researchTimeFactor
+    : 1.0;
+  const seconds =
+    base / (1 + researchNexusLevel * RESEARCH_NEXUS_SPEEDUP) / specFactor / UNIVERSE_SPEED;
   return Math.max(BUILD_TIME_MIN_SECONDS, Math.round(seconds));
 }
 
@@ -332,12 +348,17 @@ export function shipProductionTimeSeconds(
   type: ShipType,
   quantity: number,
   nurseryLevel: number,
+  specialization?: PlanetSpecialization | null,
 ): number {
   if (quantity <= 0 || nurseryLevel <= 0) return 0;
+  const specFactor = specialization ? SPECIALIZATION_CONFIGS[specialization].shipTimeFactor : 1.0;
   return Math.max(
     BUILD_TIME_MIN_SECONDS,
     Math.round(
-      (SHIPS[type].baseTimeSeconds * quantity) / (1 + nurseryLevel * 0.5) / UNIVERSE_SPEED,
+      (SHIPS[type].baseTimeSeconds * quantity) /
+        (1 + nurseryLevel * 0.5) /
+        specFactor /
+        UNIVERSE_SPEED,
     ),
   );
 }
@@ -611,11 +632,12 @@ export interface DefensePowerInput {
   ships: Partial<ShipCounts>;
   race: RaceType;
   orbitalDefenseGridLevel?: number;
+  specialization?: PlanetSpecialization | null;
 }
 
 /** Puissance défensive d'une planète : flotte en orbite + défenses. */
 export function computeDefensePower(input: DefensePowerInput): number {
-  const { ships, race, orbitalDefenseGridLevel = 0 } = input;
+  const { ships, race, orbitalDefenseGridLevel = 0, specialization } = input;
   let power = 0;
   for (const type of Object.values(ShipType)) {
     const quantity = ships[type] ?? 0;
@@ -628,7 +650,17 @@ export function computeDefensePower(input: DefensePowerInput): number {
     power += value * quantity;
   }
   const gridBonus = 1 + ORBITAL_DEFENSE_GRID_BONUS * orbitalDefenseGridLevel;
-  return Math.round(power * RACES[race].defenseFactor * gridBonus);
+  const specMult = specialization ? SPECIALIZATION_CONFIGS[specialization].defenseMultiplier : 1.0;
+  return Math.round(power * RACES[race].defenseFactor * gridBonus * specMult);
+}
+
+/** Capacité cargo totale d'une flotte. */
+export function fleetCargoCapacity(ships: Partial<Record<ShipType, number>>): number {
+  let cap = 0;
+  for (const type of SHIP_TYPES) {
+    cap += (ships[type] ?? 0) * SHIPS[type].cargo;
+  }
+  return cap;
 }
 
 export interface PvpAttackInput {

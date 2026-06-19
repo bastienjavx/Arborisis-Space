@@ -45,7 +45,7 @@ export function AnimatedCard({
       }}
       whileHover={hover ? { y: -2, transition: { duration: 0.22 } } : undefined}
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl border border-canopy-700/15 bg-bark-900/75 p-5 shadow-xl shadow-black/20 backdrop-blur-xl transition-colors hover:border-canopy-500/25 ${className}`}
+      className={`group relative overflow-hidden rounded-xl border border-canopy-700/20 bg-bark-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur-xl transition-colors hover:border-canopy-300/25 ${className}`}
       style={{
         boxShadow: `0 12px 36px -22px rgba(0,0,0,0.75), 0 0 0 0 ${resolvedGlowColor}`,
       }}
@@ -58,7 +58,6 @@ export function AnimatedCard({
         el.style.boxShadow = `0 12px 36px -22px rgba(0,0,0,0.75), 0 0 0 0 ${resolvedGlowColor}`;
       }}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-canopy-300/20 to-transparent" />
       {children}
     </motion.div>
   );

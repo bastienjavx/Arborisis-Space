@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { JobStatus } from '@prisma/client';
 import {
   planetFields,
+  PlanetSpecialization,
   PlanetType,
   ResearchType,
   type PlanetDetail,
@@ -20,7 +21,6 @@ export class PlanetsService {
     private readonly finalization: FinalizationService,
   ) {}
 
-  /** Vérifie que la planète appartient bien au joueur. */
   async assertOwnership(userId: string, planetId: string) {
     const planet = await this.prisma.planet.findUnique({ where: { id: planetId } });
     if (!planet) throw new NotFoundException('Planète introuvable.');
@@ -46,14 +46,14 @@ export class PlanetsService {
       planetType: p.planetType as PlanetType,
       usedFields: p.buildings.reduce((sum, b) => sum + b.level, 0),
       maxFields: planetFields(terraform),
+      specialization: (p.specialization as PlanetSpecialization) ?? null,
     }));
   }
 
   async getPlanetDetail(userId: string, planetId: string): Promise<PlanetDetail> {
     await this.assertOwnership(userId, planetId);
-
-    // Finalisation défensive avant lecture (au cas où le worker n'aurait pas tourné).
     await this.finalization.finalizeDueForPlanet(planetId);
+    await this.finalization.finalizeDueTransfersForUser(userId);
 
     const settled = await this.engine.settlePlanet(planetId);
     const resources = this.engine.buildResourceState(settled);
@@ -75,6 +75,7 @@ export class PlanetsService {
       planetType: settled.planet.planetType as PlanetType,
       usedFields,
       maxFields: planetFields(terraform),
+      specialization: (settled.planet.specialization as PlanetSpecialization) ?? null,
       resources,
       buildings,
       constructionJob: activeJob ? constructionJobView(activeJob) : null,
@@ -105,6 +106,35 @@ export class PlanetsService {
       planetType: updated.planetType as PlanetType,
       usedFields: updated.buildings.reduce((sum, b) => sum + b.level, 0),
       maxFields: planetFields(terraform),
+      specialization: (updated.specialization as PlanetSpecialization) ?? null,
+    };
+  }
+
+  async setSpecialization(
+    userId: string,
+    planetId: string,
+    specialization: PlanetSpecialization | null,
+  ): Promise<PlanetSummary> {
+    await this.assertOwnership(userId, planetId);
+
+    const updated = await this.prisma.planet.update({
+      where: { id: planetId },
+      data: { specialization: specialization ?? null },
+      include: { buildings: true },
+    });
+
+    const research = await this.prisma.researchLevel.findMany({ where: { userId } });
+    const terraform = research.find((r) => r.type === ResearchType.TERRAFORMATION)?.level ?? 0;
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      coordinates: planetCoordinates(updated),
+      isHomeworld: updated.isHomeworld,
+      planetType: updated.planetType as PlanetType,
+      usedFields: updated.buildings.reduce((sum, b) => sum + b.level, 0),
+      maxFields: planetFields(terraform),
+      specialization: (updated.specialization as PlanetSpecialization) ?? null,
     };
   }
 }

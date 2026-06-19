@@ -23,6 +23,8 @@ import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { AchievementsController } from './achievements.controller';
 import { AchievementsService } from './achievements.service';
+import { TransferController } from './transfer.controller';
+import { TransferService } from './transfer.service';
 
 @Module({
   imports: [QueueModule],
@@ -37,6 +39,7 @@ import { AchievementsService } from './achievements.service';
     LeaderboardController,
     EventsController,
     AchievementsController,
+    TransferController,
   ],
   providers: [
     GameEngineService,
@@ -52,6 +55,7 @@ import { AchievementsService } from './achievements.service';
     LeaderboardService,
     EventsService,
     AchievementsService,
+    TransferService,
   ],
   exports: [
     WorldFactoryService,

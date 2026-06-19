@@ -4,6 +4,11 @@
 
 :root {
   --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: Georgia, 'Times New Roman', serif;
+  --surface: rgba(6, 15, 11, 0.86);
+  --surface-soft: rgba(10, 24, 17, 0.72);
+  --line: rgba(142, 183, 113, 0.2);
+  --line-strong: rgba(188, 209, 145, 0.34);
 }
 
 @layer base {
@@ -14,10 +19,21 @@
 
   body {
     @apply bg-bark-950 text-canopy-50/90 antialiased;
-    background-image:
-      radial-gradient(60rem 60rem at 80% -10%, rgba(22, 191, 108, 0.08), transparent),
-      radial-gradient(50rem 50rem at -10% 110%, rgba(123, 102, 240, 0.07), transparent);
+    background-color: #030906;
     background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+  }
+
+  ::selection {
+    background: rgba(142, 236, 174, 0.22);
+    color: #effdf5;
   }
 
   ::-webkit-scrollbar {
@@ -38,21 +54,32 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-canopy-700/15 bg-bark-900/75 p-5 shadow-xl shadow-black/20 backdrop-blur-xl;
+    @apply rounded-xl border p-5 backdrop-blur-xl;
+    border-color: var(--line);
+    background: var(--surface);
+    box-shadow: 0 20px 70px -48px rgba(0, 0, 0, 0.95);
   }
   .btn {
     @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition
       disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-primary {
-    @apply btn bg-canopy-600 text-bark-950 shadow-lg shadow-canopy-600/10 hover:bg-canopy-500 hover:shadow-canopy-500/20;
+    @apply btn border text-canopy-50 shadow-lg;
+    border-color: rgba(167, 197, 119, 0.45);
+    background: rgba(65, 93, 46, 0.68);
+    box-shadow: inset 0 0 24px rgba(142, 236, 174, 0.05), 0 12px 28px -18px #000;
+  }
+  .btn-primary:hover {
+    border-color: rgba(199, 220, 151, 0.7);
+    background: rgba(79, 112, 57, 0.82);
   }
   .btn-ghost {
-    @apply btn border border-canopy-700/25 bg-bark-950/20 text-canopy-100/75 hover:border-canopy-500/40 hover:bg-canopy-700/10 hover:text-canopy-100;
+    @apply btn border bg-bark-950/20 text-canopy-100/75 hover:text-canopy-100;
+    border-color: var(--line);
   }
   .input {
-    @apply min-h-10 w-full rounded-xl border border-canopy-700/25 bg-bark-950/70 px-3 py-2 text-sm
-      text-canopy-50 outline-none placeholder:text-canopy-50/25 focus:border-canopy-500/70 focus:ring-2 focus:ring-canopy-500/10;
+    @apply min-h-11 w-full rounded-lg border bg-bark-950/70 px-3.5 py-2.5 text-sm text-canopy-50 outline-none placeholder:text-canopy-50/25 focus:ring-2 focus:ring-canopy-500/10;
+    border-color: var(--line);
   }
   .label {
     @apply mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-canopy-100/45;
@@ -77,7 +104,22 @@
   }
 
   .section-title {
-    @apply text-sm font-semibold uppercase tracking-[0.16em] text-canopy-100/55;
+    @apply text-xl normal-case tracking-[-0.015em] text-canopy-100/80;
+    font-family: var(--font-display);
+    font-weight: 400;
+  }
+
+  .mycelium-panel {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--surface);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.015), 0 24px 72px -54px #000;
+  }
+
+  .mycelium-divider {
+    height: 1px;
+    background: rgba(142, 183, 113, 0.18);
   }
 }
 

@@ -4,7 +4,15 @@
  * pour la validation de formulaire et l'inférence de types.
  */
 import { z } from 'zod';
-import { BuildingType, RaceType, ResearchType, ShipType, UniverseStatus } from './enums';
+import {
+  BuildingType,
+  PlanetSpecialization,
+  RaceType,
+  ResearchType,
+  ResourceType,
+  ShipType,
+  UniverseStatus,
+} from './enums';
 
 export const allianceTagSchema = z
   .string()
@@ -267,3 +275,43 @@ export const universeViewSchema = universeSummarySchema.extend({
 });
 
 export const listUniversesViewSchema = z.array(universeSummarySchema);
+
+export const setSpecializationSchema = z.object({
+  specialization: z.nativeEnum(PlanetSpecialization).nullable(),
+});
+export type SetSpecializationDto = z.infer<typeof setSpecializationSchema>;
+
+export const TRANSPORT_SHIP_TYPES = [
+  ShipType.SYMBIOTIC_HARVESTER,
+  ShipType.CHITIN_FREIGHTER,
+  ShipType.SEED_POD,
+] as const;
+
+const transferShipField = () => z.number().int().min(0).max(10_000).default(0);
+
+export const transferResourcesSchema = z.object({
+  sourcePlanetId: z.string().uuid(),
+  targetPlanetId: z.string().uuid(),
+  ships: z
+    .object({
+      [ShipType.SYMBIOTIC_HARVESTER]: transferShipField(),
+      [ShipType.CHITIN_FREIGHTER]: transferShipField(),
+      [ShipType.SEED_POD]: transferShipField(),
+    })
+    .refine(
+      (s) => Object.values(s).some((v) => v > 0),
+      'Au moins un vaisseau de transport est requis.',
+    ),
+  resources: z
+    .object({
+      [ResourceType.BIOMASS]: z.number().int().min(0).default(0),
+      [ResourceType.SAP]: z.number().int().min(0).default(0),
+      [ResourceType.MINERALS]: z.number().int().min(0).default(0),
+      [ResourceType.SPORES]: z.number().int().min(0).default(0),
+    })
+    .refine(
+      (r) => Object.values(r).some((v) => v > 0),
+      'Au moins une ressource doit être transférée.',
+    ),
+});
+export type TransferResourcesDto = z.infer<typeof transferResourcesSchema>;

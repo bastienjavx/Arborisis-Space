@@ -14,6 +14,8 @@ import {
   BuildingType,
   ExpeditionOutcome,
   GalacticEventType,
+  NpcEncounterType,
+  PlanetSpecialization,
   PlanetType,
   RaceType,
   ResearchType,
@@ -135,7 +137,7 @@ export const RACES: Record<RaceType, RaceConfig> = {
     type: RaceType.MYCELIANS,
     name: 'Mycéliens',
     description:
-      'Un réseau fongique conscient qui colonise les mondes par l’essaimage. Maîtres de la biomasse.',
+      "Un réseau fongique conscient qui colonise les mondes par l'essaimage. Maîtres de la biomasse.",
     productionBonus: { [ResourceType.BIOMASS]: 1.1 },
     shipSpeedFactor: 0.95,
     researchCostFactor: 1.0,
@@ -312,7 +314,7 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   [BuildingType.SPORANGE]: {
     type: BuildingType.SPORANGE,
     name: 'Sporanges',
-    description: 'Cultive les spores, vecteurs de savoir et d’expansion.',
+    description: "Cultive les spores, vecteurs de savoir et d'expansion.",
     baseCost: { [ResourceType.BIOMASS]: 200, [ResourceType.MINERALS]: 80, [ResourceType.SAP]: 40 },
     costFactor: 1.6,
     maxLevel: 40,
@@ -777,8 +779,8 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
   },
   [ShipType.ACID_BOMBER]: {
     type: ShipType.ACID_BOMBER,
-    name: 'Bombardier d’acide',
-    description: 'Vaisseau d’assaut qui projette des enzymes corrosifs sur les défenses.',
+    name: "Bombardier d'acide",
+    description: "Vaisseau d'assaut qui projette des enzymes corrosifs sur les défenses.",
     role: ShipRole.COMBAT,
     cost: {
       [ResourceType.BIOMASS]: 800,
@@ -855,8 +857,8 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
   },
   [ShipType.SHADOW_SPORE]: {
     type: ShipType.SHADOW_SPORE,
-    name: 'Spore de l’ombre',
-    description: 'Organisme furtif spécialisé dans l’espionnage et la contre-renseignement.',
+    name: "Spore de l'ombre",
+    description: "Organisme furtif spécialisé dans l'espionnage et la contre-renseignement.",
     role: ShipRole.ESPIONAGE,
     cost: {
       [ResourceType.BIOMASS]: 300,
@@ -895,7 +897,7 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
   [ShipType.SPORAL_SWARM]: {
     type: ShipType.SPORAL_SWARM,
     name: 'Essaim sporique',
-    description: 'Nuée d’organismes mycéliens qui submergent l’ennemi. Exclusive aux Mycéliens.',
+    description: "Nuée d'organismes mycéliens qui submergent l'ennemi. Exclusive aux Mycéliens.",
     role: ShipRole.COMBAT,
     restrictedToRaces: [RaceType.MYCELIANS],
     cost: {
@@ -938,7 +940,7 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     type: ShipType.CHITIN_BULWARK,
     name: 'Rempart de chitine',
     description:
-      'Mur vivant blindé capable d’encaisser des salves entières. Exclusive aux Chitinids.',
+      "Mur vivant blindé capable d'encaisser des salves entières. Exclusive aux Chitinids.",
     role: ShipRole.DEFENSE,
     restrictedToRaces: [RaceType.CHITINIDS],
     cost: {
@@ -962,7 +964,7 @@ export const RESEARCHES: Record<ResearchType, ResearchConfig> = {
   [ResearchType.ADVANCED_PHOTOSYNTHESIS]: {
     type: ResearchType.ADVANCED_PHOTOSYNTHESIS,
     name: 'Photosynthèse avancée',
-    description: '+5% de production d’énergie par niveau.',
+    description: "+5% de production d'énergie par niveau.",
     baseCost: { [ResourceType.SPORES]: 200, [ResourceType.SAP]: 400 },
     costFactor: 1.75,
     maxLevel: 20,
@@ -1020,7 +1022,7 @@ export const RESEARCHES: Record<ResearchType, ResearchConfig> = {
   [ResearchType.SPORAL_PROPULSION]: {
     type: ResearchType.SPORAL_PROPULSION,
     name: 'Propulsion sporale',
-    description: 'Permet l’essaimage vers de nouveaux mondes (+1 colonie/niveau).',
+    description: "Permet l'essaimage vers de nouveaux mondes (+1 colonie/niveau).",
     baseCost: {
       [ResourceType.SPORES]: 800,
       [ResourceType.SAP]: 1_000,
@@ -1083,7 +1085,7 @@ export const RESEARCHES: Record<ResearchType, ResearchConfig> = {
   [ResearchType.BIOLOGICAL_WARFARE]: {
     type: ResearchType.BIOLOGICAL_WARFARE,
     name: 'Guerre biologique',
-    description: '+5% d’attaque des vaisseaux par niveau.',
+    description: "+5% d'attaque des vaisseaux par niveau.",
     baseCost: { [ResourceType.SPORES]: 600, [ResourceType.BIOMASS]: 1_000 },
     costFactor: 1.8,
     maxLevel: 15,
@@ -1093,7 +1095,7 @@ export const RESEARCHES: Record<ResearchType, ResearchConfig> = {
   },
   [ResearchType.SWARM_TACTICS]: {
     type: ResearchType.SWARM_TACTICS,
-    name: 'Tactiques d’essaim',
+    name: "Tactiques d'essaim",
     description: '+5% de vitesse des vaisseaux légers par niveau.',
     baseCost: { [ResourceType.SPORES]: 700, [ResourceType.SAP]: 800 },
     costFactor: 1.75,
@@ -1140,7 +1142,7 @@ export const RESEARCHES: Record<ResearchType, ResearchConfig> = {
   [ResearchType.SPORE_SENSE]: {
     type: ResearchType.SPORE_SENSE,
     name: 'Sens sporal',
-    description: '+5% de chance d’espionnage par niveau.',
+    description: "+5% de chance d'espionnage par niveau.",
     baseCost: { [ResourceType.SPORES]: 600, [ResourceType.SAP]: 400 },
     costFactor: 1.7,
     maxLevel: 10,
@@ -1151,12 +1153,216 @@ export const RESEARCHES: Record<ResearchType, ResearchConfig> = {
   [ResearchType.DEEP_SCAN]: {
     type: ResearchType.DEEP_SCAN,
     name: 'Scan profond',
-    description: 'Améliore la qualité des rapports d’espionnage.',
+    description: "Améliore la qualité des rapports d'espionnage.",
     baseCost: { [ResourceType.SPORES]: 800, [ResourceType.MINERALS]: 600 },
     costFactor: 1.8,
     maxLevel: 8,
     baseTimeSeconds: 1_200,
     timeFactor: 1.7,
     requires: { research: { [ResearchType.SPORE_SENSE]: 3 } },
+  },
+};
+
+// ──────────────────────────── Encounters NPC ─────────────────────────────────
+
+export interface NpcEncounterConfig {
+  name: string;
+  description: string;
+  minDifficulty: number;
+  maxDifficulty: number;
+  baseHealth: number;
+  rewardMultiplier: number;
+  expiryHours: number;
+  color: string;
+  tier: 'easy' | 'medium' | 'hard' | 'elite';
+}
+
+export const NPC_ENCOUNTER_CONFIGS: Record<NpcEncounterType, NpcEncounterConfig> = {
+  [NpcEncounterType.SPORAL_PARASITE]: {
+    name: 'Parasite Sporal',
+    description: 'Un parasite fongique de faible envergure qui infeste les routes commerciales.',
+    minDifficulty: 1,
+    maxDifficulty: 2,
+    baseHealth: 40,
+    rewardMultiplier: 0.7,
+    expiryHours: 3,
+    color: '#84cc16',
+    tier: 'easy',
+  },
+  [NpcEncounterType.BIOMASS_CORRUPTED]: {
+    name: 'Biomasse Corrompue',
+    description: 'Amas de matière organique corrompue par le Vide.',
+    minDifficulty: 1,
+    maxDifficulty: 3,
+    baseHealth: 50,
+    rewardMultiplier: 0.8,
+    expiryHours: 3,
+    color: '#a3e635',
+    tier: 'easy',
+  },
+  [NpcEncounterType.MYCOXIN_NEST]: {
+    name: 'Nid de Mycoxine',
+    description: "Une colonie de champignons toxiques qui empoisonne l'espace local.",
+    minDifficulty: 2,
+    maxDifficulty: 4,
+    baseHealth: 60,
+    rewardMultiplier: 1.0,
+    expiryHours: 4,
+    color: '#22c55e',
+    tier: 'easy',
+  },
+  [NpcEncounterType.VOID_RIFT]: {
+    name: 'Fissure du Vide',
+    description: 'Une déchirure dans le tissu galactique. En émerge quelque chose de sombre.',
+    minDifficulty: 3,
+    maxDifficulty: 5,
+    baseHealth: 80,
+    rewardMultiplier: 1.1,
+    expiryHours: 2,
+    color: '#8b5cf6',
+    tier: 'medium',
+  },
+  [NpcEncounterType.FUNGAL_HIVEMIND]: {
+    name: 'Essaim Fongique',
+    description: 'Une intelligence collective mycéliale hostile à toute civilisation organique.',
+    minDifficulty: 3,
+    maxDifficulty: 6,
+    baseHealth: 90,
+    rewardMultiplier: 1.2,
+    expiryHours: 4,
+    color: '#10b981',
+    tier: 'medium',
+  },
+  [NpcEncounterType.CRYSTALLINE_GUARDIAN]: {
+    name: 'Gardien Cristallin',
+    description: 'Entité minérale ancienne protégeant un gisement de ressources rares.',
+    minDifficulty: 4,
+    maxDifficulty: 6,
+    baseHealth: 100,
+    rewardMultiplier: 1.3,
+    expiryHours: 5,
+    color: '#06b6d4',
+    tier: 'medium',
+  },
+  [NpcEncounterType.MYCOSPORE_SWARM]: {
+    name: 'Nuée Mycosporale',
+    description: 'Des milliards de spores mortelles organisées en essaim prédateur.',
+    minDifficulty: 3,
+    maxDifficulty: 6,
+    baseHealth: 70,
+    rewardMultiplier: 1.0,
+    expiryHours: 3,
+    color: '#f59e0b',
+    tier: 'medium',
+  },
+  [NpcEncounterType.CHITIN_WARLORD]: {
+    name: 'Seigneur de Chitine',
+    description: 'Un colosse chitineux évolué qui étend son territoire.',
+    minDifficulty: 5,
+    maxDifficulty: 8,
+    baseHealth: 120,
+    rewardMultiplier: 1.5,
+    expiryHours: 6,
+    color: '#f97316',
+    tier: 'hard',
+  },
+  [NpcEncounterType.ABANDONED_DERELICT]: {
+    name: 'Épave Abandonnée',
+    description: 'Vaisseau-monde défunt, réanimé par une IA corrompue.',
+    minDifficulty: 5,
+    maxDifficulty: 8,
+    baseHealth: 130,
+    rewardMultiplier: 1.6,
+    expiryHours: 6,
+    color: '#ef4444',
+    tier: 'hard',
+  },
+  [NpcEncounterType.VOID_LEVIATHAN]: {
+    name: 'Léviathan du Vide',
+    description: "Titan organique d'une dimension inconnue. Évitez si possible.",
+    minDifficulty: 6,
+    maxDifficulty: 9,
+    baseHealth: 150,
+    rewardMultiplier: 1.8,
+    expiryHours: 8,
+    color: '#dc2626',
+    tier: 'hard',
+  },
+  [NpcEncounterType.ANCIENT_SENTINEL]: {
+    name: 'Sentinelle Ancienne',
+    description:
+      'Gardien ultime de la Convergence. Seules les armadas les plus puissantes survivent.',
+    minDifficulty: 8,
+    maxDifficulty: 10,
+    baseHealth: 200,
+    rewardMultiplier: 2.5,
+    expiryHours: 12,
+    color: '#7c3aed',
+    tier: 'elite',
+  },
+};
+
+export const NPC_SPAWN_TARGET = 25;
+export const NPC_SPAWN_INTERVAL_MS = 5 * 60 * 1_000;
+export const NPC_SPAWN_WEIGHTS: Record<'easy' | 'medium' | 'hard' | 'elite', number> = {
+  easy: 30,
+  medium: 40,
+  hard: 20,
+  elite: 10,
+};
+
+// ──────────────────────────── Spécialisation planète ─────────────────────────
+
+export interface SpecializationConfig {
+  name: string;
+  description: string;
+  productionMultiplier: number;
+  defenseMultiplier: number;
+  researchTimeFactor: number;
+  shipTimeFactor: number;
+  color: string;
+  icon: string;
+}
+
+export const SPECIALIZATION_CONFIGS: Record<PlanetSpecialization, SpecializationConfig> = {
+  [PlanetSpecialization.PRODUCTION]: {
+    name: 'Production',
+    description: '+20% production de toutes les ressources',
+    productionMultiplier: 1.2,
+    defenseMultiplier: 1.0,
+    researchTimeFactor: 1.0,
+    shipTimeFactor: 1.0,
+    color: '#22c55e',
+    icon: 'leaf',
+  },
+  [PlanetSpecialization.MILITARY]: {
+    name: 'Militaire',
+    description: '+15% défense orbitale, -10% temps de construction vaisseaux',
+    productionMultiplier: 0.9,
+    defenseMultiplier: 1.15,
+    researchTimeFactor: 1.0,
+    shipTimeFactor: 1.1,
+    color: '#ef4444',
+    icon: 'shield',
+  },
+  [PlanetSpecialization.RESEARCH]: {
+    name: 'Recherche',
+    description: '+25% vitesse de recherche, -10% production',
+    productionMultiplier: 0.9,
+    defenseMultiplier: 1.0,
+    researchTimeFactor: 1.25,
+    shipTimeFactor: 1.0,
+    color: '#3b82f6',
+    icon: 'flask',
+  },
+  [PlanetSpecialization.FORTRESS]: {
+    name: 'Forteresse',
+    description: '+30% puissance défensive',
+    productionMultiplier: 0.9,
+    defenseMultiplier: 1.3,
+    researchTimeFactor: 1.0,
+    shipTimeFactor: 1.0,
+    color: '#f59e0b',
+    icon: 'lock',
   },
 };

@@ -11,6 +11,8 @@ export const PROVISIONING_QUEUE = 'provisioning';
 export const FINALIZE_JOB = 'finalize';
 export const TRIGGER_EVENT_JOB = 'TRIGGER_EVENT';
 export const PROVISION_UNIVERSE_JOB = 'provisioning.universe';
+export const SPAWN_NPC_JOB = 'SPAWN_NPC_JOB';
+export const TRANSFER_QUEUE = 'transfer';
 
 /** Données portées par un job de file : l'identifiant du job métier à finaliser. */
 export interface FinalizeJobData {

@@ -10,6 +10,7 @@ import {
   PVP_QUEUE,
   RESEARCH_QUEUE,
   SHIP_PRODUCTION_QUEUE,
+  TRANSFER_QUEUE,
 } from './queue.constants';
 import { GameQueueService } from './game-queue.service';
 
@@ -28,6 +29,7 @@ import { GameQueueService } from './game-queue.service';
       { name: PVE_QUEUE },
       { name: PVP_QUEUE },
       { name: GAME_EVENT_QUEUE },
+      { name: TRANSFER_QUEUE },
       {
         name: PROVISIONING_QUEUE,
         defaultJobOptions: {

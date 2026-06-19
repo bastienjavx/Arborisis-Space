@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMe, useUpdateProfile } from '@/lib/queries';
+import Image from 'next/image';
+import { useMe, usePublicProfile, useUpdateProfile } from '@/lib/queries';
 import { PageHeader } from '@/components/PageHeader';
-import { AnimatedCard } from '@/components/AnimatedCard';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { RACES } from '@arborisis/shared';
+import { FiCheck, FiEye, FiGlobe, FiInfo, FiRefreshCw, FiUser } from 'react-icons/fi';
 
 function hashString(str: string): number {
   let h = 0;
@@ -17,26 +18,28 @@ function hashString(str: string): number {
 }
 
 function AvatarPreview({ seed, color }: { seed: string; color: string }) {
-  const h = hashString(seed || 'arborisis');
-  const cells = Array.from({ length: 25 }, (_, i) => ((h >> i) & 1) === 1);
+  const images = [
+    '/images/arborisis/hero-living-planet.webp',
+    '/images/arborisis/feature-empire.webp',
+    '/images/arborisis/feature-galaxy.webp',
+    '/images/arborisis/feature-research.webp',
+  ];
+  const source = images[hashString(seed || 'arborisis') % images.length] ?? images[0];
   return (
-    <div
-      className="grid h-24 w-24 grid-cols-5 overflow-hidden rounded-xl border-2"
+    <span
+      className="relative block h-28 w-28 overflow-hidden rounded-full border-2 bg-bark-950 shadow-2xl"
       style={{ borderColor: color }}
     >
-      {cells.map((on, i) => (
-        <div
-          key={i}
-          className="aspect-square"
-          style={{ backgroundColor: on ? color : 'transparent' }}
-        />
-      ))}
-    </div>
+      <Image src={source} alt="Avatar organique" fill sizes="7rem" className="object-cover" />
+    </span>
   );
 }
 
+const BANNER_COLORS = ['#315d32', '#4d365f', '#603d47', '#7a5626', '#40524c', '#1f6659', '#61733c'];
+
 export default function ProfilePage() {
   const { data: user } = useMe();
+  const { data: publicProfile } = usePublicProfile(user?.id);
   const update = useUpdateProfile();
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -47,11 +50,11 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName ?? '');
-      setBio(''); // bio n'est pas dans AuthUser, on la laisse vide par défaut
+      setBio(publicProfile?.bio ?? '');
       setBannerColor(user.bannerColor ?? RACES[user.race].defaultColor);
       setAvatarSeed(user.avatarSeed ?? user.username);
     }
-  }, [user]);
+  }, [user, publicProfile?.bio]);
 
   if (!user) return null;
   const raceConfig = RACES[user.race];
@@ -70,97 +73,204 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Profil" subtitle="Personnalisez votre identité galactique." />
+    <div className="space-y-5">
+      <PageHeader title="Profil" subtitle="Personnalisez l’identité publique de votre empire." />
 
-      <AnimatedCard className="mx-auto max-w-2xl">
-        <div className="mb-6 flex items-center gap-4">
-          <AvatarPreview seed={avatarSeed || user.username} color={bannerColor} />
+      <div className="grid gap-5 xl:grid-cols-[minmax(28rem,0.85fr)_minmax(30rem,1.1fr)]">
+        <form onSubmit={onSubmit} className="mycelium-panel space-y-5 p-5 sm:p-6">
+          <h2 className="section-title border-b border-canopy-700/15 pb-4">
+            Informations publiques
+          </h2>
           <div>
-            <h2 className="text-xl font-bold text-canopy-100">{displayName || user.username}</h2>
-            <p className="text-sm text-canopy-100/60">
-              {raceConfig.name} • {user.email}
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-5">
-          <div>
-            <label className="label" htmlFor="displayName">
-              Nom affiché
-            </label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="label mb-0" htmlFor="displayName">
+                Nom d’affichage
+              </label>
+              <span className="text-[10px] text-canopy-100/30">{displayName.length}/30</span>
+            </div>
             <input
               id="displayName"
               type="text"
               className="input"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(event) => setDisplayName(event.target.value)}
               placeholder={user.username}
               maxLength={30}
             />
           </div>
 
           <div>
-            <label className="label" htmlFor="bio">
-              Biographie
+            <label className="label" htmlFor="username">
+              Nom d’utilisateur
             </label>
+            <input id="username" className="input opacity-55" value={user.username} disabled />
+            <p className="mt-1.5 text-[10px] text-canopy-100/30">Ne peut pas être modifié.</p>
+          </div>
+
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="label mb-0" htmlFor="bio">
+                Biographie
+              </label>
+              <span className="text-[10px] text-canopy-100/30">{bio.length}/500</span>
+            </div>
             <textarea
               id="bio"
-              className="input min-h-[100px] resize-none"
+              className="input min-h-[110px] resize-none"
               value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Racontez l'histoire de votre empire..."
+              onChange={(event) => setBio(event.target.value)}
+              placeholder="Racontez l’histoire de votre empire..."
               maxLength={500}
             />
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="bannerColor">
-                Couleur de bannière
-              </label>
-              <div className="flex items-center gap-3">
+          <fieldset>
+            <legend className="label">Couleur de bannière</legend>
+            <div className="flex flex-wrap gap-3">
+              {BANNER_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setBannerColor(color)}
+                  className="grid h-10 w-10 place-items-center rounded-full border-2 transition hover:scale-105"
+                  style={{
+                    backgroundColor: color,
+                    borderColor: bannerColor === color ? '#d8f9e6' : `${color}88`,
+                  }}
+                  aria-label={`Utiliser la couleur ${color}`}
+                  aria-pressed={bannerColor === color}
+                >
+                  {bannerColor === color && (
+                    <FiCheck className="h-4 w-4 text-canopy-50" aria-hidden="true" />
+                  )}
+                </button>
+              ))}
+              <label
+                className="grid h-10 w-10 cursor-pointer place-items-center rounded-full border border-canopy-700/25 text-canopy-100/45"
+                title="Couleur personnalisée"
+              >
                 <input
                   id="bannerColor"
                   type="color"
-                  className="h-10 w-16 cursor-pointer rounded bg-transparent"
+                  className="sr-only"
                   value={bannerColor}
-                  onChange={(e) => setBannerColor(e.target.value)}
+                  onChange={(event) => setBannerColor(event.target.value)}
                 />
-                <input
-                  type="text"
-                  className="input flex-1"
-                  value={bannerColor}
-                  onChange={(e) => setBannerColor(e.target.value)}
-                  pattern="^#[0-9A-Fa-f]{6}$"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="label" htmlFor="avatarSeed">
-                Graine d'avatar
+                <FiEye className="h-4 w-4" aria-hidden="true" />
               </label>
+            </div>
+          </fieldset>
+
+          <div>
+            <div className="mb-1.5 flex items-center gap-2">
+              <label className="label mb-0" htmlFor="avatarSeed">
+                Graine d’avatar
+              </label>
+              <FiInfo className="h-3.5 w-3.5 text-canopy-100/30" aria-hidden="true" />
+            </div>
+            <div className="flex gap-2">
               <input
                 id="avatarSeed"
                 type="text"
                 className="input"
                 value={avatarSeed}
-                onChange={(e) => setAvatarSeed(e.target.value)}
+                onChange={(event) => setAvatarSeed(event.target.value)}
                 placeholder={user.username}
                 maxLength={64}
               />
+              <button
+                type="button"
+                onClick={() => setAvatarSeed(`mycelium-${Math.floor(Math.random() * 10000)}`)}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-canopy-700/25 text-canopy-100/50 transition hover:bg-canopy-500/10 hover:text-canopy-100"
+                aria-label="Générer une nouvelle graine"
+              >
+                <FiRefreshCw className="h-4 w-4" aria-hidden="true" />
+              </button>
             </div>
+            <p className="mt-1.5 text-[10px] text-canopy-100/30">
+              Modifie l’apparence de votre avatar à partir d’une graine unique.
+            </p>
           </div>
 
-          <div className="flex items-center gap-4 pt-2">
-            <AnimatedButton type="submit" disabled={update.isPending}>
-              {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
+          <div className="flex flex-wrap items-center gap-4 border-t border-canopy-700/15 pt-5">
+            <AnimatedButton type="submit" disabled={update.isPending} loading={update.isPending}>
+              Enregistrer
             </AnimatedButton>
-            {saved && <span className="text-sm text-canopy-400">Profil mis à jour.</span>}
+            {saved && (
+              <span className="inline-flex items-center gap-2 text-sm text-canopy-300/75">
+                <FiCheck className="h-4 w-4" aria-hidden="true" /> Modifications enregistrées
+              </span>
+            )}
           </div>
         </form>
-      </AnimatedCard>
+
+        <aside className="mycelium-panel h-fit overflow-hidden">
+          <div className="border-b border-canopy-700/15 px-5 py-4">
+            <h2 className="section-title">Aperçu en direct</h2>
+          </div>
+          <div className="p-5">
+            <div className="overflow-hidden rounded-xl border border-canopy-700/20 bg-bark-950/55">
+              <div className="relative h-36 overflow-hidden">
+                <Image
+                  src="/images/arborisis/feature-galaxy.webp"
+                  alt=""
+                  fill
+                  sizes="40rem"
+                  className="object-cover opacity-65"
+                />
+                <div
+                  className="absolute inset-0 opacity-35"
+                  style={{ backgroundColor: bannerColor }}
+                />
+              </div>
+              <div className="relative flex gap-5 px-5 pb-6 pt-5 sm:px-7">
+                <div className="-mt-16 shrink-0">
+                  <AvatarPreview seed={avatarSeed || user.username} color={bannerColor} />
+                </div>
+                <div className="min-w-0 pt-1">
+                  <h3 className="truncate font-display text-3xl text-canopy-50/92">
+                    {displayName || user.username}
+                  </h3>
+                  <p className="mt-1 text-sm text-canopy-300/65">@{user.username}</p>
+                  <p className="mt-4 text-sm leading-6 text-canopy-100/58">
+                    {bio ||
+                      `Une civilisation ${raceConfig.name.toLowerCase()} en pleine croissance.`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <section className="mt-7">
+              <h3 className="section-title">Où votre profil apparaît</h3>
+              <p className="mt-1 text-xs text-canopy-100/35">
+                Votre identité publique sera visible par les autres empires dans :
+              </p>
+              <ul className="mt-4 space-y-3 text-sm text-canopy-100/55">
+                <li className="flex items-center gap-3">
+                  <FiGlobe className="h-4 w-4 text-canopy-300/55" aria-hidden="true" /> Le
+                  classement galactique
+                </li>
+                <li className="flex items-center gap-3">
+                  <FiUser className="h-4 w-4 text-canopy-300/55" aria-hidden="true" /> Les alliances
+                  et candidatures
+                </li>
+                <li className="flex items-center gap-3">
+                  <FiEye className="h-4 w-4 text-canopy-300/55" aria-hidden="true" /> Les
+                  interactions diplomatiques
+                </li>
+              </ul>
+            </section>
+
+            <div className="mt-7 flex gap-3 rounded-xl border border-canopy-700/15 bg-canopy-500/[0.025] p-4">
+              <FiInfo className="mt-0.5 h-4 w-4 shrink-0 text-canopy-300/55" aria-hidden="true" />
+              <p className="text-xs leading-5 text-canopy-100/40">
+                Choisissez une graine qui vous représente. Vous pouvez en générer une aléatoire ou
+                en saisir une personnalisée.
+              </p>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

@@ -7,6 +7,8 @@ const nextConfig = {
   // Le lint tourne en CI (`npm run lint`) ; on ne bloque pas le build de prod
   // sur des règles cosmétiques (ex. react/no-unescaped-entities).
   eslint: { ignoreDuringBuilds: true },
+  // Le worker webpack échoue silencieusement dans l'environnement de build du monorepo.
+  experimental: { webpackBuildWorker: false },
 };
 
 export default nextConfig;

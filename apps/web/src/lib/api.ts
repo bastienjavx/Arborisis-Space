@@ -24,14 +24,17 @@ import type {
   PvpMissionView,
   RenamePlanetDto,
   ResearchOverview,
+  ResourceTransferMissionView,
   StartResearchDto,
   ProduceShipsDto,
+  SetSpecializationDto,
   SpyPlanetDto,
   StartExpeditionDto,
   ShipProductionJobView,
   LeaderboardEntry,
   ActiveEventView,
   AchievementView,
+  TransferResourcesDto,
   UpdateProfileDto,
 } from '@arborisis/shared';
 
@@ -127,6 +130,13 @@ export const api = {
   planet: (id: string) => request<PlanetDetail>(`/planets/${id}`),
   renamePlanet: (id: string, body: RenamePlanetDto) =>
     request<PlanetSummary>(`/planets/${id}/name`, { method: 'PATCH', body }),
+  setSpecialization: (id: string, body: SetSpecializationDto) =>
+    request<PlanetSummary>(`/planets/${id}/specialization`, { method: 'PATCH', body }),
+
+  // ── Transferts ──
+  transfers: () => request<ResourceTransferMissionView[]>('/transfer'),
+  launchTransfer: (body: TransferResourcesDto) =>
+    request<ResourceTransferMissionView>('/transfer', { method: 'POST', body }),
 
   // ── Bâtiments ──
   upgradeBuilding: (body: BuildBuildingDto) =>
