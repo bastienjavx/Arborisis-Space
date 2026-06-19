@@ -26,6 +26,13 @@ const envSchema = z.object({
   RAILWAY_ENVIRONMENT_ID: z.string().optional(),
   UNIVERSE_PROVISIONING_ENABLED: z.enum(['true', 'false']).default('false'),
   UNIVERSE_MAX_PLAYERS: z.coerce.number().int().positive().default(500),
+  // Email (Mailtrap SMTP — optionnel en dev, requis en prod pour la vérification)
+  MAILTRAP_HOST: z.string().default('sandbox.smtp.mailtrap.io'),
+  MAILTRAP_PORT: z.coerce.number().int().positive().default(2525),
+  MAILTRAP_USER: z.string().optional(),
+  MAILTRAP_PASS: z.string().optional(),
+  MAILTRAP_FROM: z.string().default('noreply@arborisis.game'),
+  APP_URL: z.string().url().default('http://localhost:3000'),
 });
 
 export type Env = z.infer<typeof envSchema>;

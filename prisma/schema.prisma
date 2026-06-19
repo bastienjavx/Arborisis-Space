@@ -250,8 +250,22 @@ model User {
 
   // Hash du refresh token courant (rotation). Null = pas de session active.
   refreshTokenHash String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+
+  // Vérification email
+  emailVerified          Boolean   @default(false)
+  emailVerificationToken String?   @unique
+  emailVerificationSentAt DateTime?
+
+  // Réinitialisation du mot de passe
+  passwordResetToken   String?   @unique
+  passwordResetSentAt  DateTime?
+
+  // Double authentification TOTP
+  totpSecret  String?
+  totpEnabled Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   artifactCount Int @default(0)
 

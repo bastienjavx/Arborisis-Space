@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response, CookieOptions } from 'express';
@@ -29,11 +29,8 @@ export class AuthController {
   @Post('register')
   async register(
     @Body(new ZodValidationPipe(registerSchema)) dto: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<{ user: AuthUser }> {
-    const { user, tokens } = await this.authService.register(dto);
-    this.setAuthCookies(res, tokens);
-    return { user };
+  ): Promise<{ pending: true; email: string }> {
+    return this.authService.register(dto);
   }
 
   @Public()
@@ -43,10 +40,107 @@ export class AuthController {
   async login(
     @Body(new ZodValidationPipe(loginSchema)) dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ user: AuthUser }> {
-    const { user, tokens } = await this.authService.login(dto);
+  ): Promise<{ user: AuthUser } | { twoFactorRequired: true; tempToken: string }> {
+    const result = await this.authService.login(dto);
+    if ('twoFactorRequired' in result && result.twoFactorRequired) {
+      return { twoFactorRequired: true, tempToken: result.tempToken };
+    }
+    const { user, tokens } = result as { user: AuthUser; tokens: TokenPair };
     this.setAuthCookies(res, tokens);
     return { user };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('login/2fa')
+  async loginWith2fa(
+    @Body() body: { tempToken?: string; code?: string },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ user: AuthUser }> {
+    const { user, tokens } = await this.authService.loginWith2fa(
+      body.tempToken ?? '',
+      body.code ?? '',
+    );
+    this.setAuthCookies(res, tokens);
+    return { user };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('verify-email')
+  async verifyEmail(
+    @Body() body: { token?: string },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ user: AuthUser }> {
+    const { user, tokens } = await this.authService.verifyEmail(body.token ?? '');
+    this.setAuthCookies(res, tokens);
+    return { user };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('resend-verification')
+  async resendVerification(@Body() body: { email?: string }): Promise<{ sent: true }> {
+    await this.authService.resendVerification(body.email ?? '');
+    return { sent: true };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: { email?: string }): Promise<{ sent: true }> {
+    await this.authService.forgotPassword(body.email ?? '');
+    return { sent: true };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('reset-password')
+  async resetPassword(
+    @Body() body: { token?: string; password?: string },
+  ): Promise<{ success: true }> {
+    if (!body.token || !body.password || body.password.length < 10) {
+      throw new Error('Données invalides.');
+    }
+    await this.authService.resetPassword(body.token, body.password);
+    return { success: true };
+  }
+
+  // ── 2FA ──
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('2fa/setup')
+  async setup2fa(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ secret: string; qrCodeDataUrl: string; otpauthUrl: string }> {
+    return this.authService.setup2fa(user.id);
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('2fa/enable')
+  async enable2fa(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { code?: string },
+  ): Promise<{ success: true }> {
+    await this.authService.enable2fa(user.id, body.code ?? '');
+    return { success: true };
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('2fa/disable')
+  async disable2fa(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { code?: string },
+  ): Promise<{ success: true }> {
+    await this.authService.disable2fa(user.id, body.code ?? '');
+    return { success: true };
   }
 
   @Public()
@@ -114,7 +208,6 @@ export class AuthController {
     res.cookie(REFRESH_COOKIE, tokens.refreshToken, {
       ...this.baseCookieOptions(),
       maxAge: refreshTtl * 1000,
-      // Le refresh token n'est envoyé qu'à la route de rafraîchissement.
       path: '/api/auth/refresh',
     });
   }

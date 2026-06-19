@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UniverseStatus, type Universe } from '@prisma/client';
 import type { UniverseView } from '@arborisis/shared';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { UniverseService } from '../universe/universe.service';
 import type { Env } from '../../common/config/env';
@@ -137,11 +137,14 @@ export class ProvisioningService {
   }
 
   private buildVariables(): Record<string, string> {
+    // Toutes les instances API sont stateless et doivent PARTAGER les mêmes secrets
+    // JWT : un token émis par l'API meta doit être validable par l'instance de
+    // l'univers provisionné. Générer des secrets aléatoires casserait l'auth (401).
     return {
       DATABASE_URL: this.config.get('DATABASE_URL', { infer: true }),
       REDIS_URL: this.config.get('REDIS_URL', { infer: true }),
-      JWT_ACCESS_SECRET: randomBytes(48).toString('hex'),
-      JWT_REFRESH_SECRET: randomBytes(48).toString('hex'),
+      JWT_ACCESS_SECRET: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
+      JWT_REFRESH_SECRET: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
       WEB_ORIGIN: this.config.get('WEB_ORIGIN', { infer: true }),
       NODE_ENV: 'production',
     };

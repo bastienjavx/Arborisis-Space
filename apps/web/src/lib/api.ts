@@ -118,9 +118,52 @@ export const api = {
     password: string;
     race: string;
     universeId?: string;
-  }) => request<{ user: AuthUser }>('/auth/register', { method: 'POST', body, noRefresh: true }),
+  }) =>
+    request<{ pending: true; email: string }>('/auth/register', {
+      method: 'POST',
+      body,
+      noRefresh: true,
+    }),
   login: (body: { email: string; password: string }) =>
     request<{ user: AuthUser }>('/auth/login', { method: 'POST', body, noRefresh: true }),
+  verifyEmail: (token: string) =>
+    request<{ user: AuthUser }>('/auth/verify-email', {
+      method: 'POST',
+      body: { token },
+      noRefresh: true,
+    }),
+  resendVerification: (email: string) =>
+    request<{ sent: true }>('/auth/resend-verification', {
+      method: 'POST',
+      body: { email },
+      noRefresh: true,
+    }),
+  forgotPassword: (email: string) =>
+    request<{ sent: true }>('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+      noRefresh: true,
+    }),
+  resetPassword: (token: string, password: string) =>
+    request<{ success: true }>('/auth/reset-password', {
+      method: 'POST',
+      body: { token, password },
+      noRefresh: true,
+    }),
+  loginWith2fa: (tempToken: string, code: string) =>
+    request<{ user: AuthUser }>('/auth/login/2fa', {
+      method: 'POST',
+      body: { tempToken, code },
+      noRefresh: true,
+    }),
+  setup2fa: () =>
+    request<{ secret: string; qrCodeDataUrl: string; otpauthUrl: string }>('/auth/2fa/setup', {
+      method: 'POST',
+    }),
+  enable2fa: (code: string) =>
+    request<{ success: true }>('/auth/2fa/enable', { method: 'POST', body: { code } }),
+  disable2fa: (code: string) =>
+    request<{ success: true }>('/auth/2fa/disable', { method: 'POST', body: { code } }),
   logout: () => request<{ success: true }>('/auth/logout', { method: 'POST' }),
   logoutAll: () => request<{ success: true }>('/auth/logout-all', { method: 'POST' }),
   me: () => request<{ user: AuthUser }>('/auth/me'),

@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useMe, usePublicProfile, useUpdateProfile } from '@/lib/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/PageHeader';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { ProceduralAvatar } from '@/components/ProceduralAvatar';
 import { RACES } from '@arborisis/shared';
-import { FiCheck, FiEye, FiGlobe, FiInfo, FiRefreshCw, FiUser } from 'react-icons/fi';
+import { FiCheck, FiEye, FiGlobe, FiInfo, FiRefreshCw, FiShield, FiUser, FiX } from 'react-icons/fi';
+import { api, ApiError } from '@/lib/api';
+import { keys } from '@/lib/queries';
 
 function AvatarPreview({ seed, color }: { seed: string; color: string }) {
   return (
@@ -21,6 +24,171 @@ function AvatarPreview({ seed, color }: { seed: string; color: string }) {
 }
 
 const BANNER_COLORS = ['#315d32', '#4d365f', '#603d47', '#7a5626', '#40524c', '#1f6659', '#61733c'];
+
+type TotpSetupState = null | { secret: string; qrCodeDataUrl: string };
+
+function TwoFactorSection({ totpEnabled }: { totpEnabled: boolean }) {
+  const qc = useQueryClient();
+  const [setupState, setSetupState] = useState<TotpSetupState>(null);
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>();
+  const [done, setDone] = useState(false);
+
+  async function startSetup() {
+    setLoading(true);
+    setError(undefined);
+    try {
+      const res = await api.setup2fa();
+      setSetupState({ secret: res.secret, qrCodeDataUrl: res.qrCodeDataUrl });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Erreur.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function confirmEnable() {
+    if (!setupState || code.length !== 6) return;
+    setLoading(true);
+    setError(undefined);
+    try {
+      await api.enable2fa(code);
+      await qc.invalidateQueries({ queryKey: keys.me });
+      setSetupState(null);
+      setCode('');
+      setDone(true);
+      setTimeout(() => setDone(false), 3000);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Code invalide.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDisable() {
+    if (code.length !== 6) return;
+    setLoading(true);
+    setError(undefined);
+    try {
+      await api.disable2fa(code);
+      await qc.invalidateQueries({ queryKey: keys.me });
+      setCode('');
+      setDone(true);
+      setTimeout(() => setDone(false), 3000);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Code invalide.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mycelium-panel p-5 sm:p-6 space-y-5">
+      <div className="flex items-center gap-3 border-b border-canopy-700/15 pb-4">
+        <FiShield className="h-5 w-5 text-canopy-400" aria-hidden="true" />
+        <h2 className="section-title">Double authentification (2FA)</h2>
+        {totpEnabled && (
+          <span className="ml-auto text-xs bg-canopy-500/20 text-canopy-300 px-2 py-0.5 rounded-full border border-canopy-500/30">
+            Activée
+          </span>
+        )}
+      </div>
+
+      {done && (
+        <p className="text-sm text-canopy-300 flex items-center gap-2">
+          <FiCheck className="h-4 w-4" /> Modification enregistrée.
+        </p>
+      )}
+
+      {!totpEnabled && !setupState && (
+        <div className="space-y-3">
+          <p className="text-sm text-canopy-100/55">
+            Protégez votre compte en ajoutant une vérification TOTP (Google Authenticator, Aegis, etc.).
+          </p>
+          <AnimatedButton onClick={startSetup} loading={loading} disabled={loading}>
+            Activer la 2FA
+          </AnimatedButton>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+        </div>
+      )}
+
+      {!totpEnabled && setupState && (
+        <div className="space-y-4">
+          <p className="text-sm text-canopy-100/55">
+            Scannez ce QR code avec votre application d'authentification, puis entrez le code généré.
+          </p>
+          <div className="flex justify-center">
+            <div className="rounded-xl border border-canopy-700/20 bg-white p-3 inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={setupState.qrCodeDataUrl} alt="QR Code 2FA" className="h-44 w-44" />
+            </div>
+          </div>
+          <div className="rounded-lg bg-bark-900/60 border border-canopy-700/15 p-3">
+            <p className="text-[11px] text-canopy-100/40 mb-1">Clé manuelle</p>
+            <code className="text-xs text-canopy-300 break-all font-mono">{setupState.secret}</code>
+          </div>
+          <div>
+            <label className="label" htmlFor="totp-enable">Code de vérification</label>
+            <input
+              id="totp-enable"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              className="input text-center text-xl tracking-[0.5em] font-mono"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+            />
+          </div>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="flex gap-3">
+            <AnimatedButton onClick={confirmEnable} loading={loading} disabled={loading || code.length !== 6}>
+              Confirmer
+            </AnimatedButton>
+            <button
+              type="button"
+              onClick={() => { setSetupState(null); setCode(''); setError(undefined); }}
+              className="text-sm text-canopy-100/40 hover:text-canopy-100/70 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {totpEnabled && (
+        <div className="space-y-4">
+          <p className="text-sm text-canopy-100/55">
+            La double authentification est activée sur votre compte. Pour la désactiver, entrez un code de votre application.
+          </p>
+          <div>
+            <label className="label" htmlFor="totp-disable">Code de vérification</label>
+            <input
+              id="totp-disable"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              className="input text-center text-xl tracking-[0.5em] font-mono"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+            />
+          </div>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <button
+            type="button"
+            onClick={handleDisable}
+            disabled={loading || code.length !== 6}
+            className="flex items-center gap-2 text-sm text-red-400/70 hover:text-red-400 transition-colors disabled:opacity-40"
+          >
+            <FiX className="h-4 w-4" /> Désactiver la 2FA
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { data: user } = useMe();
@@ -60,6 +228,8 @@ export default function ProfilePage() {
   return (
     <div className="space-y-5">
       <PageHeader title="Profil" subtitle="Personnalisez l’identité publique de votre empire." />
+
+      <TwoFactorSection totpEnabled={user.totpEnabled ?? false} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(28rem,0.85fr)_minmax(30rem,1.1fr)]">
         <form onSubmit={onSubmit} className="mycelium-panel space-y-5 p-5 sm:p-6">

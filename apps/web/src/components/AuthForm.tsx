@@ -10,7 +10,7 @@ import { api, ApiError } from '@/lib/api';
 import { keys } from '@/lib/queries';
 import { setUniverseCookieAction } from '@/app/universes/actions';
 import { RaceType, RACES, UniverseStatus, type UniverseSummaryView } from '@arborisis/shared';
-import { FiCheckCircle } from 'react-icons/fi';
+import { FiCheckCircle, FiMail, FiShield } from 'react-icons/fi';
 
 type Mode = 'login' | 'register';
 
@@ -28,6 +28,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(false);
+  // 2FA
+  const [totpPending, setTotpPending] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const isRegister = mode === 'register';
@@ -63,9 +68,41 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setError(undefined);
     setLoading(true);
     try {
-      const res = isRegister
-        ? await api.register({ email, username, password, race, universeId })
-        : await api.login({ email, password });
+      if (isRegister) {
+        const res = await api.register({ email, username, password, race, universeId });
+        if (res.pending) {
+          setPendingEmail(res.email);
+        }
+      } else {
+        const res = await api.login({ email, password }) as
+          | { user: import('@arborisis/shared').AuthUser }
+          | { twoFactorRequired: true; tempToken: string };
+        if ('twoFactorRequired' in res && res.twoFactorRequired) {
+          setTotpPending(res.tempToken);
+        } else {
+          const r = res as { user: import('@arborisis/shared').AuthUser };
+          qc.setQueryData(keys.me, r.user);
+          if (r.user.universeId) {
+            await setUniverseCookieAction(r.user.universeId);
+          }
+          setSuccess(true);
+          redirectTimer.current = setTimeout(() => router.replace('/play'), 800);
+        }
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onSubmit2fa(e: FormEvent) {
+    e.preventDefault();
+    if (!totpPending) return;
+    setError(undefined);
+    setLoading(true);
+    try {
+      const res = await api.loginWith2fa(totpPending, totpCode);
       qc.setQueryData(keys.me, res.user);
       if (res.user.universeId) {
         await setUniverseCookieAction(res.user.universeId);
@@ -73,10 +110,17 @@ export function AuthForm({ mode }: { mode: Mode }) {
       setSuccess(true);
       redirectTimer.current = setTimeout(() => router.replace('/play'), 800);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      setError(err instanceof ApiError ? err.message : 'Code invalide.');
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleResend() {
+    if (!pendingEmail || resendCooldown) return;
+    setResendCooldown(true);
+    await api.resendVerification(pendingEmail).catch(() => {});
+    setTimeout(() => setResendCooldown(false), 60_000);
   }
 
   return (
@@ -136,7 +180,87 @@ export function AuthForm({ mode }: { mode: Mode }) {
           transition={{ delay: 0.3, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
           <AnimatePresence mode="wait">
-            {success ? (
+            {totpPending ? (
+              <motion.form
+                key="totp"
+                onSubmit={onSubmit2fa}
+                className="space-y-5"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <div className="flex flex-col items-center gap-3 pb-2">
+                  <FiShield className="h-12 w-12 text-canopy-400" aria-hidden="true" />
+                  <p className="text-base font-medium text-canopy-300">Double authentification</p>
+                  <p className="text-sm text-canopy-100/55 text-center max-w-xs">
+                    Entrez le code à 6 chiffres de votre application d'authentification.
+                  </p>
+                </div>
+                <div>
+                  <label className="label" htmlFor="totp">Code de vérification</label>
+                  <input
+                    id="totp"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                    required
+                    className="input text-center text-xl tracking-[0.5em] font-mono"
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    autoFocus
+                  />
+                </div>
+                <AnimatePresence>
+                  {error && (
+                    <motion.p
+                      className="text-sm text-red-400"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+                <button type="submit" className="btn-primary w-full" disabled={loading || totpCode.length !== 6}>
+                  {loading ? 'Vérification…' : 'Vérifier'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTotpPending(null); setTotpCode(''); setError(undefined); }}
+                  className="w-full text-xs text-canopy-100/40 hover:text-canopy-100/70 transition-colors"
+                >
+                  Retour
+                </button>
+              </motion.form>
+            ) : pendingEmail ? (
+              <motion.div
+                key="pending-email"
+                className="flex flex-col items-center justify-center py-8 text-center"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <FiMail className="h-16 w-16 text-canopy-400" aria-hidden="true" />
+                <p className="mt-4 text-lg font-medium text-canopy-300">Vérifiez votre email</p>
+                <p className="mt-2 text-sm text-canopy-100/60 max-w-xs">
+                  Un lien d'activation a été envoyé à{' '}
+                  <span className="text-canopy-300 font-medium">{pendingEmail}</span>.<br />
+                  Cliquez-le pour activer votre colonie.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendCooldown}
+                  className="mt-5 text-xs text-canopy-500 hover:text-canopy-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {resendCooldown ? 'Email renvoyé ✓' : 'Renvoyer l\'email'}
+                </button>
+              </motion.div>
+            ) : success ? (
               <motion.div
                 key="success"
                 className="flex flex-col items-center justify-center py-8"
@@ -145,9 +269,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 exit={{ opacity: 0, scale: 0.8 }}
               >
                 <FiCheckCircle className="h-16 w-16 text-canopy-400" aria-hidden="true" />
-                <p className="mt-4 text-lg font-medium text-canopy-300">
-                  {isRegister ? 'Colonie créée !' : 'Connexion réussie !'}
-                </p>
+                <p className="mt-4 text-lg font-medium text-canopy-300">Connexion réussie !</p>
                 <p className="mt-1 text-sm text-canopy-100/50">Redirection...</p>
               </motion.div>
             ) : (
@@ -274,9 +396,20 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 }}
                 >
-                  <label className="label" htmlFor="password">
-                    Mot de passe
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="label mb-0" htmlFor="password">
+                      Mot de passe
+                    </label>
+                    {!isRegister && (
+                      <Link
+                        href="/forgot-password"
+                        className="text-[11px] text-canopy-400/70 hover:text-canopy-300 transition-colors"
+                        tabIndex={-1}
+                      >
+                        Mot de passe oublié ?
+                      </Link>
+                    )}
+                  </div>
                   <input
                     id="password"
                     type="password"

@@ -26,6 +26,7 @@ export class UsersService {
       displayName: user.displayName,
       bannerColor: user.bannerColor,
       avatarSeed: user.avatarSeed,
+      totpEnabled: user.totpEnabled,
     };
   }
 

@@ -43,6 +43,7 @@ export interface AuthUser {
   displayName: string | null;
   bannerColor: string | null;
   avatarSeed: string | null;
+  totpEnabled: boolean;
 }
 
 export interface PublicProfile {

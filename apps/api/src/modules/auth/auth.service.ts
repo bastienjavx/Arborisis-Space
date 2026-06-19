@@ -1,10 +1,20 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
-import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Queue } from 'bullmq';
 import argon2 from 'argon2';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 import { Universe, User } from '@prisma/client';
 import type { AuthUser, LoginDto, RegisterDto } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -14,11 +24,14 @@ import { UniverseService } from '../universe/universe.service';
 import { WorldFactoryService } from '../game/world-factory.service';
 import { PROVISION_UNIVERSE_JOB, PROVISIONING_QUEUE } from '../queue/queue.constants';
 import type { JwtPayload } from './strategies/jwt.strategy';
+import { EmailService } from '../email/email.service';
 
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
 }
+
+const TOTP_APP_NAME = 'Arborisis';
 
 @Injectable()
 export class AuthService {
@@ -30,14 +43,15 @@ export class AuthService {
     private readonly config: ConfigService<Env, true>,
     private readonly universeService: UniverseService,
     private readonly worldFactory: WorldFactoryService,
+    private readonly emailService: EmailService,
     @InjectQueue(PROVISIONING_QUEUE) private readonly provisioningQueue: Queue,
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ user: AuthUser; tokens: TokenPair }> {
+  async register(dto: RegisterDto): Promise<{ pending: true; email: string }> {
     const existing = await this.prisma.user.findFirst({
       where: { OR: [{ email: dto.email }, { username: dto.username }] },
     });
-    if (existing) throw new ConflictException('Email ou nom d’utilisateur déjà pris.');
+    if (existing) throw new ConflictException("Email ou nom d'utilisateur déjà pris.");
 
     const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
     let user: User | undefined;
@@ -49,6 +63,7 @@ export class AuthService {
           if (this.universeService.isSaturated(universe)) {
             throw new ConflictException('Univers saturé.');
           }
+          const verificationToken = randomBytes(32).toString('base64url');
           const created = await tx.user.create({
             data: {
               email: dto.email,
@@ -57,6 +72,9 @@ export class AuthService {
               race: dto.race,
               bannerColor: undefined,
               universeId: universe.id,
+              emailVerified: false,
+              emailVerificationToken: verificationToken,
+              emailVerificationSentAt: new Date(),
             },
           });
           await this.worldFactory.initNewPlayer(created.id, tx, dto.race);
@@ -72,7 +90,7 @@ export class AuthService {
         const duplicate = await this.prisma.user.findFirst({
           where: { OR: [{ email: dto.email }, { username: dto.username }] },
         });
-        if (duplicate) throw new ConflictException('Email ou nom d’utilisateur déjà pris.');
+        if (duplicate) throw new ConflictException("Email ou nom d'utilisateur déjà pris.");
         if (attempt === 2) throw new ConflictException('Aucun emplacement libre disponible.');
       }
     }
@@ -85,22 +103,233 @@ export class AuthService {
       await this.provisioningQueue
         .add(PROVISION_UNIVERSE_JOB, {}, { removeOnComplete: true, removeOnFail: 10 })
         .catch((error) => {
-          // On ne fait pas échouer l'inscription si le job ne peut pas être planifié.
           this.logger.error(error, "Impossible de planifier le provisioning d'un nouvel univers.");
         });
+    }
+
+    await this.emailService
+      .sendVerificationEmail(user.email, user.username, user.emailVerificationToken!)
+      .catch((err) => {
+        this.logger.error(err, "Impossible d'envoyer l'email de vérification.");
+      });
+
+    return { pending: true, email: user.email };
+  }
+
+  async login(
+    dto: LoginDto,
+  ): Promise<
+    | { user: AuthUser; tokens: TokenPair; twoFactorRequired?: false }
+    | { twoFactorRequired: true; tempToken: string }
+  > {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+      throw new UnauthorizedException('Identifiants invalides.');
+    }
+    if (!user.emailVerified) {
+      throw new ForbiddenException('Veuillez vérifier votre adresse email avant de vous connecter.');
+    }
+
+    if (user.totpEnabled && user.totpSecret) {
+      const tempToken = await this.jwt.signAsync(
+        { sub: user.id, type: '2fa_pending' as const },
+        {
+          secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
+          expiresIn: '5m',
+        },
+      );
+      return { twoFactorRequired: true as const, tempToken };
     }
 
     const authUser = this.toAuthUser(user);
     return { user: authUser, tokens: await this.createSession(authUser) };
   }
 
-  async login(dto: LoginDto): Promise<{ user: AuthUser; tokens: TokenPair }> {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
-      throw new UnauthorizedException('Identifiants invalides.');
+  async loginWith2fa(
+    tempToken: string,
+    code: string,
+  ): Promise<{ user: AuthUser; tokens: TokenPair }> {
+    let payload: { sub: string; type: string };
+    try {
+      payload = await this.jwt.verifyAsync<{ sub: string; type: string }>(tempToken, {
+        secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
+      });
+    } catch {
+      throw new UnauthorizedException('Token temporaire invalide ou expiré.');
     }
+    if (payload.type !== '2fa_pending') throw new UnauthorizedException();
+
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || !user.totpEnabled || !user.totpSecret) throw new UnauthorizedException();
+
+    const isValid = speakeasy.totp.verify({ secret: user.totpSecret, encoding: 'base32', token: code, window: 1 });
+    if (!isValid) throw new UnauthorizedException('Code de double authentification invalide.');
+
     const authUser = this.toAuthUser(user);
     return { user: authUser, tokens: await this.createSession(authUser) };
+  }
+
+  async verifyEmail(token: string): Promise<{ user: AuthUser; tokens: TokenPair }> {
+    const user = await this.prisma.user.findUnique({
+      where: { emailVerificationToken: token },
+    });
+    if (!user) throw new NotFoundException('Lien de vérification invalide ou expiré.');
+
+    const sentAt = user.emailVerificationSentAt;
+    if (!sentAt || Date.now() - sentAt.getTime() > 24 * 60 * 60 * 1_000) {
+      throw new ForbiddenException('Lien de vérification expiré. Demandez un nouveau lien.');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationSentAt: null,
+      },
+    });
+
+    const authUser = this.toAuthUser(updated);
+    return { user: authUser, tokens: await this.createSession(authUser) };
+  }
+
+  async resendVerification(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.emailVerified) return;
+
+    if (
+      user.emailVerificationSentAt &&
+      Date.now() - user.emailVerificationSentAt.getTime() < 60_000
+    ) {
+      return;
+    }
+
+    const verificationToken = randomBytes(32).toString('base64url');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken: verificationToken,
+        emailVerificationSentAt: new Date(),
+      },
+    });
+
+    await this.emailService
+      .sendVerificationEmail(user.email, user.username, verificationToken)
+      .catch((err) => {
+        this.logger.error(err, "Impossible d'envoyer l'email de vérification.");
+      });
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || !user.emailVerified) return; // on ne révèle pas si l'email existe
+
+    // Anti-spam : 1 minute entre deux envois
+    if (
+      user.passwordResetSentAt &&
+      Date.now() - user.passwordResetSentAt.getTime() < 60_000
+    ) {
+      return;
+    }
+
+    const resetToken = randomBytes(32).toString('base64url');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: resetToken,
+        passwordResetSentAt: new Date(),
+      },
+    });
+
+    await this.emailService
+      .sendPasswordResetEmail(user.email, user.username, resetToken)
+      .catch((err) => {
+        this.logger.error(err, "Impossible d'envoyer l'email de réinitialisation.");
+      });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { passwordResetToken: token } });
+    if (!user || !user.passwordResetSentAt) {
+      throw new NotFoundException('Lien de réinitialisation invalide ou expiré.');
+    }
+
+    if (Date.now() - user.passwordResetSentAt.getTime() > 60 * 60 * 1_000) {
+      throw new ForbiddenException('Lien expiré. Demandez un nouveau lien de réinitialisation.');
+    }
+
+    const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          passwordResetToken: null,
+          passwordResetSentAt: null,
+          refreshTokenHash: null,
+        },
+      }),
+      // Révoquer toutes les sessions actives
+      this.prisma.session.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+  }
+
+  // ── 2FA TOTP ──
+
+  async setup2fa(userId: string): Promise<{ secret: string; qrCodeDataUrl: string; otpauthUrl: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    if (user.totpEnabled) throw new BadRequestException('La double authentification est déjà activée.');
+
+    const generated = speakeasy.generateSecret({ length: 20, name: `${TOTP_APP_NAME} (${user.email})` });
+    const secret = generated.base32;
+    const otpauthUrl = speakeasy.otpauthURL({
+      secret,
+      label: user.email,
+      issuer: TOTP_APP_NAME,
+      encoding: 'base32',
+    });
+    const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpSecret: secret },
+    });
+
+    return { secret, qrCodeDataUrl, otpauthUrl };
+  }
+
+  async enable2fa(userId: string, code: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.totpSecret) throw new BadRequestException("Initialisez d'abord la double authentification.");
+    if (user.totpEnabled) throw new BadRequestException('La double authentification est déjà activée.');
+
+    const isValid = speakeasy.totp.verify({ secret: user.totpSecret, encoding: 'base32', token: code, window: 1 });
+    if (!isValid) throw new BadRequestException("Code invalide. Vérifiez votre application d'authentification.");
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpEnabled: true },
+    });
+  }
+
+  async disable2fa(userId: string, code: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.totpEnabled || !user.totpSecret) {
+      throw new BadRequestException("La double authentification n'est pas activée.");
+    }
+
+    const isValid = speakeasy.totp.verify({ secret: user.totpSecret, encoding: 'base32', token: code, window: 1 });
+    if (!isValid) throw new BadRequestException('Code invalide.');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { totpSecret: null, totpEnabled: false },
+    });
   }
 
   async refresh(rawToken: string | undefined): Promise<{ user: AuthUser; tokens: TokenPair }> {
@@ -267,6 +496,7 @@ export class AuthService {
     displayName: string | null;
     bannerColor: string | null;
     avatarSeed: string | null;
+    totpEnabled: boolean;
   }): AuthUser {
     return {
       id: user.id,
@@ -278,6 +508,7 @@ export class AuthService {
       displayName: user.displayName,
       bannerColor: user.bannerColor,
       avatarSeed: user.avatarSeed,
+      totpEnabled: user.totpEnabled,
     };
   }
 }

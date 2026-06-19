@@ -22,6 +22,8 @@ describe('ProvisioningService', () => {
           DATABASE_URL: 'postgresql://db',
           REDIS_URL: 'redis://redis',
           WEB_ORIGIN: 'https://app.arborisis.test',
+          JWT_ACCESS_SECRET: 'shared-access-secret',
+          JWT_REFRESH_SECRET: 'shared-refresh-secret',
           UNIVERSE_MAX_PLAYERS: 500,
         };
         return values[key];
@@ -157,6 +159,8 @@ describe('ProvisioningService', () => {
           DATABASE_URL: 'postgresql://db',
           REDIS_URL: 'redis://redis',
           WEB_ORIGIN: 'https://app.arborisis.test',
+          JWT_ACCESS_SECRET: 'shared-access-secret',
+          JWT_REFRESH_SECRET: 'shared-refresh-secret',
           NODE_ENV: 'production',
         }),
       );

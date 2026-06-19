@@ -1,4 +1,4 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import argon2 from 'argon2';
 import { RaceType, UserRole } from '@arborisis/shared';
 import { AuthService } from './auth.service';
@@ -10,6 +10,7 @@ describe('AuthService', () => {
   let config: any;
   let universeService: any;
   let worldFactory: any;
+  let emailService: any;
   let provisioningQueue: any;
   let service: AuthService;
 
@@ -60,6 +61,7 @@ describe('AuthService', () => {
       isSaturated: jest.fn().mockReturnValue(false),
     };
     worldFactory = { initNewPlayer: jest.fn().mockResolvedValue(undefined) };
+    emailService = { sendVerificationEmail: jest.fn().mockResolvedValue(undefined) };
     provisioningQueue = { add: jest.fn().mockResolvedValue(undefined) };
 
     service = new AuthService(
@@ -68,6 +70,7 @@ describe('AuthService', () => {
       config as any,
       universeService as any,
       worldFactory as any,
+      emailService as any,
       provisioningQueue as any,
     );
   });
@@ -85,7 +88,7 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it('crée le joueur, initialise son monde et émet des tokens', async () => {
+    it('crée le joueur, envoie un email de vérification et retourne pending', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
       prisma.universe.findUnique.mockResolvedValue({
         id: 'univ1',
@@ -102,6 +105,10 @@ describe('AuthService', () => {
         displayName: null,
         bannerColor: null,
         avatarSeed: null,
+        universeId: 'univ1',
+        emailVerificationToken: 'tok123',
+        emailVerificationSentAt: new Date(),
+        emailVerified: false,
       });
       prisma.user.update.mockResolvedValue({});
 
@@ -120,22 +127,12 @@ describe('AuthService', () => {
       });
       expect(worldFactory.initNewPlayer).toHaveBeenCalledWith('u1', prisma, RaceType.MYCELIANS);
       expect(universeService.incrementPlayerCount).toHaveBeenCalledWith(prisma, 'univ1');
-      expect(result.user).toEqual({
-        id: 'u1',
-        email: 'a@b.co',
-        username: 'sylv',
-        role: UserRole.PLAYER,
-        race: RaceType.MYCELIANS,
-        displayName: null,
-        bannerColor: null,
-        avatarSeed: null,
-      });
-      expect(result.tokens.accessToken).toBe('signed-access-token');
-      expect(result.tokens.refreshToken).toMatch(/^[^.]+\.[A-Za-z0-9_-]+$/);
-      expect(prisma.session.create).toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).toHaveBeenCalledWith('a@b.co', 'sylv', 'tok123');
+      expect(result.pending).toBe(true);
+      expect(result.email).toBe('a@b.co');
     });
 
-    it('planifie le provisioning quand l’univers devient saturé après inscription', async () => {
+    it('planifie le provisioning quand l\'univers devient saturé après inscription', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
       prisma.universe.findUnique.mockResolvedValue({
         id: 'univ1',
@@ -161,6 +158,10 @@ describe('AuthService', () => {
         displayName: null,
         bannerColor: null,
         avatarSeed: null,
+        universeId: 'univ1',
+        emailVerificationToken: 'tok123',
+        emailVerificationSentAt: new Date(),
+        emailVerified: false,
       });
       prisma.user.update.mockResolvedValue({});
 
@@ -178,7 +179,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('refuse l’inscription si l’univers par défaut est saturé', async () => {
+    it("refuse l'inscription si l'univers par défaut est saturé", async () => {
       prisma.user.findFirst.mockResolvedValue(null);
       prisma.universe.findUnique.mockResolvedValue({
         id: 'univ1',
@@ -216,7 +217,7 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
-    it('accepte un mot de passe correct', async () => {
+    it('rejette si email non vérifié', async () => {
       const passwordHash = await argon2.hash('motdepasse12', { type: argon2.argon2id });
       prisma.user.findUnique.mockResolvedValue({
         id: 'u1',
@@ -228,10 +229,35 @@ describe('AuthService', () => {
         bannerColor: null,
         avatarSeed: null,
         passwordHash,
+        emailVerified: false,
+      });
+
+      await expect(
+        service.login({ email: 'a@b.co', password: 'motdepasse12' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('accepte un mot de passe correct et email vérifié', async () => {
+      const passwordHash = await argon2.hash('motdepasse12', { type: argon2.argon2id });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.co',
+        username: 'sylv',
+        role: UserRole.PLAYER,
+        race: RaceType.MYCELIANS,
+        displayName: null,
+        bannerColor: null,
+        avatarSeed: null,
+        universeId: 'univ1',
+        passwordHash,
+        emailVerified: true,
+        totpEnabled: false,
+        totpSecret: null,
       });
       prisma.user.update.mockResolvedValue({});
 
       const result = await service.login({ email: 'a@b.co', password: 'motdepasse12' });
+      if ('twoFactorRequired' in result) throw new Error('Unexpected 2FA required');
       expect(result.user.id).toBe('u1');
       expect(result.tokens.accessToken).toBe('signed-access-token');
       expect(prisma.session.create).toHaveBeenCalled();
@@ -254,6 +280,8 @@ describe('AuthService', () => {
         displayName: null,
         bannerColor: null,
         avatarSeed: null,
+        totpEnabled: false,
+        universeId: 'univ1',
       },
     });
     prisma.session.update.mockResolvedValue({});
@@ -280,6 +308,8 @@ describe('AuthService', () => {
       displayName: null,
       bannerColor: null,
       avatarSeed: null,
+      universeId: 'univ1',
+      totpEnabled: false,
       refreshTokenHash,
     });
     prisma.user.updateMany.mockResolvedValue({ count: 1 });

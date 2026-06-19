@@ -82,12 +82,13 @@ async function main() {
 
   const user = await prisma.user.upsert({
     where: { email: DEMO_EMAIL },
-    update: {},
+    update: { emailVerified: true },
     create: {
       email: DEMO_EMAIL,
       username: DEMO_USERNAME,
       passwordHash,
       universeId: defaultUniverse.id,
+      emailVerified: true,
     },
   });
 
@@ -142,6 +143,14 @@ async function main() {
     where: { id: defaultUniverse.id },
     data: { playerCount },
   });
+
+  // Passer bastienjavaux@gmail.com en ADMIN s'il existe dans la DB.
+  const adminEmail = 'bastienjavaux@gmail.com';
+  const adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
+  if (adminUser) {
+    await prisma.user.update({ where: { email: adminEmail }, data: { role: 'ADMIN' } });
+    console.log(`✓ ${adminEmail} → rôle ADMIN`);
+  }
 
   console.log(`✓ Seed terminé. Compte démo : ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
 }
