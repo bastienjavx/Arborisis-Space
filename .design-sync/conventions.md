@@ -19,13 +19,16 @@ Color palette (from Tailwind config):
 Arborisis has 4 resource types: `BIOMASS`, `SAP`, `MINERALS`, `SPORES`.
 
 `ResourceState` shape (for `ResourceBar`):
+
 ```ts
 {
-  amounts:  Record<'BIOMASS'|'SAP'|'MINERALS'|'SPORES', number>;
-  perHour:  Record<'BIOMASS'|'SAP'|'MINERALS'|'SPORES', number>;
-  capacity: Record<'BIOMASS'|'SAP'|'MINERALS'|'SPORES', number>;
-  energyProduced: number; energyConsumed: number; energyRatio: number;
-  stability: number;   // 0–100
+  amounts: Record<'BIOMASS' | 'SAP' | 'MINERALS' | 'SPORES', number>;
+  perHour: Record<'BIOMASS' | 'SAP' | 'MINERALS' | 'SPORES', number>;
+  capacity: Record<'BIOMASS' | 'SAP' | 'MINERALS' | 'SPORES', number>;
+  energyProduced: number;
+  energyConsumed: number;
+  energyRatio: number;
+  stability: number; // 0–100
 }
 ```
 
@@ -41,27 +44,33 @@ units in designs that show game content (e.g. "Construire", "Démanteler", "Vais
 ## Export style
 
 Most components are named exports. Two exceptions that are **default exports**:
+
 - `GlowText`
 - `LoadingScreen`
 
 ## Component notes
 
 ### LoadingScreen
+
 `fixed inset-0` — fills the viewport. In preview contexts set `body { height: 240px }`.
 Always pass `visible: true` to see it; `visible: false` (default) renders nothing.
 
 ### ResourceBar
+
 Renders 6 tiles: BIOMASS, SAP, MINERALS, SPORES, energy balance, stability. Designed as a
 full-width horizontal strip (`sm:grid sm:grid-cols-5`). The 5-column grid layout needs at
 least 600 px to render without scroll.
 
 ### GlowText
+
 Wraps inline text in an animated text-shadow pulse. Works inside headings or large spans.
 Three colors: `green` (default), `purple`, `gold`.
 
 ### AnimatedButton
+
 Three variants: `primary` (canopy green, filled), `ghost` (transparent with border),
 `danger` (red). Supports `loading` (spinner) and `disabled` states.
 
 ### StatCard
+
 Four color schemes: `green`, `gold`, `purple`, `red`. Stack horizontally with `display: flex; gap: 10px`.

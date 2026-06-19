@@ -15,8 +15,9 @@ import {
   TRIGGER_EVENT_JOB,
   type FinalizeJobData,
 } from './queue.constants';
+import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { getActiveUniverseId } from '../../common/prisma/universe-scope.storage';
+import { getCurrentUniverseId } from '../universe/universe-context';
 
 /**
  * Planifie la finalisation différée des jobs métier (construction, recherche,
@@ -73,9 +74,10 @@ export class GameQueueService {
 
   async scheduleNextEvent(): Promise<void> {
     const delayMs = (4 + Math.random() * 4) * 3_600_000;
+    const universeId = await this.resolveUniverseId();
     await this.eventQueue.add(
       TRIGGER_EVENT_JOB,
-      {},
+      { universeId },
       {
         delay: delayMs,
         removeOnComplete: true,
@@ -158,6 +160,14 @@ export class GameQueueService {
     ]);
   }
 
+  private async resolveUniverseId(): Promise<string> {
+    const current = getCurrentUniverseId();
+    if (current !== undefined && current.length > 0) {
+      return current;
+    }
+    return getDefaultUniverseId(this.prisma);
+  }
+
   private async safeAdd(
     queue: Queue<FinalizeJobData>,
     jobId: string,
@@ -165,7 +175,7 @@ export class GameQueueService {
     queueJobId = jobId,
   ): Promise<void> {
     try {
-      const universeId = getActiveUniverseId() ?? 'default';
+      const universeId = await this.resolveUniverseId();
       await queue.add(FINALIZE_JOB, { jobId, universeId }, this.opts(queueJobId, finishesAt));
     } catch (error) {
       this.logger.error(

@@ -5,6 +5,7 @@ import {
   CONSTRUCTION_QUEUE,
   EXPEDITION_QUEUE,
   GAME_EVENT_QUEUE,
+  PROVISIONING_QUEUE,
   PVE_QUEUE,
   PVP_QUEUE,
   RESEARCH_QUEUE,
@@ -27,6 +28,13 @@ import { GameQueueService } from './game-queue.service';
       { name: PVE_QUEUE },
       { name: PVP_QUEUE },
       { name: GAME_EVENT_QUEUE },
+      {
+        name: PROVISIONING_QUEUE,
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 10_000 },
+        },
+      },
     ),
   ],
   providers: [GameQueueService],

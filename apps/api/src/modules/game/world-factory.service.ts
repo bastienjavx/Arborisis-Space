@@ -15,6 +15,7 @@ import {
   SYSTEMS_PER_GALAXY,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 
 @Injectable()
 export class WorldFactoryService {
@@ -30,6 +31,8 @@ export class WorldFactoryService {
     race: RaceType = RaceType.MYCELIANS,
   ): Promise<void> {
     const initialize = async (tx: Prisma.TransactionClient): Promise<void> => {
+      const universeId = await getDefaultUniverseId(tx);
+
       for (const type of RESEARCH_TYPES) {
         await tx.researchLevel.upsert({
           where: { userId_type: { userId, type } },
@@ -42,11 +45,12 @@ export class WorldFactoryService {
       if (existing) return;
 
       const startingResources = raceStartingResources(race);
-      const coords = await this.pickFreeCoordinates(tx);
+      const coords = await this.pickFreeCoordinates(tx, universeId);
       const planet = await tx.planet.create({
         data: {
           name: 'Noyau-Monde',
           ownerId: userId,
+          universeId,
           isHomeworld: true,
           planetType: PlanetType.VERDANT,
           galaxy: coords.galaxy,
@@ -84,6 +88,7 @@ export class WorldFactoryService {
   async createColony(
     tx: Prisma.TransactionClient,
     userId: string,
+    universeId: string,
     coords: { galaxy: number; system: number; position: number },
     name = 'Colonie sporale',
   ): Promise<string> {
@@ -91,6 +96,7 @@ export class WorldFactoryService {
       data: {
         name,
         ownerId: userId,
+        universeId,
         isHomeworld: false,
         planetType: this.randomPlanetType(),
         galaxy: coords.galaxy,
@@ -121,13 +127,14 @@ export class WorldFactoryService {
 
   private async pickFreeCoordinates(
     tx: Prisma.TransactionClient,
+    universeId: string,
   ): Promise<{ galaxy: number; system: number; position: number }> {
     for (let attempt = 0; attempt < 100; attempt++) {
       const galaxy = randInt(1, GALAXY_COUNT);
       const system = randInt(1, SYSTEMS_PER_GALAXY);
       const position = randInt(1, POSITIONS_PER_SYSTEM);
       const taken = await tx.planet.findUnique({
-        where: { galaxy_system_position: { galaxy, system, position } },
+        where: { universeId_galaxy_system_position: { universeId, galaxy, system, position } },
       });
       if (!taken) return { galaxy, system, position };
     }

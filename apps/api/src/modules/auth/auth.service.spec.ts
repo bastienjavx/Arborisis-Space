@@ -8,7 +8,9 @@ describe('AuthService', () => {
   let prisma: any;
   let jwt: any;
   let config: any;
+  let universeService: any;
   let worldFactory: any;
+  let provisioningQueue: any;
   let service: AuthService;
 
   beforeEach(() => {
@@ -25,6 +27,10 @@ describe('AuthService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
+      },
+      universe: {
+        findUnique: jest.fn(),
+        update: jest.fn(),
       },
     };
     prisma.serializable = jest.fn((work) => work(prisma));
@@ -44,9 +50,26 @@ describe('AuthService', () => {
         return values[key];
       }),
     };
+    universeService = {
+      incrementPlayerCount: jest.fn().mockResolvedValue({
+        id: 'univ1',
+        slug: 'default',
+        playerCount: 1,
+        maxPlayers: 100,
+      }),
+      isSaturated: jest.fn().mockReturnValue(false),
+    };
     worldFactory = { initNewPlayer: jest.fn().mockResolvedValue(undefined) };
+    provisioningQueue = { add: jest.fn().mockResolvedValue(undefined) };
 
-    service = new AuthService(prisma as any, jwt as any, config as any, worldFactory as any);
+    service = new AuthService(
+      prisma as any,
+      jwt as any,
+      config as any,
+      universeService as any,
+      worldFactory as any,
+      provisioningQueue as any,
+    );
   });
 
   describe('register', () => {
@@ -64,6 +87,12 @@ describe('AuthService', () => {
 
     it('crée le joueur, initialise son monde et émet des tokens', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
+      prisma.universe.findUnique.mockResolvedValue({
+        id: 'univ1',
+        slug: 'default',
+        playerCount: 0,
+        maxPlayers: 100,
+      });
       prisma.user.create.mockResolvedValue({
         id: 'u1',
         email: 'a@b.co',
@@ -83,7 +112,14 @@ describe('AuthService', () => {
         race: RaceType.MYCELIANS,
       });
 
+      expect(universeService.isSaturated).toHaveBeenCalledWith({
+        id: 'univ1',
+        slug: 'default',
+        playerCount: 1,
+        maxPlayers: 100,
+      });
       expect(worldFactory.initNewPlayer).toHaveBeenCalledWith('u1', prisma, RaceType.MYCELIANS);
+      expect(universeService.incrementPlayerCount).toHaveBeenCalledWith(prisma, 'univ1');
       expect(result.user).toEqual({
         id: 'u1',
         email: 'a@b.co',
@@ -97,6 +133,78 @@ describe('AuthService', () => {
       expect(result.tokens.accessToken).toBe('signed-access-token');
       expect(result.tokens.refreshToken).toMatch(/^[^.]+\.[A-Za-z0-9_-]+$/);
       expect(prisma.session.create).toHaveBeenCalled();
+    });
+
+    it('planifie le provisioning quand l’univers devient saturé après inscription', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.universe.findUnique.mockResolvedValue({
+        id: 'univ1',
+        slug: 'default',
+        playerCount: 99,
+        maxPlayers: 100,
+      });
+      universeService.isSaturated.mockImplementation(
+        (u: { playerCount: number; maxPlayers: number }) => u.playerCount >= u.maxPlayers,
+      );
+      universeService.incrementPlayerCount.mockResolvedValue({
+        id: 'univ1',
+        slug: 'default',
+        playerCount: 100,
+        maxPlayers: 100,
+      });
+      prisma.user.create.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.co',
+        username: 'sylv',
+        role: UserRole.PLAYER,
+        race: RaceType.MYCELIANS,
+        displayName: null,
+        bannerColor: null,
+        avatarSeed: null,
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      await service.register({
+        email: 'a@b.co',
+        username: 'sylv',
+        password: 'motdepasse12',
+        race: RaceType.MYCELIANS,
+      });
+
+      expect(provisioningQueue.add).toHaveBeenCalledWith(
+        'provisioning.universe',
+        {},
+        expect.objectContaining({ removeOnComplete: true, removeOnFail: 10 }),
+      );
+    });
+
+    it('refuse l’inscription si l’univers par défaut est saturé', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      prisma.universe.findUnique.mockResolvedValue({
+        id: 'univ1',
+        slug: 'default',
+        playerCount: 100,
+        maxPlayers: 100,
+      });
+      universeService.isSaturated.mockReturnValue(true);
+
+      await expect(
+        service.register({
+          email: 'a@b.co',
+          username: 'sylv',
+          password: 'motdepasse12',
+          race: RaceType.MYCELIANS,
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(universeService.isSaturated).toHaveBeenCalledWith({
+        id: 'univ1',
+        slug: 'default',
+        playerCount: 100,
+        maxPlayers: 100,
+      });
+      expect(worldFactory.initNewPlayer).not.toHaveBeenCalled();
+      expect(universeService.incrementPlayerCount).not.toHaveBeenCalled();
     });
   });
 

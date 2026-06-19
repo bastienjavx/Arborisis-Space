@@ -15,6 +15,7 @@ import type {
   ExpeditionView,
   ExpeditionReportView,
   JobView,
+  ListUniversesView,
   NpcEncounterView,
   PlanetDetail,
   PlanetSummary,
@@ -99,13 +100,22 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
 export const api = {
   // ── Auth ──
-  register: (body: { email: string; username: string; password: string; race: string }) =>
-    request<{ user: AuthUser }>('/auth/register', { method: 'POST', body, noRefresh: true }),
+  register: (body: {
+    email: string;
+    username: string;
+    password: string;
+    race: string;
+    universeId?: string;
+  }) => request<{ user: AuthUser }>('/auth/register', { method: 'POST', body, noRefresh: true }),
   login: (body: { email: string; password: string }) =>
     request<{ user: AuthUser }>('/auth/login', { method: 'POST', body, noRefresh: true }),
   logout: () => request<{ success: true }>('/auth/logout', { method: 'POST' }),
   logoutAll: () => request<{ success: true }>('/auth/logout-all', { method: 'POST' }),
   me: () => request<{ user: AuthUser }>('/auth/me'),
+
+  // ── Univers ──
+  universes: () => request<ListUniversesView>('/universes'),
+  resolveUniverse: (id: string) => request<{ internalApiUrl: string }>(`/universes/${id}/resolve`),
 
   // ── Profil ──
   updateProfile: (body: UpdateProfileDto) =>

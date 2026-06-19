@@ -16,6 +16,12 @@ const envSchema = z.object({
   JWT_REFRESH_TTL: z.coerce.number().int().positive().default(1_209_600),
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
   COOKIE_DOMAIN: z.string().optional(),
+  RAILWAY_API_TOKEN: z.string().min(1).optional(),
+  RAILWAY_PROJECT_ID: z.string().optional(),
+  RAILWAY_SERVICE_TEMPLATE_ID: z.string().optional(),
+  RAILWAY_ENVIRONMENT_ID: z.string().optional(),
+  UNIVERSE_PROVISIONING_ENABLED: z.enum(['true', 'false']).default('false'),
+  UNIVERSE_MAX_PLAYERS: z.coerce.number().int().positive().default(500),
 });
 
 export type Env = z.infer<typeof envSchema>;

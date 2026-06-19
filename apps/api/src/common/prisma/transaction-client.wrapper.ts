@@ -1,27 +1,47 @@
-import type { Prisma } from '@prisma/client';
-import { applyUniverseScope, SCOPED_MODELS } from './universe-scope.middleware';
+import { Prisma } from '@prisma/client';
+import { SCOPED_MODELS, SCOPED_OPERATIONS, injectUniverseId } from './universe-scope.middleware';
 
-export function wrapTransactionClient(tx: Prisma.TransactionClient): Prisma.TransactionClient {
+/**
+ * Encapsule un `Prisma.TransactionClient` pour injecter `universeId` dans les
+ * requêtes scopées, de la même manière que le middleware Prisma Client.
+ *
+ * Les extensions Prisma (`$extends`) ne s'appliquent pas au client de transaction,
+ * donc ce wrapper est nécessaire pour conserver le scoping dans `serializable()`.
+ */
+export function wrapTransactionClient(
+  tx: Prisma.TransactionClient,
+  universeId: string | undefined,
+): Prisma.TransactionClient {
+  if (!universeId) {
+    return tx;
+  }
+
   return new Proxy(tx, {
     get(target, prop) {
-      const value = Reflect.get(target, prop);
-      if (
-        typeof prop !== 'string' ||
-        typeof value !== 'object' ||
-        value === null ||
-        !SCOPED_MODELS.has(prop)
-      ) {
-        return value;
+      const propName = typeof prop === 'string' ? prop : undefined;
+      const modelName = propName ? propName.charAt(0).toUpperCase() + propName.slice(1) : undefined;
+      if (!modelName || !SCOPED_MODELS.has(modelName)) {
+        return Reflect.get(target, prop);
       }
 
-      return new Proxy(value, {
+      const model = Reflect.get(target, prop) as Record<string, unknown>;
+
+      return new Proxy(model, {
         get(modelTarget, op) {
-          const method = Reflect.get(modelTarget, op);
-          if (typeof method !== 'function') return method;
+          const operation = typeof op === 'string' ? op : undefined;
+          if (!operation || !SCOPED_OPERATIONS.has(operation)) {
+            return Reflect.get(modelTarget, op);
+          }
+
+          const fn = Reflect.get(modelTarget, op) as (...args: unknown[]) => unknown;
+          if (typeof fn !== 'function') {
+            return fn;
+          }
+
           return (...args: unknown[]) => {
-            if (args.length === 0) return method.apply(modelTarget, args);
-            const scopedArgs = applyUniverseScope(prop, String(op), args[0]);
-            return method.apply(modelTarget, [scopedArgs, ...args.slice(1)]);
+            const [firstArg, ...rest] = args;
+            const scopedArgs = injectUniverseId(firstArg, universeId);
+            return fn(scopedArgs, ...rest);
           };
         },
       });

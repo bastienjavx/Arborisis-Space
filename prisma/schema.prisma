@@ -70,26 +70,6 @@ enum NpcEncounterType {
   VOID_RIFT
   MYCOXIN_NEST
   ABANDONED_DERELICT
-  FUNGAL_HIVEMIND
-  VOID_LEVIATHAN
-  CRYSTALLINE_GUARDIAN
-  BIOMASS_CORRUPTED
-  ANCIENT_SENTINEL
-  CHITIN_WARLORD
-  SPORAL_PARASITE
-  MYCOSPORE_SWARM
-}
-
-enum PlanetSpecialization {
-  PRODUCTION
-  MILITARY
-  RESEARCH
-  FORTRESS
-}
-
-enum TransferPhase {
-  OUTBOUND
-  COMPLETED
 }
 
 enum PveMissionPhase {
@@ -191,9 +171,34 @@ enum ApplicationStatus {
   REJECTED
 }
 
+enum UniverseStatus {
+  ACTIVE
+  PROVISIONING
+  CLOSED
+  FAILED
+}
+
+model Universe {
+  id             String         @id @default(uuid())
+  slug           String         @unique
+  name           String
+  internalApiUrl String         @unique
+  maxPlayers     Int            @default(500)
+  playerCount    Int            @default(0)
+  status         UniverseStatus @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  users          User[]
+  planets        Planet[]
+  npcEncounters  NpcEncounter[]
+  galacticEvents GalacticEvent[]
+
+  @@map("universes")
+}
+
 model User {
   id               String   @id @default(uuid())
-  universeId String?
   email            String   @unique
   username         String   @unique
   passwordHash     String
@@ -203,6 +208,9 @@ model User {
   bio              String?
   bannerColor      String   @default("#22c55e")
   avatarSeed       String?
+  universeId       String
+  universe         Universe @relation(fields: [universeId], references: [id], onDelete: Cascade)
+
   // Hash du refresh token courant (rotation). Null = pas de session active.
   refreshTokenHash String?
   createdAt        DateTime @default(now())
@@ -219,7 +227,6 @@ model User {
   expeditionReports    ExpeditionReport[]
   pveMissions          PveMission[]
   pvpMissions          PvpMission[]
-  resourceTransferMissions ResourceTransferMission[]
   achievements         PlayerAchievement[]
   allianceMembership   AllianceMember?
   leadAlliance         Alliance?
@@ -230,7 +237,6 @@ model User {
 
 model Session {
   id               String    @id @default(uuid())
-  universeId String?
   userId           String
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokenHash String
@@ -246,15 +252,15 @@ model Session {
 
 model Planet {
   id          String     @id @default(uuid())
-  universeId String?
   name        String
   ownerId     String
   owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  isHomeworld    Boolean              @default(false)
-  planetType     PlanetType           @default(VERDANT)
-  specialization PlanetSpecialization?
+  universeId  String
+  universe    Universe   @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  isHomeworld Boolean    @default(false)
+  planetType  PlanetType @default(VERDANT)
 
-  // Coordonnées galactiques (unicité d'emplacement).
+  // Coordonnées galactiques (unicité d'emplacement au sein d'un univers).
   galaxy   Int
   system   Int
   position Int
@@ -283,17 +289,15 @@ model Planet {
   pveMissions        PveMission[]
   outgoingPvp        PvpMission[] @relation("PvpSource")
   incomingPvp        PvpMission[] @relation("PvpTarget")
-  outgoingTransfer   ResourceTransferMission[] @relation("TransferSource")
-  incomingTransfer   ResourceTransferMission[] @relation("TransferTarget")
 
-  @@unique([galaxy, system, position])
+  @@unique([universeId, galaxy, system, position])
   @@index([ownerId])
+  @@index([universeId])
   @@map("planets")
 }
 
 model PlanetShip {
   id       String   @id @default(uuid())
-  universeId String?
   planetId String
   planet   Planet   @relation(fields: [planetId], references: [id], onDelete: Cascade)
   type     ShipType
@@ -305,7 +309,6 @@ model PlanetShip {
 
 model ShipProductionJob {
   id         String    @id @default(uuid())
-  universeId String?
   planetId   String
   planet     Planet    @relation(fields: [planetId], references: [id], onDelete: Cascade)
   shipType   ShipType
@@ -321,7 +324,6 @@ model ShipProductionJob {
 
 model ExpeditionMission {
   id             String            @id @default(uuid())
-  universeId String?
   userId         String
   user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   planetId       String
@@ -349,7 +351,6 @@ model ExpeditionMission {
 
 model ExpeditionReport {
   id               String            @id @default(uuid())
-  universeId String?
   missionId        String            @unique
   mission          ExpeditionMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
   userId           String
@@ -381,7 +382,6 @@ model ExpeditionReport {
 
 model PlanetBuilding {
   id       String       @id @default(uuid())
-  universeId String?
   planetId String
   planet   Planet       @relation(fields: [planetId], references: [id], onDelete: Cascade)
   type     BuildingType
@@ -393,7 +393,6 @@ model PlanetBuilding {
 
 model ResearchLevel {
   id     String       @id @default(uuid())
-  universeId String?
   userId String
   user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   type   ResearchType
@@ -405,7 +404,6 @@ model ResearchLevel {
 
 model ConstructionJob {
   id           String       @id @default(uuid())
-  universeId String?
   planetId     String
   planet       Planet       @relation(fields: [planetId], references: [id], onDelete: Cascade)
   buildingType BuildingType
@@ -421,7 +419,6 @@ model ConstructionJob {
 
 model ResearchJob {
   id           String       @id @default(uuid())
-  universeId String?
   userId       String
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   researchType ResearchType
@@ -438,20 +435,21 @@ model ResearchJob {
 }
 
 model GalacticEvent {
-  id        String            @id @default(uuid())
-  universeId String?
-  type      GalacticEventType
-  startAt   DateTime          @default(now())
-  endsAt    DateTime
-  processed Boolean           @default(false)
+  id         String            @id @default(uuid())
+  universeId String
+  universe   Universe          @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  type       GalacticEventType
+  startAt    DateTime          @default(now())
+  endsAt     DateTime
+  processed  Boolean           @default(false)
 
   @@index([endsAt])
+  @@index([universeId])
   @@map("galactic_events")
 }
 
 model PlayerAchievement {
   id         String          @id @default(uuid())
-  universeId String?
   userId     String
   user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   type       AchievementType
@@ -464,7 +462,6 @@ model PlayerAchievement {
 
 model ColonizationJob {
   id             String    @id @default(uuid())
-  universeId String?
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   sourcePlanetId String
@@ -483,7 +480,6 @@ model ColonizationJob {
 
 model Alliance {
   id          String   @id @default(uuid())
-  universeId String?
   tag         String   @unique @db.VarChar(4)
   name        String   @db.VarChar(40)
   description String?  @db.VarChar(500)
@@ -501,7 +497,6 @@ model Alliance {
 
 model AllianceMember {
   id         String       @id @default(uuid())
-  universeId String?
   allianceId String
   alliance   Alliance     @relation(fields: [allianceId], references: [id], onDelete: Cascade)
   userId     String       @unique
@@ -515,7 +510,6 @@ model AllianceMember {
 
 model AllianceApplication {
   id         String            @id @default(uuid())
-  universeId String?
   allianceId String
   alliance   Alliance          @relation(fields: [allianceId], references: [id], onDelete: Cascade)
   userId     String
@@ -531,7 +525,8 @@ model AllianceApplication {
 
 model NpcEncounter {
   id         String          @id @default(uuid())
-  universeId String?
+  universeId String
+  universe   Universe        @relation(fields: [universeId], references: [id], onDelete: Cascade)
   type       NpcEncounterType
   galaxy     Int
   system     Int
@@ -544,14 +539,14 @@ model NpcEncounter {
   createdAt  DateTime        @default(now())
   pveMissions PveMission[]
 
-  @@unique([galaxy, system, position])
+  @@unique([universeId, galaxy, system, position])
   @@index([expiresAt])
+  @@index([universeId])
   @@map("npc_encounters")
 }
 
 model PveMission {
   id             String          @id @default(uuid())
-  universeId String?
   userId         String
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   encounterId    String
@@ -574,7 +569,6 @@ model PveMission {
 
 model PvpMission {
   id             String          @id @default(uuid())
-  universeId String?
   userId         String
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   type           PvpMissionType
@@ -593,25 +587,4 @@ model PvpMission {
   @@index([userId, phase])
   @@index([targetPlanetId, phase])
   @@map("pvp_missions")
-}
-
-model ResourceTransferMission {
-  id             String        @id @default(uuid())
-  universeId     String?
-  userId         String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sourcePlanetId String
-  sourcePlanet   Planet        @relation("TransferSource", fields: [sourcePlanetId], references: [id], onDelete: Cascade)
-  targetPlanetId String
-  targetPlanet   Planet        @relation("TransferTarget", fields: [targetPlanetId], references: [id], onDelete: Cascade)
-  ships          Json          // Record<ShipType, number>
-  resources      Json          // Record<ResourceType, number>
-  phase          TransferPhase @default(OUTBOUND)
-  arrivesAt      DateTime
-  completedAt    DateTime?
-  createdAt      DateTime      @default(now())
-
-  @@index([userId, phase])
-  @@index([phase, arrivesAt])
-  @@map("resource_transfer_missions")
 }

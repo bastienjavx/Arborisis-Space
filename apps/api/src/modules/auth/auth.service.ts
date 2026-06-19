@@ -1,12 +1,18 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Queue } from 'bullmq';
 import argon2 from 'argon2';
+import { Universe, User } from '@prisma/client';
 import type { AuthUser, LoginDto, RegisterDto } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { getDefaultUniverse } from '../../common/prisma/default-universe.helper';
 import type { Env } from '../../common/config/env';
+import { UniverseService } from '../universe/universe.service';
 import { WorldFactoryService } from '../game/world-factory.service';
+import { PROVISION_UNIVERSE_JOB, PROVISIONING_QUEUE } from '../queue/queue.constants';
 import type { JwtPayload } from './strategies/jwt.strategy';
 
 export interface TokenPair {
@@ -16,11 +22,15 @@ export interface TokenPair {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
+    private readonly universeService: UniverseService,
     private readonly worldFactory: WorldFactoryService,
+    @InjectQueue(PROVISIONING_QUEUE) private readonly provisioningQueue: Queue,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ user: AuthUser; tokens: TokenPair }> {
@@ -30,10 +40,15 @@ export class AuthService {
     if (existing) throw new ConflictException('Email ou nom d’utilisateur déjà pris.');
 
     const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
-    let user;
+    let user: User | undefined;
+    let updatedUniverse: Universe | undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        user = await this.prisma.serializable(async (tx) => {
+        ({ user, updatedUniverse } = await this.prisma.serializable(async (tx) => {
+          const universe = await getDefaultUniverse(tx);
+          if (this.universeService.isSaturated(universe)) {
+            throw new ConflictException('Univers saturé.');
+          }
           const created = await tx.user.create({
             data: {
               email: dto.email,
@@ -41,11 +56,16 @@ export class AuthService {
               passwordHash,
               race: dto.race,
               bannerColor: undefined,
+              universeId: universe.id,
             },
           });
           await this.worldFactory.initNewPlayer(created.id, tx, dto.race);
-          return created;
-        });
+          const incrementedUniverse = await this.universeService.incrementPlayerCount(
+            tx,
+            universe.id,
+          );
+          return { user: created, updatedUniverse: incrementedUniverse };
+        }));
         break;
       } catch (error) {
         if (!this.isUniqueViolation(error)) throw error;
@@ -57,6 +77,19 @@ export class AuthService {
       }
     }
     if (!user) throw new ConflictException('Création du joueur impossible.');
+
+    const shouldProvisionUniverse =
+      updatedUniverse !== undefined && this.universeService.isSaturated(updatedUniverse);
+
+    if (shouldProvisionUniverse) {
+      await this.provisioningQueue
+        .add(PROVISION_UNIVERSE_JOB, {}, { removeOnComplete: true, removeOnFail: 10 })
+        .catch((error) => {
+          // On ne fait pas échouer l'inscription si le job ne peut pas être planifié.
+          this.logger.error(error, "Impossible de planifier le provisioning d'un nouvel univers.");
+        });
+    }
+
     const authUser = this.toAuthUser(user);
     return { user: authUser, tokens: await this.createSession(authUser) };
   }
@@ -230,6 +263,7 @@ export class AuthService {
     username: string;
     role: string;
     race: string;
+    universeId: string | null;
     displayName: string | null;
     bannerColor: string | null;
     avatarSeed: string | null;
@@ -240,6 +274,7 @@ export class AuthService {
       username: user.username,
       role: user.role as AuthUser['role'],
       race: user.race as AuthUser['race'],
+      universeId: user.universeId,
       displayName: user.displayName,
       bannerColor: user.bannerColor,
       avatarSeed: user.avatarSeed,

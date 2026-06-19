@@ -6,9 +6,11 @@ export const EXPEDITION_QUEUE = 'expedition';
 export const PVE_QUEUE = 'pve';
 export const PVP_QUEUE = 'pvp';
 export const GAME_EVENT_QUEUE = 'game-events';
+export const PROVISIONING_QUEUE = 'provisioning';
 
 export const FINALIZE_JOB = 'finalize';
 export const TRIGGER_EVENT_JOB = 'TRIGGER_EVENT';
+export const PROVISION_UNIVERSE_JOB = 'provisioning.universe';
 
 /** Données portées par un job de file : l'identifiant du job métier à finaliser. */
 export interface FinalizeJobData {

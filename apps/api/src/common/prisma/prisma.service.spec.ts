@@ -1,59 +1,67 @@
-import { runWithUniverse } from './universe-scope.storage';
-
-const mockFindMany = jest.fn().mockResolvedValue([]);
-
-jest.mock('@prisma/client', () => ({
-  PrismaClient: class MockPrismaClient {
-    $extends({ query }: { query: { $allModels: { $allOperations: (p: unknown) => unknown } } }) {
-      const allOperations = query.$allModels.$allOperations;
-      return {
-        user: {
-          findMany: (args: unknown) =>
-            allOperations({ model: 'User', operation: 'findMany', args, query: mockFindMany }),
-        },
-        $transaction: jest.fn(),
-      };
-    }
-
-    $connect = jest.fn();
-    $disconnect = jest.fn();
-  },
-  Prisma: {
-    TransactionIsolationLevel: { Serializable: 'Serializable' },
-  },
-}));
-
-const { PrismaService } = jest.requireActual('./prisma.service');
+import { Prisma, PrismaClient } from '@prisma/client';
+import { Test } from '@nestjs/testing';
+import { PrismaService } from './prisma.service';
+import { universeContext } from '../../modules/universe/universe-context';
 
 describe('PrismaService', () => {
-  beforeEach(() => {
-    mockFindMany.mockClear();
+  let prismaService: PrismaService;
+
+  beforeEach(async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [PrismaService],
+    }).compile();
+
+    prismaService = moduleRef.get(PrismaService);
   });
 
-  it('injecte universeId dans les requêtes scopées', async () => {
-    const prismaService = new PrismaService();
+  afterEach(async () => {
+    await prismaService.$disconnect().catch(() => {
+      /* ignore */
+    });
+  });
 
-    await runWithUniverse('universe-1', async () => {
-      await prismaService.user.findMany({});
+  describe('proxy routing', () => {
+    it('routes model access to the scoped client', () => {
+      // L'accès à un modèle scopé doit retourner le modèle du client étendu,
+      // pas celui du PrismaClient natif.
+      expect((prismaService as unknown as PrismaClient).user).toBe(
+        (prismaService as unknown as { scopedClient: PrismaClient }).scopedClient.user,
+      );
     });
 
-    expect(mockFindMany).toHaveBeenCalledTimes(1);
-    expect(mockFindMany).toHaveBeenCalledWith({ where: { universeId: 'universe-1' } });
+    it('routes $transaction to the scoped client', () => {
+      expect((prismaService as unknown as PrismaClient).$transaction).toBe(
+        (prismaService as unknown as { scopedClient: PrismaClient }).scopedClient.$transaction,
+      );
+    });
   });
 
-  it('ne modifie pas les requêtes hors contexte univers', async () => {
-    const prismaService = new PrismaService();
+  describe('serializable', () => {
+    it('wraps the transaction client with the current universe id', async () => {
+      const work = jest.fn().mockResolvedValue('result');
+      const rawTx = {
+        user: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+      } as unknown as Prisma.TransactionClient;
 
-    await prismaService.user.findMany({});
+      jest
+        .spyOn(
+          (prismaService as unknown as { scopedClient: PrismaClient }).scopedClient,
+          '$transaction',
+        )
+        .mockImplementation(async (fn: unknown) => {
+          return (fn as (tx: Prisma.TransactionClient) => Promise<unknown>)(rawTx);
+        });
 
-    expect(mockFindMany).toHaveBeenCalledTimes(1);
-    expect(mockFindMany).toHaveBeenCalledWith({});
-  });
+      await universeContext.run({ universeId: 'u-test' }, () => prismaService.serializable(work));
 
-  it('passe les méthodes propres du service via le vrai this', async () => {
-    const prismaService = new PrismaService();
-    expect(typeof prismaService.serializable).toBe('function');
-    expect(typeof prismaService.onModuleInit).toBe('function');
-    expect(typeof prismaService.onModuleDestroy).toBe('function');
+      expect(work).toHaveBeenCalled();
+      const passedTx = work.mock.calls[0][0] as Prisma.TransactionClient;
+      await passedTx.user.findMany({});
+      expect(rawTx.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { universeId: 'u-test' } }),
+      );
+    });
   });
 });

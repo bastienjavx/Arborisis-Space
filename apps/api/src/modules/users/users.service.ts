@@ -22,6 +22,7 @@ export class UsersService {
       username: user.username,
       role: user.role as AuthUser['role'],
       race: user.race as AuthUser['race'],
+      universeId: user.universeId,
       displayName: user.displayName,
       bannerColor: user.bannerColor,
       avatarSeed: user.avatarSeed,

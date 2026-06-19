@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, ApiError } from '@/lib/api';
 import { keys } from '@/lib/queries';
-import { RaceType, RACES } from '@arborisis/shared';
+import { setUniverseCookieAction } from '@/app/universes/actions';
+import { RaceType, RACES, UniverseStatus, type UniverseSummaryView } from '@arborisis/shared';
 
 type Mode = 'login' | 'register';
 
@@ -108,15 +109,21 @@ function CheckmarkIcon() {
 
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const qc = useQueryClient();
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [race, setRace] = useState<RaceType>(RaceType.MYCELIANS);
+  const [universeId, setUniverseId] = useState('');
+  const [universes, setUniverses] = useState<UniverseSummaryView[]>([]);
+  const [universesLoading, setUniversesLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const isRegister = mode === 'register';
 
   useEffect(
     () => () => {
@@ -125,7 +132,24 @@ export function AuthForm({ mode }: { mode: Mode }) {
     [],
   );
 
-  const isRegister = mode === 'register';
+  useEffect(() => {
+    if (!isRegister) return;
+    setUniversesLoading(true);
+    api
+      .universes()
+      .then((list) => {
+        const active = list.filter((u) => u.status === UniverseStatus.ACTIVE);
+        setUniverses(active);
+        const urlUniverseId = searchParams.get('universeId');
+        if (urlUniverseId && active.some((u) => u.id === urlUniverseId)) {
+          setUniverseId(urlUniverseId);
+        } else if (active.length > 0) {
+          setUniverseId(active[0]!.id);
+        }
+      })
+      .catch(() => setUniverses([]))
+      .finally(() => setUniversesLoading(false));
+  }, [isRegister, searchParams]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -133,9 +157,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setLoading(true);
     try {
       const res = isRegister
-        ? await api.register({ email, username, password, race })
+        ? await api.register({ email, username, password, race, universeId })
         : await api.login({ email, password });
       qc.setQueryData(keys.me, res.user);
+      if (res.user.universeId) {
+        await setUniverseCookieAction(res.user.universeId);
+      }
       setSuccess(true);
       redirectTimer.current = setTimeout(() => router.replace('/play'), 800);
     } catch (err) {
@@ -277,6 +304,36 @@ export function AuthForm({ mode }: { mode: Mode }) {
                           </button>
                         ))}
                       </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Universe selector (register only) */}
+                <AnimatePresence>
+                  {isRegister && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <label className="label" htmlFor="universe">
+                        Univers
+                      </label>
+                      <select
+                        id="universe"
+                        required
+                        disabled={universesLoading || universes.length === 0}
+                        className="input transition-all duration-300 focus:shadow-[0_0_20px_rgba(22,191,108,0.3)] focus:ring-2 focus:ring-canopy-500/50"
+                        value={universeId}
+                        onChange={(e) => setUniverseId(e.target.value)}
+                      >
+                        {universes.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
                     </motion.div>
                   )}
                 </AnimatePresence>

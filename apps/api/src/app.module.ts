@@ -15,6 +15,8 @@ import { AlliancesModule } from './modules/alliances/alliances.module';
 import { PveModule } from './modules/pve/pve.module';
 import { PvpModule } from './modules/pvp/pvp.module';
 import { ProcessorsModule } from './modules/queue/processors.module';
+import { ProvisioningModule } from './modules/provisioning/provisioning.module';
+import { UniverseModule } from './modules/universe/universe.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -68,6 +70,8 @@ import { UsersModule } from './modules/users/users.module';
     PveModule,
     PvpModule,
     ProcessorsModule,
+    ProvisioningModule,
+    UniverseModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: OriginGuard },

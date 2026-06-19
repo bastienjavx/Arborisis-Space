@@ -2,14 +2,16 @@ import { Injectable } from '@nestjs/common';
 import type { GalacticEvent } from '@prisma/client';
 import { GALACTIC_EVENTS, GalacticEventType, type ActiveEventView } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 
 @Injectable()
 export class EventsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getActiveEvent(): Promise<ActiveEventView | null> {
+    const universeId = await getDefaultUniverseId(this.prisma);
     const event = await this.prisma.galacticEvent.findFirst({
-      where: { endsAt: { gt: new Date() } },
+      where: { universeId, endsAt: { gt: new Date() } },
       orderBy: { startAt: 'desc' },
     });
     if (!event) return null;
@@ -17,8 +19,9 @@ export class EventsService {
   }
 
   async triggerNextEvent(): Promise<void> {
+    const universeId = await getDefaultUniverseId(this.prisma);
     const existing = await this.prisma.galacticEvent.findFirst({
-      where: { endsAt: { gt: new Date() } },
+      where: { universeId, endsAt: { gt: new Date() } },
     });
     if (existing) return;
 
@@ -30,17 +33,23 @@ export class EventsService {
     const endsAt = new Date(now.getTime() + config.durationHours * 3_600_000);
 
     await this.prisma.galacticEvent.create({
-      data: { type: type as import('@prisma/client').GalacticEventType, startAt: now, endsAt },
+      data: {
+        type: type as import('@prisma/client').GalacticEventType,
+        universeId,
+        startAt: now,
+        endsAt,
+      },
     });
 
     if (type === GalacticEventType.ANCIENT_SIGNAL) {
       await this.prisma.planet.updateMany({
-        where: { isHomeworld: true },
+        where: { universeId, isHomeworld: true },
         data: { spores: { increment: 500 } },
       });
     }
     if (type === GalacticEventType.MYCOTOXIN_OUTBREAK) {
       await this.prisma.planet.updateMany({
+        where: { universeId },
         data: { stability: { decrement: 20 } },
       });
     }

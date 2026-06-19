@@ -4,7 +4,7 @@
  * pour la validation de formulaire et l'inférence de types.
  */
 import { z } from 'zod';
-import { BuildingType, RaceType, ResearchType, ShipType } from './enums';
+import { BuildingType, RaceType, ResearchType, ShipType, UniverseStatus } from './enums';
 
 export const allianceTagSchema = z
   .string()
@@ -238,3 +238,32 @@ export const renamePlanetSchema = z.object({
   name: z.string().trim().min(3, 'Au moins 3 caractères').max(32, 'Au plus 32 caractères'),
 });
 export type RenamePlanetDto = z.infer<typeof renamePlanetSchema>;
+
+export const createUniverseSchema = z.object({
+  slug: z
+    .string()
+    .trim()
+    .min(1, 'Le slug est requis')
+    .max(64, 'Au plus 64 caractères')
+    .regex(/^[a-z0-9-]+$/, 'Lettres minuscules, chiffres et tirets uniquement'),
+  name: z.string().trim().min(1, 'Le nom est requis').max(100, 'Au plus 100 caractères'),
+  internalApiUrl: z.string().trim().url('URL interne invalide'),
+  maxPlayers: z.coerce.number().int().min(1).default(500),
+});
+export type CreateUniverseDto = z.infer<typeof createUniverseSchema>;
+
+export const universeSummarySchema = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  name: z.string(),
+  playerCount: z.number().int().min(0),
+  maxPlayers: z.number().int().min(1),
+  status: z.nativeEnum(UniverseStatus),
+});
+
+export const universeViewSchema = universeSummarySchema.extend({
+  internalApiUrl: z.string(),
+  createdAt: z.string().datetime(),
+});
+
+export const listUniversesViewSchema = z.array(universeSummarySchema);

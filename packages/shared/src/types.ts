@@ -24,6 +24,7 @@ import {
   ResourceType,
   ShipRole,
   ShipType,
+  UniverseStatus,
   UserRole,
 } from './enums';
 import { UnmetRequirement } from './formulas';
@@ -35,6 +36,7 @@ export interface AuthUser {
   username: string;
   role: UserRole;
   race: RaceType;
+  universeId: string | null;
   displayName: string | null;
   bannerColor: string | null;
   avatarSeed: string | null;
@@ -304,3 +306,19 @@ export interface PvpMissionView {
   returnsAt: string;
   result?: PvpMissionResultView;
 }
+
+export interface UniverseSummaryView {
+  id: string;
+  slug: string;
+  name: string;
+  playerCount: number;
+  maxPlayers: number;
+  status: UniverseStatus;
+}
+
+export interface UniverseView extends UniverseSummaryView {
+  internalApiUrl: string;
+  createdAt: string;
+}
+
+export type ListUniversesView = UniverseSummaryView[];

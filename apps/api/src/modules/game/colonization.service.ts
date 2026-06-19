@@ -10,6 +10,7 @@ import {
   type JobView,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 import { GameQueueService } from '../queue/game-queue.service';
 import { FinalizationService } from './finalization.service';
 import { GameEngineService } from './game-engine.service';
@@ -35,6 +36,7 @@ export class ColonizationService {
     let job;
     try {
       job = await this.prisma.serializable(async (tx) => {
+        const universeId = await getDefaultUniverseId(tx);
         const propulsion =
           (
             await tx.researchLevel.findUnique({
@@ -56,7 +58,8 @@ export class ColonizationService {
 
         const occupied = await tx.planet.findUnique({
           where: {
-            galaxy_system_position: {
+            universeId_galaxy_system_position: {
+              universeId,
               galaxy: target.galaxy,
               system: target.system,
               position: target.position,

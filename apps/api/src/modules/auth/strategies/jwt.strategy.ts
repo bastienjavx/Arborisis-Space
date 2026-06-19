@@ -44,6 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       role: payload.role,
       race: payload.race ?? RaceType.MYCELIANS,
       email: '',
+      universeId: null,
       displayName: null,
       bannerColor: null,
       avatarSeed: null,

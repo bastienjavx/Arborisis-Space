@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { AuthForm } from '@/components/AuthForm';
 import { motion } from 'framer-motion';
 
@@ -11,7 +12,9 @@ export default function LoginPage() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <AuthForm mode="login" />
+      <Suspense fallback={null}>
+        <AuthForm mode="login" />
+      </Suspense>
     </motion.div>
   );
 }

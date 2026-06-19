@@ -271,6 +271,16 @@ export enum ApplicationStatus {
 
 export const APPLICATION_STATUSES = Object.values(ApplicationStatus);
 
+/** Statut d'un univers de jeu. */
+export enum UniverseStatus {
+  ACTIVE = 'ACTIVE',
+  PROVISIONING = 'PROVISIONING',
+  CLOSED = 'CLOSED',
+  FAILED = 'FAILED',
+}
+
+export const UNIVERSE_STATUSES = Object.values(UniverseStatus);
+
 /** Races jouables, chacune avec des bonus/malus et un vaisseau exclusif. */
 export enum RaceType {
   /** Mycéliens — maîtres de la biomasse et de l'essaimage. */

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JobStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 import { WorldFactoryService } from './world-factory.service';
 
 /**
@@ -55,9 +56,11 @@ export class FinalizationService {
       const job = await tx.colonizationJob.findUnique({ where: { id: jobId } });
       if (!job || job.status !== JobStatus.PENDING || job.finishesAt > now) return;
 
+      const universeId = await getDefaultUniverseId(tx);
       const occupied = await tx.planet.findUnique({
         where: {
-          galaxy_system_position: {
+          universeId_galaxy_system_position: {
+            universeId,
             galaxy: job.targetGalaxy,
             system: job.targetSystem,
             position: job.targetPosition,
@@ -75,7 +78,7 @@ export class FinalizationService {
         return;
       }
 
-      await this.worldFactory.createColony(tx, job.userId, {
+      await this.worldFactory.createColony(tx, job.userId, universeId, {
         galaxy: job.targetGalaxy,
         system: job.targetSystem,
         position: job.targetPosition,

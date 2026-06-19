@@ -1,40 +1,81 @@
 import type { NextRequest } from 'next/server';
+import { getUniverseCookie } from '@/lib/universe-cookie';
 
 export const dynamic = 'force-dynamic';
 
+const META_SEGMENTS = new Set(['auth', 'universes', 'health']);
+
+function isMetaRoute(segments: string[]): boolean {
+  return segments.length > 0 && META_SEGMENTS.has(segments[0]!);
+}
+
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  const apiOrigin = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
   const { path: segments } = await context.params;
+  const meta = isMetaRoute(segments);
+
+  let universe: { universeId: string; internalApiUrl: string } | null = null;
+  let apiOrigin: string;
+
+  if (meta) {
+    apiOrigin = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
+  } else {
+    universe = await getUniverseCookie();
+    if (!universe) {
+      return new Response(JSON.stringify({ message: 'Aucun univers sélectionné.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    apiOrigin = universe.internalApiUrl;
+  }
+
   const path = segments.map(encodeURIComponent).join('/');
   const target = new URL(`/api/${path}${request.nextUrl.search}`, apiOrigin);
   const headers = new Headers(request.headers);
   headers.delete('host');
   headers.delete('connection');
   headers.delete('content-length');
-
-  const upstream = await fetch(target, {
-    method: request.method,
-    headers,
-    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
-    redirect: 'manual',
-    cache: 'no-store',
-    // Requis par Node/undici pour relayer un ReadableStream.
-    duplex: 'half',
-  } as RequestInit & { duplex: 'half' });
-
-  const responseHeaders = new Headers(upstream.headers);
-  const getSetCookie = (upstream.headers as Headers & { getSetCookie?: () => string[] })
-    .getSetCookie;
-  if (getSetCookie) {
-    responseHeaders.delete('set-cookie');
-    for (const cookie of getSetCookie.call(upstream.headers)) {
-      responseHeaders.append('set-cookie', cookie);
-    }
+  headers.delete('transfer-encoding');
+  if (universe) {
+    headers.set('X-Universe-Id', universe.universeId);
   }
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: responseHeaders,
-  });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
+  try {
+    const upstream = await fetch(target, {
+      method: request.method,
+      headers,
+      body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
+      redirect: 'manual',
+      cache: 'no-store',
+      signal: controller.signal,
+      // Requis par Node/undici pour relayer un ReadableStream.
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+
+    const responseHeaders = new Headers(upstream.headers);
+    const getSetCookie = (upstream.headers as Headers & { getSetCookie?: () => string[] })
+      .getSetCookie;
+    if (getSetCookie) {
+      responseHeaders.delete('set-cookie');
+      for (const cookie of getSetCookie.call(upstream.headers)) {
+        responseHeaders.append('set-cookie', cookie);
+      }
+    }
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+  } catch {
+    return new Response(JSON.stringify({ message: 'Service indisponible.' }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export const GET = proxy;
