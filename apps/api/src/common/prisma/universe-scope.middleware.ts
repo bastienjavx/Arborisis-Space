@@ -1,7 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 import { getCurrentUniverseId } from '../../modules/universe/universe-context';
 
-export const SCOPED_MODELS = new Set<string>(['User', 'Planet', 'NpcEncounter', 'GalacticEvent']);
+export const SCOPED_MODELS = new Set<string>([
+  'User',
+  'Planet',
+  'NpcEncounter',
+  'GalacticEvent',
+  'ChatMessage',
+  'ModerationAction',
+]);
 
 export const SCOPED_OPERATIONS = new Set<string>([
   'findMany',

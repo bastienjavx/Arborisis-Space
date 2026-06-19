@@ -18,6 +18,8 @@ import { ProcessorsModule } from './modules/queue/processors.module';
 import { ProvisioningModule } from './modules/provisioning/provisioning.module';
 import { UniverseModule } from './modules/universe/universe.module';
 import { UsersModule } from './modules/users/users.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -65,6 +67,8 @@ import { UsersModule } from './modules/users/users.module';
     HealthModule,
     AuthModule,
     UsersModule,
+    ChatModule,
+    AdminModule,
     GameModule,
     AlliancesModule,
     PveModule,

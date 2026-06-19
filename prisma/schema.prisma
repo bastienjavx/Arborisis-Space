@@ -12,7 +12,21 @@ datasource db {
 
 enum UserRole {
   PLAYER
+  MODERATOR
   ADMIN
+}
+
+enum ChatScope {
+  GLOBAL
+  ALLIANCE
+  PRIVATE
+}
+
+enum ModerationActionType {
+  DELETE_MESSAGE
+  MUTE
+  UNMUTE
+  ROLE_CHANGE
 }
 
 enum RaceType {
@@ -209,27 +223,30 @@ model Universe {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  users          User[]
-  planets        Planet[]
-  npcEncounters  NpcEncounter[]
-  galacticEvents GalacticEvent[]
+  users             User[]
+  planets           Planet[]
+  npcEncounters     NpcEncounter[]
+  galacticEvents    GalacticEvent[]
+  chatMessages      ChatMessage[]
+  moderationActions ModerationAction[]
 
   @@map("universes")
 }
 
 model User {
-  id               String   @id @default(uuid())
-  email            String   @unique
-  username         String   @unique
-  passwordHash     String
-  role             UserRole @default(PLAYER)
-  race             RaceType @default(MYCELIANS)
-  displayName      String?
-  bio              String?
-  bannerColor      String   @default("#22c55e")
-  avatarSeed       String?
-  universeId       String
-  universe         Universe @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  email        String    @unique
+  username     String    @unique
+  passwordHash String
+  role         UserRole  @default(PLAYER)
+  race         RaceType  @default(MYCELIANS)
+  displayName  String?
+  bio          String?
+  bannerColor  String    @default("#22c55e")
+  avatarSeed   String?
+  mutedUntil   DateTime?
+  universeId   String
+  universe     Universe  @relation(fields: [universeId], references: [id], onDelete: Cascade)
 
   // Hash du refresh token courant (rotation). Null = pas de session active.
   refreshTokenHash String?
@@ -238,20 +255,25 @@ model User {
 
   artifactCount Int @default(0)
 
-  planets              Planet[]
-  researchLevels       ResearchLevel[]
-  researchJobs         ResearchJob[]
-  colonizationJobs     ColonizationJob[]
-  sessions             Session[]
-  expeditions          ExpeditionMission[]
-  expeditionReports    ExpeditionReport[]
-  pveMissions          PveMission[]
-  pvpMissions          PvpMission[]
-  achievements         PlayerAchievement[]
-  allianceMembership   AllianceMember?
-  leadAlliance         Alliance?
-  allianceApplications AllianceApplication[]
-  transferMissions     ResourceTransferMission[]
+  planets                   Planet[]
+  researchLevels            ResearchLevel[]
+  researchJobs              ResearchJob[]
+  colonizationJobs          ColonizationJob[]
+  sessions                  Session[]
+  expeditions               ExpeditionMission[]
+  expeditionReports         ExpeditionReport[]
+  pveMissions               PveMission[]
+  pvpMissions               PvpMission[]
+  achievements              PlayerAchievement[]
+  allianceMembership        AllianceMember?
+  leadAlliance              Alliance?
+  allianceApplications      AllianceApplication[]
+  transferMissions          ResourceTransferMission[]
+  sentChatMessages          ChatMessage[]             @relation("ChatAuthor")
+  receivedChatMessages      ChatMessage[]             @relation("ChatRecipient")
+  deletedChatMessages       ChatMessage[]             @relation("ChatDeletedBy")
+  moderationActions         ModerationAction[]        @relation("ModerationActor")
+  receivedModerationActions ModerationAction[]        @relation("ModerationTarget")
 
   @@map("users")
 }
@@ -287,7 +309,7 @@ model Planet {
   position Int
 
   // Stabilité écologique 0..100.
-  stability Float @default(100)
+  stability           Float @default(100)
   ecologicalStability Float @default(100)
 
   // Spécialisation planétaire (bonus/malus ciblés).
@@ -307,13 +329,13 @@ model Planet {
 
   buildings          PlanetBuilding[]
   constructionJobs   ConstructionJob[]
-  colonizationJobs   ColonizationJob[]   @relation("ColonizationSource")
+  colonizationJobs   ColonizationJob[]         @relation("ColonizationSource")
   ships              PlanetShip[]
   shipProductionJobs ShipProductionJob[]
   expeditions        ExpeditionMission[]
   pveMissions        PveMission[]
-  outgoingPvp        PvpMission[] @relation("PvpSource")
-  incomingPvp        PvpMission[] @relation("PvpTarget")
+  outgoingPvp        PvpMission[]              @relation("PvpSource")
+  incomingPvp        PvpMission[]              @relation("PvpTarget")
   outgoingTransfers  ResourceTransferMission[] @relation("TransferSource")
   incomingTransfers  ResourceTransferMission[] @relation("TransferTarget")
 
@@ -408,11 +430,11 @@ model ExpeditionReport {
 }
 
 model PlanetBuilding {
-  id       String       @id @default(uuid())
-  planetId String
-  planet   Planet       @relation(fields: [planetId], references: [id], onDelete: Cascade)
-  type     BuildingType
-  level    Int          @default(0)
+  id                  String       @id @default(uuid())
+  planetId            String
+  planet              Planet       @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  type                BuildingType
+  level               Int          @default(0)
   productionIntensity Int          @default(100)
 
   @@unique([planetId, type])
@@ -519,8 +541,53 @@ model Alliance {
 
   members      AllianceMember[]
   applications AllianceApplication[]
+  chatMessages ChatMessage[]
 
   @@map("alliances")
+}
+
+model ChatMessage {
+  id          String    @id @default(uuid())
+  universeId  String
+  universe    Universe  @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User      @relation("ChatAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  scope       ChatScope
+  allianceId  String?
+  alliance    Alliance? @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  recipientId String?
+  recipient   User?     @relation("ChatRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  content     String    @db.VarChar(1000)
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("ChatDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+
+  moderationActions ModerationAction[]
+
+  @@index([universeId, scope, createdAt])
+  @@index([allianceId, createdAt])
+  @@index([authorId, recipientId, createdAt])
+  @@map("chat_messages")
+}
+
+model ModerationAction {
+  id           String               @id @default(uuid())
+  universeId   String
+  universe     Universe             @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  moderatorId  String
+  moderator    User                 @relation("ModerationActor", fields: [moderatorId], references: [id], onDelete: Cascade)
+  targetUserId String?
+  targetUser   User?                @relation("ModerationTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  messageId    String?
+  message      ChatMessage?         @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  action       ModerationActionType
+  reason       String?              @db.VarChar(500)
+  createdAt    DateTime             @default(now())
+
+  @@index([universeId, createdAt])
+  @@index([moderatorId, createdAt])
+  @@map("moderation_actions")
 }
 
 model AllianceMember {
@@ -552,19 +619,19 @@ model AllianceApplication {
 }
 
 model NpcEncounter {
-  id         String          @id @default(uuid())
-  universeId String
-  universe   Universe        @relation(fields: [universeId], references: [id], onDelete: Cascade)
-  type       NpcEncounterType
-  galaxy     Int
-  system     Int
-  position   Int
-  difficulty Int             @default(1)
-  health     Int             @default(100)
-  maxHealth  Int             @default(100)
-  rewards    Json            @default("{}")
-  expiresAt  DateTime
-  createdAt  DateTime        @default(now())
+  id          String           @id @default(uuid())
+  universeId  String
+  universe    Universe         @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  type        NpcEncounterType
+  galaxy      Int
+  system      Int
+  position    Int
+  difficulty  Int              @default(1)
+  health      Int              @default(100)
+  maxHealth   Int              @default(100)
+  rewards     Json             @default("{}")
+  expiresAt   DateTime
+  createdAt   DateTime         @default(now())
   pveMissions PveMission[]
 
   @@unique([universeId, galaxy, system, position])
@@ -574,21 +641,21 @@ model NpcEncounter {
 }
 
 model PveMission {
-  id             String          @id @default(uuid())
-  userId         String
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  encounterId    String
-  encounter      NpcEncounter    @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  sourcePlanetId String
-  sourcePlanet   Planet          @relation(fields: [sourcePlanetId], references: [id], onDelete: Cascade)
-  phase          PveMissionPhase @default(TRAVEL)
-  ships          Json
+  id              String          @id @default(uuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encounterId     String
+  encounter       NpcEncounter    @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  sourcePlanetId  String
+  sourcePlanet    Planet          @relation(fields: [sourcePlanetId], references: [id], onDelete: Cascade)
+  phase           PveMissionPhase @default(TRAVEL)
+  ships           Json
   travelArrivesAt DateTime
   combatEndsAt    DateTime
   returnsAt       DateTime
-  result         Json?
-  createdAt      DateTime        @default(now())
-  completedAt    DateTime?
+  result          Json?
+  createdAt       DateTime        @default(now())
+  completedAt     DateTime?
 
   @@index([userId, phase])
   @@index([encounterId])
@@ -605,10 +672,10 @@ model PvpMission {
   targetPlanetId String
   targetPlanet   Planet          @relation("PvpTarget", fields: [targetPlanetId], references: [id], onDelete: Cascade)
   phase          PvpMissionPhase @default(OUTBOUND)
-  ships          Json            // Record<ShipType, number>
+  ships          Json // Record<ShipType, number>
   arrivesAt      DateTime
   returnsAt      DateTime
-  result         Json?           // { outcome: 'SUCCESS'|'FAILURE'|'DRAW', loot?: {...}, lostShips: {... }, defenderLosses?: {... }, report?: {... } }
+  result         Json? // { outcome: 'SUCCESS'|'FAILURE'|'DRAW', loot?: {...}, lostShips: {... }, defenderLosses?: {... }, report?: {... } }
   completedAt    DateTime?
   createdAt      DateTime        @default(now())
 

@@ -6,13 +6,55 @@
 import { z } from 'zod';
 import {
   BuildingType,
+  ChatScope,
   PlanetSpecialization,
   RaceType,
   ResearchType,
   ResourceType,
   ShipType,
   UniverseStatus,
+  UserRole,
 } from './enums';
+
+export const sendChatMessageSchema = z
+  .object({
+    scope: z.nativeEnum(ChatScope),
+    content: z.string().trim().min(1, 'Message vide').max(1_000, 'Au plus 1 000 caractères'),
+    recipientId: z.string().uuid().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.scope === ChatScope.PRIVATE && !value.recipientId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['recipientId'],
+        message: 'Un destinataire est requis.',
+      });
+    }
+    if (value.scope !== ChatScope.PRIVATE && value.recipientId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['recipientId'],
+        message: 'Le destinataire est réservé aux messages privés.',
+      });
+    }
+  });
+export type SendChatMessageDto = z.infer<typeof sendChatMessageSchema>;
+
+export const deleteChatMessageSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+export type DeleteChatMessageDto = z.infer<typeof deleteChatMessageSchema>;
+
+export const changeUserRoleSchema = z.object({
+  role: z.enum([UserRole.PLAYER, UserRole.MODERATOR]),
+});
+export type ChangeUserRoleDto = z.infer<typeof changeUserRoleSchema>;
+
+export const moderateUserSchema = z.object({
+  mutedUntil: z.string().datetime().nullable(),
+  reason: z.string().trim().max(500).optional(),
+});
+export type ModerateUserDto = z.infer<typeof moderateUserSchema>;
 
 export const allianceTagSchema = z
   .string()

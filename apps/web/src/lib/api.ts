@@ -6,6 +6,7 @@ import type {
   AttackEncounterDto,
   AttackPlanetDto,
   AuthUser,
+  AdminUserView,
   BuildBuildingDto,
   ColonizeDto,
   CreateAllianceDto,
@@ -37,6 +38,13 @@ import type {
   AchievementView,
   TransferResourcesDto,
   UpdateProfileDto,
+  ChatContactView,
+  ChatMessageView,
+  ChatScope,
+  ChangeUserRoleDto,
+  ModerateUserDto,
+  ModerationActionView,
+  SendChatMessageDto,
 } from '@arborisis/shared';
 
 const BASE = '/api';
@@ -125,6 +133,27 @@ export const api = {
   updateProfile: (body: UpdateProfileDto) =>
     request<{ user: AuthUser }>('/users/me', { method: 'PATCH', body }),
   publicProfile: (id: string) => request<PublicProfile>(`/users/${id}/profile`),
+
+  // ── Chat ──
+  chatMessages: (scope: ChatScope, peerId?: string) =>
+    request<ChatMessageView[]>(
+      `/chat/messages?scope=${scope}${peerId ? `&peerId=${encodeURIComponent(peerId)}` : ''}`,
+    ),
+  sendChatMessage: (body: SendChatMessageDto) =>
+    request<ChatMessageView>('/chat/messages', { method: 'POST', body }),
+  deleteChatMessage: (id: string, reason?: string) =>
+    request<void>(`/chat/messages/${id}`, { method: 'DELETE', body: { reason } }),
+  chatContacts: (search = '') =>
+    request<ChatContactView[]>(`/chat/contacts?search=${encodeURIComponent(search)}`),
+
+  // ── Administration / modération ──
+  adminUsers: (search = '') =>
+    request<AdminUserView[]>(`/admin/users?search=${encodeURIComponent(search)}`),
+  changeUserRole: (id: string, body: ChangeUserRoleDto) =>
+    request<void>(`/admin/users/${id}/role`, { method: 'PATCH', body }),
+  moderateUser: (id: string, body: ModerateUserDto) =>
+    request<void>(`/admin/users/${id}/moderation`, { method: 'PATCH', body }),
+  moderationActions: () => request<ModerationActionView[]>('/admin/moderation-actions'),
 
   // ── Planètes ──
   planets: () => request<PlanetSummary[]>('/planets'),

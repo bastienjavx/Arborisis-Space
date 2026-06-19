@@ -22,7 +22,11 @@ import type {
   StartResearchDto,
   TransferResourcesDto,
   UpdateProfileDto,
+  ChangeUserRoleDto,
+  ModerateUserDto,
+  SendChatMessageDto,
 } from '@arborisis/shared';
+import { ChatScope } from '@arborisis/shared';
 import { api } from './api';
 
 export const keys = {
@@ -47,6 +51,11 @@ export const keys = {
   alliance: (id: string | undefined) => ['alliance', id ?? 'none'] as const,
   myAlliance: ['my-alliance'] as const,
   allianceApplications: ['alliance-applications'] as const,
+  chatMessages: (scope: ChatScope, peerId?: string) =>
+    ['chat-messages', scope, peerId ?? 'none'] as const,
+  chatContacts: (search: string) => ['chat-contacts', search] as const,
+  adminUsers: (search: string) => ['admin-users', search] as const,
+  moderationActions: ['moderation-actions'] as const,
 };
 
 export function useMe() {
@@ -55,6 +64,80 @@ export function useMe() {
     queryFn: () => api.me().then((r) => r.user),
     retry: false,
     staleTime: 60_000,
+  });
+}
+
+export function useChatMessages(scope: ChatScope, peerId?: string) {
+  return useQuery({
+    queryKey: keys.chatMessages(scope, peerId),
+    queryFn: () => api.chatMessages(scope, peerId),
+    enabled: scope !== ChatScope.PRIVATE || !!peerId,
+    refetchInterval: 3_000,
+  });
+}
+
+export function useChatContacts(search = '') {
+  return useQuery({
+    queryKey: keys.chatContacts(search),
+    queryFn: () => api.chatContacts(search),
+    staleTime: 10_000,
+  });
+}
+
+export function useSendChatMessage(scope: ChatScope, peerId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SendChatMessageDto) => api.sendChatMessage(body),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.chatMessages(scope, peerId) }),
+  });
+}
+
+export function useDeleteChatMessage(scope: ChatScope, peerId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      api.deleteChatMessage(id, reason),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.chatMessages(scope, peerId) });
+      void qc.invalidateQueries({ queryKey: keys.moderationActions });
+    },
+  });
+}
+
+export function useAdminUsers(search = '', enabled = true) {
+  return useQuery({
+    queryKey: keys.adminUsers(search),
+    queryFn: () => api.adminUsers(search),
+    enabled,
+  });
+}
+
+export function useModerationActions(enabled = true) {
+  return useQuery({
+    queryKey: keys.moderationActions,
+    queryFn: () => api.moderationActions(),
+    refetchInterval: 15_000,
+    enabled,
+  });
+}
+
+export function useChangeUserRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: ChangeUserRoleDto }) =>
+      api.changeUserRole(id, body),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin-users'] }),
+  });
+}
+
+export function useModerateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: ModerateUserDto }) => api.moderateUser(id, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin-users'] });
+      void qc.invalidateQueries({ queryKey: keys.moderationActions });
+    },
   });
 }
 

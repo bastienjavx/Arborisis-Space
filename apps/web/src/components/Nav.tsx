@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { UserRole } from '@arborisis/shared';
 import {
   FiAward,
   FiUsers,
@@ -19,9 +20,11 @@ import {
   FiLayers,
   FiLogOut,
   FiMenu,
+  FiMessageCircle,
   FiMoreHorizontal,
   FiNavigation,
   FiSliders,
+  FiShield,
   FiUser,
   FiX,
 } from 'react-icons/fi';
@@ -39,6 +42,7 @@ const LINKS = [
   { href: '/pve', label: 'PvE', icon: FiCrosshair },
   { href: '/pvp', label: 'PvP', icon: FiCrosshair },
   { href: '/alliance', label: 'Alliance', icon: FiUsers },
+  { href: '/chat', label: 'Chat', icon: FiMessageCircle },
   { href: '/reports', label: 'Rapports', icon: FiFileText },
   { href: '/leaderboard', label: 'Classement', icon: FiBarChart2 },
   { href: '/achievements', label: 'Succès', icon: FiAward },
@@ -46,6 +50,7 @@ const LINKS = [
 ] as const;
 
 const PRIMARY_MOBILE_LINKS = LINKS.slice(0, 4);
+const ADMIN_LINK = { href: '/admin', label: 'Modération', icon: FiShield } as const;
 
 export function Nav({ username }: { username: string }) {
   const pathname = usePathname();
@@ -54,6 +59,10 @@ export function Nav({ username }: { username: string }) {
   const { data: user } = useMe();
   const { planets, selectedId, select } = usePlanetSelection();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navigationLinks =
+    user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR
+      ? [...LINKS, ADMIN_LINK]
+      : LINKS;
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
@@ -131,7 +140,7 @@ export function Nav({ username }: { username: string }) {
           className="relative mt-5 flex-1 space-y-1 overflow-y-auto pr-1"
           aria-label="Navigation du jeu"
         >
-          {LINKS.map((link) => {
+          {navigationLinks.map((link) => {
             const active = pathname === link.href;
             const Icon = link.icon;
             return (
@@ -235,7 +244,7 @@ export function Nav({ username }: { username: string }) {
                 className="grid flex-1 grid-cols-2 gap-2 overflow-y-auto p-4"
                 aria-label="Toutes les pages du jeu"
               >
-                {LINKS.map((link) => {
+                {navigationLinks.map((link) => {
                   const Icon = link.icon;
                   const active = pathname === link.href;
                   return (

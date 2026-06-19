@@ -258,7 +258,23 @@ export enum JobStatus {
 /** Rôles utilisateur. */
 export enum UserRole {
   PLAYER = 'PLAYER',
+  MODERATOR = 'MODERATOR',
   ADMIN = 'ADMIN',
+}
+
+/** Visibilité d'un message de chat. */
+export enum ChatScope {
+  GLOBAL = 'GLOBAL',
+  ALLIANCE = 'ALLIANCE',
+  PRIVATE = 'PRIVATE',
+}
+
+/** Actions conservées dans le journal de modération. */
+export enum ModerationActionType {
+  DELETE_MESSAGE = 'DELETE_MESSAGE',
+  MUTE = 'MUTE',
+  UNMUTE = 'UNMUTE',
+  ROLE_CHANGE = 'ROLE_CHANGE',
 }
 
 /** Rôles au sein d'une alliance. */

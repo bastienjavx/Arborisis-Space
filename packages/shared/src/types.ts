@@ -8,6 +8,7 @@ import {
   AllianceRole,
   ApplicationStatus,
   BuildingType,
+  ChatScope,
   ExpeditionOutcome,
   ExpeditionPhase,
   GalacticEventType,
@@ -27,6 +28,7 @@ import {
   ShipType,
   UniverseStatus,
   UserRole,
+  ModerationActionType,
 } from './enums';
 import { UnmetRequirement } from './formulas';
 import { Coordinates, type ExpeditionShipType } from './schemas';
@@ -55,6 +57,45 @@ export interface PublicProfile {
   colonies: number;
   totalShips: number;
   score: number;
+}
+
+export interface ChatAuthorView {
+  id: string;
+  username: string;
+  displayName: string | null;
+  role: UserRole;
+  race: RaceType;
+  bannerColor: string | null;
+}
+
+export interface ChatMessageView {
+  id: string;
+  scope: ChatScope;
+  content: string;
+  author: ChatAuthorView;
+  recipientId: string | null;
+  allianceId: string | null;
+  createdAt: string;
+  deletedAt: string | null;
+}
+
+export interface ChatContactView extends ChatAuthorView {
+  mutedUntil: string | null;
+}
+
+export interface AdminUserView extends ChatContactView {
+  email: string;
+  createdAt: string;
+}
+
+export interface ModerationActionView {
+  id: string;
+  action: ModerationActionType;
+  moderator: Pick<ChatAuthorView, 'id' | 'username' | 'displayName'>;
+  target: Pick<ChatAuthorView, 'id' | 'username' | 'displayName'> | null;
+  messageId: string | null;
+  reason: string | null;
+  createdAt: string;
 }
 
 export interface ResourceState {
