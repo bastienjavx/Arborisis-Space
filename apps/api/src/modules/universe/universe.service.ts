@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma, type Universe, UniverseStatus } from '@prisma/client';
 import type {
   CreateUniverseDto,
@@ -7,10 +8,47 @@ import type {
   UniverseView,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import type { Env } from '../../common/config/env';
+
+const DEFAULT_UNIVERSE_SLUG = 'default';
 
 @Injectable()
-export class UniverseService {
-  constructor(private readonly prisma: PrismaService) {}
+export class UniverseService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(UniverseService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
+
+  /**
+   * Réaligne l'`internalApiUrl` de l'univers par défaut sur `API_INTERNAL_URL`.
+   * La migration insère un placeholder `http://localhost:4000` : en production ce
+   * placeholder ferait échouer le proxy web. Réconciliation idempotente au boot.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    const internalApiUrl = this.config.get('API_INTERNAL_URL', { infer: true });
+    if (!internalApiUrl) return;
+
+    try {
+      const universe = await this.prisma.universe.findUnique({
+        where: { slug: DEFAULT_UNIVERSE_SLUG },
+      });
+      if (!universe || universe.internalApiUrl === internalApiUrl) return;
+
+      await this.prisma.universe.update({
+        where: { slug: DEFAULT_UNIVERSE_SLUG },
+        data: { internalApiUrl },
+      });
+      this.logger.log(
+        `Univers par défaut réaligné : internalApiUrl = ${internalApiUrl} (était ${universe.internalApiUrl}).`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Échec du réalignement de l'univers par défaut : ${(error as Error).message}`,
+      );
+    }
+  }
 
   async listActive(): Promise<ListUniversesView> {
     const rows = await this.prisma.universe.findMany({

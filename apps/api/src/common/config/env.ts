@@ -16,6 +16,10 @@ const envSchema = z.object({
   JWT_REFRESH_TTL: z.coerce.number().int().positive().default(1_209_600),
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
   COOKIE_DOMAIN: z.string().optional(),
+  // Adresse réseau privée de CETTE instance API (ex. http://api:4000 sur Railway).
+  // Si définie, l'univers par défaut est réaligné sur cette URL au démarrage afin
+  // que le proxy web route correctement (la migration insère un placeholder localhost).
+  API_INTERNAL_URL: z.string().url().optional(),
   RAILWAY_API_TOKEN: z.string().min(1).optional(),
   RAILWAY_PROJECT_ID: z.string().optional(),
   RAILWAY_SERVICE_TEMPLATE_ID: z.string().optional(),

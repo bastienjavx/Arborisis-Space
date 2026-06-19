@@ -11,7 +11,13 @@ import { AnimatedCounter } from './AnimatedCounter';
  * Barre de ressources avec accumulation fluide côté client (extrapolation de la
  * production), recalée à chaque rafraîchissement serveur — qui reste l'autorité.
  */
-export function ResourceBar({ resources }: { resources: ResourceState }) {
+export function ResourceBar({
+  resources,
+  compact = false,
+}: {
+  resources: ResourceState;
+  compact?: boolean;
+}) {
   const base = useRef({ amounts: resources.amounts, at: Date.now() });
   const [display, setDisplay] = useState(resources.amounts);
 
@@ -45,7 +51,9 @@ export function ResourceBar({ resources }: { resources: ResourceState }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 * RESOURCE_TYPES.indexOf(r) }}
-            className="relative min-w-[9.5rem] overflow-hidden rounded-xl border border-canopy-700/15 bg-bark-900/70 px-3.5 py-3 backdrop-blur-xl sm:min-w-0"
+            className={`relative min-w-[9.5rem] overflow-hidden rounded-xl border border-canopy-700/15 bg-bark-900/70 px-3.5 backdrop-blur-xl sm:min-w-0 ${
+              compact ? 'py-1.5' : 'py-3'
+            }`}
           >
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">

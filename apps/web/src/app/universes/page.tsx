@@ -15,6 +15,8 @@ function getStatusLabel(status: UniverseStatus): string {
       return 'En préparation';
     case UniverseStatus.CLOSED:
       return 'Fermé';
+    case UniverseStatus.FAILED:
+      return 'Indisponible';
   }
 }
 
