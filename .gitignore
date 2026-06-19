@@ -37,6 +37,11 @@ Thumbs.db
 # Claude Code / IDE skills
 .kilocode/
 
+# Design-sync tooling + output (run via /design-sync skill)
+.ds-sync/
+ds-bundle/
+ds-built.css
+
 # Prisma
 prisma/*.db
 prisma/*.db-journal
