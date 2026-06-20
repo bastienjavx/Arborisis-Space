@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type { GalacticEvent, Planet, PlanetBuilding, Prisma, ResearchLevel } from '@prisma/client';
 import {
   BuildingType,
@@ -283,14 +283,31 @@ export class GameEngineService {
     cost: Partial<Record<ResourceType, number>>,
     db: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<void> {
-    await db.planet.update({
-      where: { id: planetId },
+    const biomass = cost[ResourceType.BIOMASS] ?? 0;
+    const sap = cost[ResourceType.SAP] ?? 0;
+    const minerals = cost[ResourceType.MINERALS] ?? 0;
+    const spores = cost[ResourceType.SPORES] ?? 0;
+
+    // Décrément conditionnel : la mise à jour n'a lieu que si le solde couvre le coût.
+    // Les appelants pré-vérifient déjà `canAfford` dans une transaction sérialisable ;
+    // cette garde empêche tout solde négatif même en cas d'appel non vérifié ou de course.
+    const result = await db.planet.updateMany({
+      where: {
+        id: planetId,
+        biomass: { gte: biomass },
+        sap: { gte: sap },
+        minerals: { gte: minerals },
+        spores: { gte: spores },
+      },
       data: {
-        biomass: { decrement: cost[ResourceType.BIOMASS] ?? 0 },
-        sap: { decrement: cost[ResourceType.SAP] ?? 0 },
-        minerals: { decrement: cost[ResourceType.MINERALS] ?? 0 },
-        spores: { decrement: cost[ResourceType.SPORES] ?? 0 },
+        biomass: { decrement: biomass },
+        sap: { decrement: sap },
+        minerals: { decrement: minerals },
+        spores: { decrement: spores },
       },
     });
+    if (result.count !== 1) {
+      throw new BadRequestException('Ressources insuffisantes.');
+    }
   }
 }

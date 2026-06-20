@@ -118,6 +118,12 @@ export const loginSchema = z.object({
 });
 export type LoginDto = z.infer<typeof loginSchema>;
 
+export const resetPasswordSchema = z.object({
+  token: z.string().trim().min(1, 'Token requis').max(512),
+  password: passwordSchema,
+});
+export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
+
 export const buildBuildingSchema = z.object({
   planetId: z.string().uuid(),
   type: z.nativeEnum(BuildingType),

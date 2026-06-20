@@ -1,13 +1,15 @@
-import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response, CookieOptions } from 'express';
 import {
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
   type AuthUser,
   type LoginDto,
   type RegisterDto,
+  type ResetPasswordDto,
 } from '@arborisis/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import type { Env } from '../../common/config/env';
@@ -102,12 +104,9 @@ export class AuthController {
   @HttpCode(200)
   @Post('reset-password')
   async resetPassword(
-    @Body() body: { token?: string; password?: string },
+    @Body(new ZodValidationPipe(resetPasswordSchema)) dto: ResetPasswordDto,
   ): Promise<{ success: true }> {
-    if (!body.token || !body.password || body.password.length < 10) {
-      throw new Error('Données invalides.');
-    }
-    await this.authService.resetPassword(body.token, body.password);
+    await this.authService.resetPassword(dto.token, dto.password);
     return { success: true };
   }
 

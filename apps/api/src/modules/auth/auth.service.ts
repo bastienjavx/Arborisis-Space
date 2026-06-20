@@ -1,4 +1,11 @@
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
@@ -32,6 +39,7 @@ export interface TokenPair {
 }
 
 const TOTP_APP_NAME = 'Arborisis';
+const TOTP_ENC_PREFIX = 'enc:v1:';
 
 @Injectable()
 export class AuthService {
@@ -181,7 +189,7 @@ export class AuthService {
     if (!user || !user.totpEnabled || !user.totpSecret) throw new UnauthorizedException();
 
     const isValid = speakeasy.totp.verify({
-      secret: user.totpSecret,
+      secret: this.decryptTotpSecret(user.totpSecret),
       encoding: 'base32',
       token: code,
       window: 1,
@@ -323,7 +331,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { totpSecret: secret },
+      data: { totpSecret: this.encryptTotpSecret(secret) },
     });
 
     return { secret, qrCodeDataUrl, otpauthUrl };
@@ -337,7 +345,7 @@ export class AuthService {
       throw new BadRequestException('La double authentification est déjà activée.');
 
     const isValid = speakeasy.totp.verify({
-      secret: user.totpSecret,
+      secret: this.decryptTotpSecret(user.totpSecret),
       encoding: 'base32',
       token: code,
       window: 1,
@@ -360,7 +368,7 @@ export class AuthService {
     }
 
     const isValid = speakeasy.totp.verify({
-      secret: user.totpSecret,
+      secret: this.decryptTotpSecret(user.totpSecret),
       encoding: 'base32',
       token: code,
       window: 1,
@@ -511,6 +519,37 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  /** Clé AES-256 dérivée de TOTP_ENC_KEY, ou `null` si le chiffrement est désactivé. */
+  private totpKey(): Buffer | null {
+    const raw = this.config.get('TOTP_ENC_KEY', { infer: true });
+    return raw ? createHash('sha256').update(raw).digest() : null;
+  }
+
+  /** Chiffre un secret TOTP (AES-256-GCM) si une clé est configurée, sinon le renvoie en clair. */
+  private encryptTotpSecret(secret: string): string {
+    const key = this.totpKey();
+    if (!key) return secret;
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const enc = Buffer.concat([cipher.update(secret, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return TOTP_ENC_PREFIX + Buffer.concat([iv, tag, enc]).toString('base64');
+  }
+
+  /** Déchiffre un secret TOTP stocké ; supporte les secrets en clair hérités (sans préfixe). */
+  private decryptTotpSecret(stored: string): string {
+    if (!stored.startsWith(TOTP_ENC_PREFIX)) return stored;
+    const key = this.totpKey();
+    if (!key) throw new UnauthorizedException('Déchiffrement TOTP indisponible.');
+    const buf = Buffer.from(stored.slice(TOTP_ENC_PREFIX.length), 'base64');
+    const iv = buf.subarray(0, 12);
+    const tag = buf.subarray(12, 28);
+    const data = buf.subarray(28);
+    const decipher = createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
   }
 
   private hashesEqual(a: string, b: string): boolean {

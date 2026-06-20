@@ -51,6 +51,8 @@ export class PvpService {
       include: { owner: true },
     });
     if (!target) throw new NotFoundException('Planète cible introuvable.');
+    if (target.universeId !== source.universeId)
+      throw new ForbiddenException('Cible hors de votre univers.');
     if (target.ownerId === userId)
       throw new ForbiddenException('Vous ne pouvez pas espionner votre propre planète.');
 
@@ -131,6 +133,8 @@ export class PvpService {
       include: { owner: true },
     });
     if (!target) throw new NotFoundException('Planète cible introuvable.');
+    if (target.universeId !== source.universeId)
+      throw new ForbiddenException('Cible hors de votre univers.');
     if (target.ownerId === userId)
       throw new ForbiddenException('Vous ne pouvez pas attaquer votre propre planète.');
 

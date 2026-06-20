@@ -5,11 +5,14 @@ import { universeContext, UNIVERSE_ID_HEADER } from './universe-context';
 
 /**
  * Intercepteur global de contexte d'univers.
- * Se contente de lire le header X-Universe-Id et de le placer dans un
- * AsyncLocalStorage accessible aux services en aval via getCurrentUniverseId().
- * La validation de l'univers (existence + statut actif) est volontairement
- * déléguée au UniverseGuard, qui s'exécute avant les intercepteurs.
- * Les routes publiques (absence de header) continuent de fonctionner normalement.
+ * Détermine l'univers actif et le place dans un AsyncLocalStorage accessible aux
+ * services en aval via getCurrentUniverseId().
+ *
+ * Autorité serveur : pour une requête authentifiée, l'univers est TOUJOURS celui de
+ * l'utilisateur (`request.user.universeId`), jamais le header X-Universe-Id qui est
+ * contrôlable par le client. Le header ne sert que de repli pour les rares contextes
+ * sans utilisateur authentifié (il n'expose alors aucune donnée d'autrui : les modèles
+ * scopés sont tous derrière l'authentification).
  */
 @Injectable()
 export class UniverseInterceptor implements NestInterceptor {
@@ -17,8 +20,10 @@ export class UniverseInterceptor implements NestInterceptor {
     context: ExecutionContext,
     next: CallHandler,
   ): ReturnType<CallHandler['handle']> | Promise<ReturnType<CallHandler['handle']>> {
-    const request = context.switchToHttp().getRequest<Request>();
-    const universeId = this.extractUniverseId(request);
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: { universeId?: string | null } }>();
+    const universeId = request.user?.universeId ?? this.extractUniverseId(request);
 
     if (!universeId) {
       return next.handle();

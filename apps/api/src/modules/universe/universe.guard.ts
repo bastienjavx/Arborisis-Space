@@ -27,6 +27,13 @@ export class UniverseGuard implements CanActivate {
       throw new ForbiddenException('Univers invalide ou inactif.');
     }
 
+    // Liaison à l'utilisateur : un compte ne peut opérer que dans son propre univers,
+    // jamais dans celui qu'il déclarerait via le header.
+    const user = (request as Request & { user?: { universeId?: string | null } }).user;
+    if (user?.universeId && user.universeId !== universeId) {
+      throw new ForbiddenException('Cet univers ne correspond pas à votre compte.');
+    }
+
     return true;
   }
 

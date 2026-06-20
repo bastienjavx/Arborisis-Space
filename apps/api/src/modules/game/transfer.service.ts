@@ -57,18 +57,6 @@ export class TransferService {
         `Capacité de cargaison insuffisante : ${cargo} < ${totalResources}.`,
       );
 
-    const settled = await this.engine.settlePlanet(sourcePlanetId);
-    const amounts = {
-      [ResourceType.BIOMASS]: settled.planet.biomass,
-      [ResourceType.SAP]: settled.planet.sap,
-      [ResourceType.MINERALS]: settled.planet.minerals,
-      [ResourceType.SPORES]: settled.planet.spores,
-    };
-    for (const [res, qty] of Object.entries(resources as Record<string, number>)) {
-      if (qty > (amounts[res as ResourceType] ?? 0))
-        throw new BadRequestException(`Ressources insuffisantes : ${res}.`);
-    }
-
     const travelSec = pveTravelTimeSeconds(
       { galaxy: source.galaxy, system: source.system },
       { galaxy: target.galaxy, system: target.system, position: target.position },
@@ -76,7 +64,30 @@ export class TransferService {
     );
     const arrivesAt = new Date(Date.now() + travelSec * 1000);
 
-    const mission = await this.prisma.$transaction(async (tx) => {
+    // Toutes les vérifications (solde de ressources, vaisseaux disponibles) ET les
+    // débits sont effectués dans une même transaction sérialisable : deux transferts
+    // concurrents depuis la même planète ne peuvent plus passer le contrôle puis
+    // débiter en parallèle (anti double-dépense / création de ressources).
+    const mission = await this.prisma.serializable(async (tx) => {
+      const settled = await this.engine.settlePlanet(sourcePlanetId, new Date(), tx);
+      const amounts = {
+        [ResourceType.BIOMASS]: settled.planet.biomass,
+        [ResourceType.SAP]: settled.planet.sap,
+        [ResourceType.MINERALS]: settled.planet.minerals,
+        [ResourceType.SPORES]: settled.planet.spores,
+      };
+      for (const [res, qty] of Object.entries(resources as Record<string, number>)) {
+        if (qty > (amounts[res as ResourceType] ?? 0))
+          throw new BadRequestException(`Ressources insuffisantes : ${res}.`);
+      }
+
+      const inventory = await tx.planetShip.findMany({ where: { planetId: sourcePlanetId } });
+      for (const [type, qty] of Object.entries(transportShips)) {
+        const available = inventory.find((s) => s.type === (type as ShipType))?.quantity ?? 0;
+        if ((qty as number) > available)
+          throw new BadRequestException('Vaisseaux de transport disponibles insuffisants.');
+      }
+
       await this.engine.spend(
         sourcePlanetId,
         resources as Partial<Record<ResourceType, number>>,

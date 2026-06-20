@@ -14,6 +14,9 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET doit faire ≥ 32 caractères'),
   JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900),
   JWT_REFRESH_TTL: z.coerce.number().int().positive().default(1_209_600),
+  // Clé de chiffrement au repos des secrets TOTP (AES-256-GCM). Optionnelle : si absente,
+  // les secrets sont stockés en clair (compat héritée). Fortement recommandée en production.
+  TOTP_ENC_KEY: z.string().min(32, 'TOTP_ENC_KEY doit faire ≥ 32 caractères').optional(),
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
   COOKIE_DOMAIN: z.string().optional(),
   // Adresse réseau privée de CETTE instance API (ex. http://api.railway.internal:4000).
