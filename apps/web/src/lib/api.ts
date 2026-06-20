@@ -34,8 +34,14 @@ import type {
   StartExpeditionDto,
   ShipProductionJobView,
   LeaderboardEntry,
+  AllianceLeaderboardEntry,
+  SeasonOverview,
   ActiveEventView,
   AchievementView,
+  QuestsOverview,
+  ClaimQuestDto,
+  DailyRewardView,
+  AbsenceSummaryView,
   TransferResourcesDto,
   UpdateProfileDto,
   ChatContactView,
@@ -276,6 +282,21 @@ export const api = {
 
   // ── Classement / événements / succès ──
   leaderboard: () => request<LeaderboardEntry[]>('/leaderboard'),
+  allianceLeaderboard: () => request<AllianceLeaderboardEntry[]>('/leaderboard/alliances'),
+  seasons: () => request<SeasonOverview>('/seasons'),
+  claimSeasonRewards: () => request<SeasonOverview>('/seasons/claim', { method: 'POST' }),
   activeEvent: () => request<ActiveEventView | null>('/events/active'),
   achievements: () => request<AchievementView[]>('/achievements'),
+
+  // ── Quêtes ──
+  quests: () => request<QuestsOverview>('/quests'),
+  claimQuest: (body: ClaimQuestDto) =>
+    request<QuestsOverview>('/quests/claim', { method: 'POST', body }),
+
+  // ── Récompense quotidienne ──
+  dailyReward: () => request<DailyRewardView>('/daily-reward'),
+  claimDailyReward: () => request<DailyRewardView>('/daily-reward/claim', { method: 'POST' }),
+
+  // ── Résumé d'absence ──
+  absenceSummary: () => request<AbsenceSummaryView>('/absence-summary', { method: 'POST' }),
 };

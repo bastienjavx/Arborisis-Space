@@ -24,6 +24,7 @@ import {
   RaceType,
   ResearchType,
   ResourceType,
+  SeasonRewardScope,
   ShipRole,
   ShipType,
   UniverseStatus,
@@ -44,6 +45,7 @@ export interface AuthUser {
   bannerColor: string | null;
   avatarSeed: string | null;
   totpEnabled: boolean;
+  title: string | null;
 }
 
 export interface PublicProfile {
@@ -58,6 +60,7 @@ export interface PublicProfile {
   colonies: number;
   totalShips: number;
   score: number;
+  title: string | null;
 }
 
 export interface ChatAuthorView {
@@ -67,6 +70,7 @@ export interface ChatAuthorView {
   role: UserRole;
   race: RaceType;
   bannerColor: string | null;
+  title: string | null;
 }
 
 export interface ChatMessageView {
@@ -246,6 +250,39 @@ export interface LeaderboardEntry {
   colonies: number;
   ships: number;
   lastActive: string;
+  /** Titre cosmétique courant (saison/succès), le cas échéant. */
+  title: string | null;
+}
+
+export interface AllianceLeaderboardEntry {
+  rank: number;
+  tag: string;
+  name: string;
+  bannerColor: string;
+  memberCount: number;
+  score: number;
+}
+
+export interface SeasonView {
+  index: number;
+  startedAt: string;
+  endsAt: string;
+}
+
+export interface SeasonRewardView {
+  id: string;
+  scope: SeasonRewardScope;
+  seasonIndex: number;
+  rank: number;
+  score: number;
+  title: string | null;
+  reward: ResourceBundle;
+}
+
+export interface SeasonOverview {
+  current: SeasonView | null;
+  /** Récompenses de saison non encore réclamées par le joueur. */
+  unclaimedRewards: SeasonRewardView[];
 }
 
 export interface ActiveEventView {
@@ -260,11 +297,69 @@ export interface AchievementView {
   name: string;
   description: string;
   rewardText: string;
+  /** Butin concret crédité au déblocage. */
+  reward: ResourceBundle;
   unlockedAt: string | null;
   /** Progression calculée par le serveur. */
   progress: number;
   target: number;
   progressLabel: string;
+}
+
+export interface QuestView {
+  id: string;
+  name: string;
+  description: string;
+  order: number;
+  reward: ResourceBundle;
+  progress: number;
+  target: number;
+  /** Objectif atteint (réclamable si pas encore réclamé). */
+  completed: boolean;
+  claimedAt: string | null;
+}
+
+export interface QuestsOverview {
+  /** Première quête non réclamée — mise en avant dans l'UI. */
+  active: QuestView | null;
+  quests: QuestView[];
+  claimableCount: number;
+}
+
+export interface AbsenceSummaryView {
+  /** Afficher le résumé ? (faux si absence trop courte ou rien à signaler). */
+  show: boolean;
+  /** Durée d'absence en secondes depuis la dernière session vue. */
+  awaySeconds: number;
+  /** Estimation des ressources produites pendant l'absence (cappée au stockage). */
+  producedResources: Record<ResourceType, number>;
+  completedJobs: {
+    construction: number;
+    research: number;
+    ships: number;
+    colonization: number;
+  };
+  /** Expéditions revenues pendant l'absence. */
+  expeditionsReturned: number;
+  /** Raids PvE achevés pendant l'absence. */
+  pveResolved: number;
+  /** Attaques subies sur vos planètes pendant l'absence. */
+  attacksSuffered: number;
+}
+
+export interface DailyRewardView {
+  /** Le joueur peut-il réclamer maintenant (≥ 24h depuis la dernière fois) ? */
+  canClaim: boolean;
+  /** Série courante (nombre de jours consécutifs réclamés). */
+  streak: number;
+  /** Index [0..6] du jour réclamable dans le cycle. */
+  dayIndex: number;
+  /** Butin du jour réclamable. */
+  todayReward: ResourceBundle;
+  /** Cycle complet de 7 jours (pour affichage). */
+  cycle: ResourceBundle[];
+  /** Date de réclamation possible suivante (ISO), null si réclamable maintenant. */
+  nextClaimAt: string | null;
 }
 
 export interface AllianceView {

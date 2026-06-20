@@ -81,6 +81,16 @@ enum PlanetSpecialization {
   FORTRESS
 }
 
+enum SeasonStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum SeasonRewardScope {
+  PLAYER
+  ALLIANCE
+}
+
 enum TransferPhase {
   OUTBOUND
   COMPLETED
@@ -229,6 +239,7 @@ model Universe {
   galacticEvents    GalacticEvent[]
   chatMessages      ChatMessage[]
   moderationActions ModerationAction[]
+  seasons           LeaderboardSeason[]
 
   @@map("universes")
 }
@@ -269,6 +280,16 @@ model User {
 
   artifactCount Int @default(0)
 
+  // Récompense quotidienne (rétention)
+  lastDailyClaimAt DateTime?
+  dailyStreak      Int       @default(0)
+
+  // Résumé « pendant votre absence » : dernière session vue par le joueur.
+  lastSeenAt DateTime?
+
+  // Titre cosmétique gagné (saisons de classement, succès…).
+  title String?
+
   planets                   Planet[]
   researchLevels            ResearchLevel[]
   researchJobs              ResearchJob[]
@@ -279,6 +300,8 @@ model User {
   pveMissions               PveMission[]
   pvpMissions               PvpMission[]
   achievements              PlayerAchievement[]
+  quests                    PlayerQuest[]
+  seasonRewards             SeasonReward[]
   allianceMembership        AllianceMember?
   leadAlliance              Alliance?
   allianceApplications      AllianceApplication[]
@@ -522,6 +545,60 @@ model PlayerAchievement {
   @@unique([userId, type])
   @@index([userId])
   @@map("player_achievements")
+}
+
+model PlayerQuest {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Id stable de la quête (cf. QUESTS dans shared/constants.ts).
+  questId     String
+  completedAt DateTime?
+  claimedAt   DateTime?
+
+  @@unique([userId, questId])
+  @@index([userId])
+  @@map("player_quests")
+}
+
+model LeaderboardSeason {
+  id         String         @id @default(uuid())
+  universeId String
+  universe   Universe       @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  index      Int
+  startedAt  DateTime       @default(now())
+  endsAt     DateTime
+  status     SeasonStatus   @default(ACTIVE)
+  rewards    SeasonReward[]
+
+  @@unique([universeId, index])
+  @@index([universeId, status])
+  @@map("leaderboard_seasons")
+}
+
+model SeasonReward {
+  id       String            @id @default(uuid())
+  seasonId String
+  season   LeaderboardSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  scope    SeasonRewardScope
+  userId   String
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Alliance concernée pour une récompense d'alliance (null pour le classement individuel).
+  allianceId String?
+  rank       Int
+  score      Int
+  title      String?
+  rewardBiomass  Float @default(0)
+  rewardSap      Float @default(0)
+  rewardMinerals Float @default(0)
+  rewardSpores   Float @default(0)
+  claimedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, claimedAt])
+  @@index([seasonId])
+  @@unique([seasonId, scope, userId])
+  @@map("season_rewards")
 }
 
 model ColonizationJob {

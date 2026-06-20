@@ -411,6 +411,11 @@ export default function ProfilePage() {
                     {displayName || user.username}
                   </h3>
                   <p className="mt-1 text-sm text-canopy-300/65">@{user.username}</p>
+                  {user.title ? (
+                    <p className="mt-1 text-xs uppercase tracking-[0.14em] text-spore-300/70">
+                      {user.title}
+                    </p>
+                  ) : null}
                   <p className="mt-4 text-sm leading-6 text-canopy-100/58">
                     {bio ||
                       `Une civilisation ${raceConfig.name.toLowerCase()} en pleine croissance.`}

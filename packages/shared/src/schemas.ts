@@ -301,6 +301,11 @@ export const setProductionIntensitiesSchema = z.object({
 });
 export type SetProductionIntensitiesDto = z.infer<typeof setProductionIntensitiesSchema>;
 
+export const claimQuestSchema = z.object({
+  questId: z.string().trim().min(1, 'questId requis').max(64),
+});
+export type ClaimQuestDto = z.infer<typeof claimQuestSchema>;
+
 export const createUniverseSchema = z.object({
   slug: z
     .string()

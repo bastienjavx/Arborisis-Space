@@ -21,13 +21,34 @@ export class AchievementsService {
   async getAchievements(userId: string): Promise<AchievementView[]> {
     await this.settlePlayerState(userId);
     const progress = await this.evaluate(userId);
-    const toGrant = Object.values(AchievementType).filter(
-      (type) => progress[type].progress >= progress[type].target,
+    const alreadyUnlocked = new Set(
+      (
+        await this.prisma.playerAchievement.findMany({ where: { userId }, select: { type: true } })
+      ).map((a) => a.type),
     );
-    if (toGrant.length > 0) {
-      await this.prisma.playerAchievement.createMany({
-        data: toGrant.map((type) => ({ userId, type })),
-        skipDuplicates: true,
+    const newlyGranted = Object.values(AchievementType).filter(
+      (type) => !alreadyUnlocked.has(type) && progress[type].progress >= progress[type].target,
+    );
+    if (newlyGranted.length > 0) {
+      await this.prisma.serializable(async (tx) => {
+        // Relecture dans la transaction : une requête concurrente a pu débloquer
+        // un succès depuis l'évaluation ci-dessus.
+        const existing = new Set(
+          (
+            await tx.playerAchievement.findMany({
+              where: { userId, type: { in: newlyGranted } },
+              select: { type: true },
+            })
+          ).map((achievement) => achievement.type),
+        );
+        for (const type of newlyGranted) {
+          if (existing.has(type)) continue;
+          await tx.playerAchievement.create({ data: { userId, type } });
+          const reward = ACHIEVEMENTS[type].reward;
+          if (reward && Object.keys(reward).length > 0) {
+            await this.engine.creditResourcesToHomeworld(userId, reward, new Date(), tx);
+          }
+        }
       });
     }
     const unlocked = await this.prisma.playerAchievement.findMany({ where: { userId } });
@@ -37,6 +58,7 @@ export class AchievementsService {
       name: ACHIEVEMENTS[type].name,
       description: ACHIEVEMENTS[type].description,
       rewardText: ACHIEVEMENTS[type].rewardText,
+      reward: ACHIEVEMENTS[type].reward,
       unlockedAt: unlockedMap.get(type) ?? null,
       ...progress[type],
     }));

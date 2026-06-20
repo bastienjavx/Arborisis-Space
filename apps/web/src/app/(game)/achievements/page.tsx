@@ -2,6 +2,7 @@
 
 import { useAchievements } from '@/lib/queries';
 import { PageHeader } from '@/components/PageHeader';
+import { ResourceCost } from '@/components/ResourceCost';
 import { motion } from 'framer-motion';
 import { FiAward, FiCheckCircle, FiGift, FiLock } from 'react-icons/fi';
 
@@ -65,7 +66,7 @@ export default function AchievementsPage() {
                   <h3 className="truncate font-display text-lg text-canopy-100/88">{a.name}</h3>
                   <p className="mt-1 text-xs leading-5 text-canopy-100/42">{a.description}</p>
                 </div>
-                <div>
+                <div className="space-y-1.5">
                   {a.rewardText ? (
                     <p className="flex items-center gap-2 text-xs text-canopy-300/68">
                       <FiGift className="h-4 w-4" aria-hidden="true" />
@@ -74,6 +75,7 @@ export default function AchievementsPage() {
                   ) : (
                     <p className="text-xs text-canopy-100/30">Honneur impérial</p>
                   )}
+                  <ResourceCost cost={a.reward} />
                 </div>
                 <div className="text-left sm:text-right">
                   <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-canopy-300/55">
@@ -112,13 +114,14 @@ export default function AchievementsPage() {
                     {a.description}
                   </p>
                 </div>
-                <div>
+                <div className="space-y-1.5">
                   {a.rewardText && (
                     <p className="flex items-center gap-2 text-xs text-canopy-100/45">
                       <FiGift className="h-4 w-4" aria-hidden="true" />
                       {a.rewardText}
                     </p>
                   )}
+                  <ResourceCost cost={a.reward} />
                 </div>
                 <div className="min-w-0 sm:text-right">
                   <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-canopy-100/50 sm:justify-end">

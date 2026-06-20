@@ -15,6 +15,7 @@ import { ResourceBar } from '@/components/ResourceBar';
 import { keys, usePlanetDetail, useRenamePlanet, useSetSpecialization } from '@/lib/queries';
 import { PlanetView } from '@/components/three';
 import { PageHeader } from '@/components/PageHeader';
+import { QuestTracker } from '@/components/QuestTracker';
 import { StatCard } from '@/components/StatCard';
 import { motion } from 'framer-motion';
 import { FiCpu, FiEdit3, FiLayers, FiLock, FiShield, FiSun } from 'react-icons/fi';
@@ -138,6 +139,7 @@ export default function PlayPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(25rem,0.8fr)_minmax(32rem,1.2fr)]">
         <div className="space-y-5">
+          <QuestTracker />
           <motion.section
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}

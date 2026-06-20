@@ -27,6 +27,7 @@ export class UsersService {
       bannerColor: user.bannerColor,
       avatarSeed: user.avatarSeed,
       totpEnabled: user.totpEnabled,
+      title: user.title,
     };
   }
 
@@ -55,6 +56,7 @@ export class UsersService {
       colonies: user._count.planets,
       totalShips,
       score: 0,
+      title: user.title,
     };
   }
 }

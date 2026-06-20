@@ -25,6 +25,7 @@ import type {
   ChangeUserRoleDto,
   ModerateUserDto,
   SendChatMessageDto,
+  ClaimQuestDto,
 } from '@arborisis/shared';
 import { ChatScope } from '@arborisis/shared';
 import { api } from './api';
@@ -45,8 +46,13 @@ export const keys = {
   pvpMissions: ['pvp-missions'] as const,
   transfers: ['transfers'] as const,
   leaderboard: ['leaderboard'] as const,
+  allianceLeaderboard: ['leaderboard', 'alliances'] as const,
+  seasons: ['seasons'] as const,
   activeEvent: ['active-event'] as const,
   achievements: ['achievements'] as const,
+  quests: ['quests'] as const,
+  dailyReward: ['daily-reward'] as const,
+  absenceSummary: ['absence-summary'] as const,
   alliances: (search: string) => ['alliances', search] as const,
   alliance: (id: string | undefined) => ['alliance', id ?? 'none'] as const,
   myAlliance: ['my-alliance'] as const,
@@ -373,6 +379,35 @@ export function useLeaderboard() {
   });
 }
 
+export function useAllianceLeaderboard() {
+  return useQuery({
+    queryKey: keys.allianceLeaderboard,
+    queryFn: () => api.allianceLeaderboard(),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useSeasons() {
+  return useQuery({
+    queryKey: keys.seasons,
+    queryFn: () => api.seasons(),
+    refetchInterval: 120_000,
+  });
+}
+
+export function useClaimSeasonRewards() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.claimSeasonRewards(),
+    onSuccess: (overview) => {
+      qc.setQueryData(keys.seasons, overview);
+      void qc.invalidateQueries({ queryKey: keys.planets });
+      void qc.invalidateQueries({ queryKey: keys.me });
+      void qc.invalidateQueries({ queryKey: keys.leaderboard });
+    },
+  });
+}
+
 export function useActiveEvent() {
   return useQuery({
     queryKey: keys.activeEvent,
@@ -386,6 +421,58 @@ export function useAchievements() {
     queryKey: keys.achievements,
     queryFn: () => api.achievements(),
     refetchInterval: 60_000,
+  });
+}
+
+export function useQuests() {
+  return useQuery({
+    queryKey: keys.quests,
+    queryFn: () => api.quests(),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useClaimQuest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ClaimQuestDto) => api.claimQuest(body),
+    onSuccess: (overview) => {
+      qc.setQueryData(keys.quests, overview);
+      void qc.invalidateQueries({ queryKey: keys.planets });
+      void qc.invalidateQueries({ queryKey: keys.quests });
+    },
+  });
+}
+
+export function useDailyReward() {
+  return useQuery({
+    queryKey: keys.dailyReward,
+    queryFn: () => api.dailyReward(),
+    refetchInterval: 5 * 60_000,
+  });
+}
+
+export function useClaimDailyReward() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.claimDailyReward(),
+    onSuccess: (view) => {
+      qc.setQueryData(keys.dailyReward, view);
+      void qc.invalidateQueries({ queryKey: keys.planets });
+    },
+  });
+}
+
+export function useAbsenceSummary() {
+  return useQuery({
+    queryKey: keys.absenceSummary,
+    queryFn: () => api.absenceSummary(),
+    // Une seule fois par session de jeu : l'appel consomme la fenêtre d'absence.
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: false,
   });
 }
 

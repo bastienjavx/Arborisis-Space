@@ -233,6 +233,11 @@ export default function ChatPage() {
                         >
                           {message.author.displayName || message.author.username}
                         </span>
+                        {message.author.title ? (
+                          <span className="text-[9px] uppercase tracking-wider text-spore-300/60">
+                            {message.author.title}
+                          </span>
+                        ) : null}
                         <time dateTime={message.createdAt}>
                           {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
                             hour: '2-digit',

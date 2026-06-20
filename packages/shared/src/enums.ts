@@ -317,6 +317,18 @@ export enum RaceType {
 
 export const RACE_TYPES = Object.values(RaceType);
 
+/** Statut d'une saison de classement. */
+export enum SeasonStatus {
+  ACTIVE = 'ACTIVE',
+  CLOSED = 'CLOSED',
+}
+
+/** Portée d'une récompense de saison (classement individuel ou d'alliance). */
+export enum SeasonRewardScope {
+  PLAYER = 'PLAYER',
+  ALLIANCE = 'ALLIANCE',
+}
+
 /** Spécialisation d'une planète — confère des bonus/malus ciblés. */
 export enum PlanetSpecialization {
   PRODUCTION = 'PRODUCTION',

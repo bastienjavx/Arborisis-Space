@@ -23,6 +23,14 @@ import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { AchievementsController } from './achievements.controller';
 import { AchievementsService } from './achievements.service';
+import { QuestsController } from './quests.controller';
+import { QuestsService } from './quests.service';
+import { DailyRewardController } from './daily-reward.controller';
+import { DailyRewardService } from './daily-reward.service';
+import { AbsenceSummaryController } from './absence-summary.controller';
+import { AbsenceSummaryService } from './absence-summary.service';
+import { SeasonsController } from './seasons.controller';
+import { SeasonsService } from './seasons.service';
 import { TransferController } from './transfer.controller';
 import { TransferService } from './transfer.service';
 
@@ -39,6 +47,10 @@ import { TransferService } from './transfer.service';
     LeaderboardController,
     EventsController,
     AchievementsController,
+    QuestsController,
+    DailyRewardController,
+    AbsenceSummaryController,
+    SeasonsController,
     TransferController,
   ],
   providers: [
@@ -55,6 +67,10 @@ import { TransferService } from './transfer.service';
     LeaderboardService,
     EventsService,
     AchievementsService,
+    QuestsService,
+    DailyRewardService,
+    AbsenceSummaryService,
+    SeasonsService,
     TransferService,
   ],
   exports: [
@@ -63,6 +79,7 @@ import { TransferService } from './transfer.service';
     ExpeditionsService,
     EventsService,
     GameEngineService,
+    SeasonsService,
     PlanetsService,
     TransferService,
   ],

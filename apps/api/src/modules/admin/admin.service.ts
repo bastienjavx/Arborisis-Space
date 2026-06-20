@@ -35,6 +35,7 @@ export class AdminService {
         role: true,
         race: true,
         bannerColor: true,
+        title: true,
         mutedUntil: true,
         createdAt: true,
       },
