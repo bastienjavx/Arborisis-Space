@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { RESOURCE_TYPES, ResourceType, type ResourceState } from '@arborisis/shared';
-import { FiCircle, FiDroplet, FiHexagon, FiShield, FiZap } from 'react-icons/fi';
+import { FiShield, FiZap } from 'react-icons/fi';
 import { formatNumber, resourceLabel } from '@/lib/format';
+import { RESOURCE_VISUALS } from '@/lib/resourceVisuals';
 import { AnimatedCounter } from './AnimatedCounter';
 
 /**
@@ -48,8 +49,7 @@ export function ResourceBar({
     >
       {RESOURCE_TYPES.map((r) => {
         const full = display[r] >= resources.capacity[r];
-        const ResourceIcon =
-          [FiDroplet, FiHexagon, FiCircle][RESOURCE_TYPES.indexOf(r)] ?? FiCircle;
+        const ResourceIcon = RESOURCE_VISUALS[r].Icon;
         return (
           <motion.div
             key={r}
@@ -69,7 +69,10 @@ export function ResourceBar({
                   <AnimatedCounter value={Math.floor(display[r])} duration={1} />
                 </span>
               </div>
-              <ResourceIcon className="h-4 w-4 shrink-0 text-canopy-400/60" aria-hidden="true" />
+              <ResourceIcon
+                className={`h-4 w-4 shrink-0 ${RESOURCE_VISUALS[r].className}`}
+                aria-hidden="true"
+              />
             </div>
             <span className={`${compact ? 'mt-0.5' : 'mt-1'} text-[10px] text-canopy-100/35`}>
               +{formatNumber(resources.perHour[r])}/h · cap. {formatNumber(resources.capacity[r])}

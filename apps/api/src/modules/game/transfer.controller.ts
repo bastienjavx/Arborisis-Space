@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   transferResourcesSchema,
   type AuthUser,
@@ -13,6 +14,7 @@ import { TransferService } from './transfer.service';
 export class TransferController {
   constructor(private readonly transfer: TransferService) {}
 
+  @Throttle({ default: { limit: 30, ttl: 10_000 } })
   @Post()
   launch(
     @CurrentUser() user: AuthUser,

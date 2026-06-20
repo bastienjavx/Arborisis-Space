@@ -193,7 +193,7 @@ export default function BuildingsPage() {
                   <span className="mb-2 block text-[10px] uppercase tracking-[0.12em] text-canopy-100/30 xl:hidden">
                     Coût suivant
                   </span>
-                  <ResourceCost cost={building.nextLevelCost} />
+                  <ResourceCost cost={building.nextLevelCost} have={planet.resources.amounts} />
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-canopy-100/50">

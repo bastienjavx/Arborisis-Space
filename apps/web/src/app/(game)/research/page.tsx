@@ -183,7 +183,7 @@ export default function ResearchPage() {
                   <span className="mb-2 block text-[10px] uppercase tracking-[0.12em] text-canopy-100/30 xl:hidden">
                     Coût
                   </span>
-                  <ResourceCost cost={research.nextLevelCost} />
+                  <ResourceCost cost={research.nextLevelCost} have={planet.resources.amounts} />
                 </div>
                 <div className="flex items-center gap-2 text-xs text-canopy-100/50">
                   <FiClock className="h-4 w-4 text-spore-400/55" aria-hidden="true" />
@@ -198,8 +198,10 @@ export default function ResearchPage() {
                         )
                         .join(', ')}
                     </span>
-                  ) : (
+                  ) : research.canAfford ? (
                     <span className="text-canopy-100/42">Conditions remplies</span>
+                  ) : (
+                    <span className="text-red-300/70">Ressources insuffisantes</span>
                   )}
                 </div>
                 <AnimatedButton

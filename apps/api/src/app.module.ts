@@ -2,12 +2,14 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { validateEnv, type Env } from './common/config/env';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { OriginGuard } from './common/guards/origin.guard';
+import { AntiCheatModule } from './modules/anticheat/anticheat.module';
+import { UserThrottlerGuard } from './modules/anticheat/user-throttler.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { GameModule } from './modules/game/game.module';
 import { HealthModule } from './modules/health/health.module';
@@ -64,6 +66,7 @@ import { AdminModule } from './modules/admin/admin.module';
       },
     }),
     PrismaModule,
+    AntiCheatModule,
     HealthModule,
     AuthModule,
     UsersModule,
@@ -80,7 +83,7 @@ import { AdminModule } from './modules/admin/admin.module';
   providers: [
     { provide: APP_GUARD, useClass: OriginGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: UserThrottlerGuard },
   ],
 })
 export class AppModule {}

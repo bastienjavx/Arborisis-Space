@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   buildBuildingSchema,
   type AuthUser,
@@ -13,6 +14,7 @@ import { BuildingsService } from './buildings.service';
 export class BuildingsController {
   constructor(private readonly buildings: BuildingsService) {}
 
+  @Throttle({ default: { limit: 30, ttl: 10_000 } })
   @Post()
   upgrade(
     @CurrentUser() user: AuthUser,

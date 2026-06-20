@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   startResearchSchema,
   type AuthUser,
@@ -22,6 +23,7 @@ export class ResearchController {
     return this.research.getOverview(user.id, planetId);
   }
 
+  @Throttle({ default: { limit: 30, ttl: 10_000 } })
   @Post()
   start(
     @CurrentUser() user: AuthUser,

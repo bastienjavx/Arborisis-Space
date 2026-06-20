@@ -311,6 +311,7 @@ model User {
   deletedChatMessages       ChatMessage[]             @relation("ChatDeletedBy")
   moderationActions         ModerationAction[]        @relation("ModerationActor")
   receivedModerationActions ModerationAction[]        @relation("ModerationTarget")
+  accountIpLinks            AccountIpLink[]
 
   @@map("users")
 }
@@ -793,4 +794,43 @@ model ResourceTransferMission {
   @@index([userId, phase])
   @@index([phase, arrivesAt])
   @@map("resource_transfer_missions")
+}
+
+/// Journal d'audit anti-triche : trace les anomalies détectées (invariants de
+/// ressources violés, niveaux impossibles, jobs trop rapides, comptes liés,
+/// dépassements de cadence). Volontairement découplé du gameplay : on n'y écrit
+/// jamais de manière bloquante et le modèle n'est pas scopé par univers (cf.
+/// SCOPED_MODELS) — `universeId` est stocké explicitement pour l'analyse.
+model AntiCheatEvent {
+  id         String   @id @default(uuid())
+  userId     String?
+  universeId String?
+  /// Catégorie d'anomalie (string libre interne, non exposée au client).
+  type       String
+  /// INFO | WARN | CRITICAL
+  severity   String   @default("WARN")
+  detail     Json
+  createdAt  DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@index([universeId, severity, createdAt])
+  @@map("anti_cheat_events")
+}
+
+/// Lien compte ↔ empreinte IP (hachée) pour la détection de multi-comptes.
+/// Un même `ipHash` rattaché à plusieurs `userId` dans le même univers est un
+/// signal de comptes liés / push. L'IP n'est jamais stockée en clair.
+model AccountIpLink {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipHash      String
+  universeId  String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@unique([userId, ipHash])
+  @@index([ipHash])
+  @@map("account_ip_links")
 }

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   produceShipsSchema,
   type AuthUser,
@@ -22,6 +23,7 @@ export class ShipsController {
     return this.ships.overview(user.id, planetId);
   }
 
+  @Throttle({ default: { limit: 30, ttl: 10_000 } })
   @Post('ships')
   produce(
     @CurrentUser() user: AuthUser,

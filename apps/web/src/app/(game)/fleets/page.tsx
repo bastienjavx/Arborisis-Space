@@ -200,7 +200,7 @@ export default function FleetsPage() {
                       {formatDuration(ship.productionTimeSeconds)} / unité · charge {ship.cargo}
                     </p>
                   </div>
-                  <ResourceCost cost={ship.cost} />
+                  <ResourceCost cost={ship.cost} have={planet.resources.amounts} />
                   <QuantityControl
                     value={quantities[ship.type]}
                     min={1}
