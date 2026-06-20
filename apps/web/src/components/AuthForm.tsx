@@ -74,7 +74,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           setPendingEmail(res.email);
         }
       } else {
-        const res = await api.login({ email, password }) as
+        const res = (await api.login({ email, password })) as
           | { user: import('@arborisis/shared').AuthUser }
           | { twoFactorRequired: true; tempToken: string };
         if ('twoFactorRequired' in res && res.twoFactorRequired) {
@@ -197,7 +197,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   </p>
                 </div>
                 <div>
-                  <label className="label" htmlFor="totp">Code de vérification</label>
+                  <label className="label" htmlFor="totp">
+                    Code de vérification
+                  </label>
                   <input
                     id="totp"
                     type="text"
@@ -225,12 +227,20 @@ export function AuthForm({ mode }: { mode: Mode }) {
                     </motion.p>
                   )}
                 </AnimatePresence>
-                <button type="submit" className="btn-primary w-full" disabled={loading || totpCode.length !== 6}>
+                <button
+                  type="submit"
+                  className="btn-primary w-full"
+                  disabled={loading || totpCode.length !== 6}
+                >
                   {loading ? 'Vérification…' : 'Vérifier'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setTotpPending(null); setTotpCode(''); setError(undefined); }}
+                  onClick={() => {
+                    setTotpPending(null);
+                    setTotpCode('');
+                    setError(undefined);
+                  }}
                   className="w-full text-xs text-canopy-100/40 hover:text-canopy-100/70 transition-colors"
                 >
                   Retour
@@ -257,7 +267,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   disabled={resendCooldown}
                   className="mt-5 text-xs text-canopy-500 hover:text-canopy-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  {resendCooldown ? 'Email renvoyé ✓' : 'Renvoyer l\'email'}
+                  {resendCooldown ? 'Email renvoyé ✓' : "Renvoyer l'email"}
                 </button>
               </motion.div>
             ) : success ? (

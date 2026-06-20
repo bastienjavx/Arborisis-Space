@@ -61,7 +61,9 @@ function ResetPasswordContent() {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="mb-8 text-center">
-          <Link href="/" className="section-kicker">Arborisis</Link>
+          <Link href="/" className="section-kicker">
+            Arborisis
+          </Link>
           <h1 className="mt-4 text-3xl text-canopy-50">Nouveau mot de passe</h1>
         </div>
 
@@ -113,7 +115,9 @@ function ResetPasswordContent() {
                 exit={{ opacity: 0 }}
               >
                 <div>
-                  <label className="label" htmlFor="password">Nouveau mot de passe</label>
+                  <label className="label" htmlFor="password">
+                    Nouveau mot de passe
+                  </label>
                   <input
                     id="password"
                     type="password"
@@ -128,7 +132,9 @@ function ResetPasswordContent() {
                 </div>
 
                 <div>
-                  <label className="label" htmlFor="confirm">Confirmer le mot de passe</label>
+                  <label className="label" htmlFor="confirm">
+                    Confirmer le mot de passe
+                  </label>
                   <input
                     id="confirm"
                     type="password"
@@ -153,11 +159,7 @@ function ResetPasswordContent() {
                   )}
                 </AnimatePresence>
 
-                <button
-                  type="submit"
-                  className="btn-primary w-full"
-                  disabled={loading}
-                >
+                <button type="submit" className="btn-primary w-full" disabled={loading}>
                   {loading ? 'Modification…' : 'Changer le mot de passe'}
                 </button>
               </motion.form>

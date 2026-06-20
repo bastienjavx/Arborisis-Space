@@ -8,7 +8,16 @@ import { PageHeader } from '@/components/PageHeader';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { ProceduralAvatar } from '@/components/ProceduralAvatar';
 import { RACES } from '@arborisis/shared';
-import { FiCheck, FiEye, FiGlobe, FiInfo, FiRefreshCw, FiShield, FiUser, FiX } from 'react-icons/fi';
+import {
+  FiCheck,
+  FiEye,
+  FiGlobe,
+  FiInfo,
+  FiRefreshCw,
+  FiShield,
+  FiUser,
+  FiX,
+} from 'react-icons/fi';
 import { api, ApiError } from '@/lib/api';
 import { keys } from '@/lib/queries';
 
@@ -104,7 +113,8 @@ function TwoFactorSection({ totpEnabled }: { totpEnabled: boolean }) {
       {!totpEnabled && !setupState && (
         <div className="space-y-3">
           <p className="text-sm text-canopy-100/55">
-            Protégez votre compte en ajoutant une vérification TOTP (Google Authenticator, Aegis, etc.).
+            Protégez votre compte en ajoutant une vérification TOTP (Google Authenticator, Aegis,
+            etc.).
           </p>
           <AnimatedButton onClick={startSetup} loading={loading} disabled={loading}>
             Activer la 2FA
@@ -116,7 +126,8 @@ function TwoFactorSection({ totpEnabled }: { totpEnabled: boolean }) {
       {!totpEnabled && setupState && (
         <div className="space-y-4">
           <p className="text-sm text-canopy-100/55">
-            Scannez ce QR code avec votre application d'authentification, puis entrez le code généré.
+            Scannez ce QR code avec votre application d'authentification, puis entrez le code
+            généré.
           </p>
           <div className="flex justify-center">
             <div className="rounded-xl border border-canopy-700/20 bg-white p-3 inline-block">
@@ -129,7 +140,9 @@ function TwoFactorSection({ totpEnabled }: { totpEnabled: boolean }) {
             <code className="text-xs text-canopy-300 break-all font-mono">{setupState.secret}</code>
           </div>
           <div>
-            <label className="label" htmlFor="totp-enable">Code de vérification</label>
+            <label className="label" htmlFor="totp-enable">
+              Code de vérification
+            </label>
             <input
               id="totp-enable"
               type="text"
@@ -143,12 +156,20 @@ function TwoFactorSection({ totpEnabled }: { totpEnabled: boolean }) {
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <div className="flex gap-3">
-            <AnimatedButton onClick={confirmEnable} loading={loading} disabled={loading || code.length !== 6}>
+            <AnimatedButton
+              onClick={confirmEnable}
+              loading={loading}
+              disabled={loading || code.length !== 6}
+            >
               Confirmer
             </AnimatedButton>
             <button
               type="button"
-              onClick={() => { setSetupState(null); setCode(''); setError(undefined); }}
+              onClick={() => {
+                setSetupState(null);
+                setCode('');
+                setError(undefined);
+              }}
               className="text-sm text-canopy-100/40 hover:text-canopy-100/70 transition-colors"
             >
               Annuler
@@ -160,10 +181,13 @@ function TwoFactorSection({ totpEnabled }: { totpEnabled: boolean }) {
       {totpEnabled && (
         <div className="space-y-4">
           <p className="text-sm text-canopy-100/55">
-            La double authentification est activée sur votre compte. Pour la désactiver, entrez un code de votre application.
+            La double authentification est activée sur votre compte. Pour la désactiver, entrez un
+            code de votre application.
           </p>
           <div>
-            <label className="label" htmlFor="totp-disable">Code de vérification</label>
+            <label className="label" htmlFor="totp-disable">
+              Code de vérification
+            </label>
             <input
               id="totp-disable"
               type="text"

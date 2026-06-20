@@ -35,7 +35,9 @@ export default function ForgotPasswordPage() {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="mb-8 text-center">
-          <Link href="/" className="section-kicker">Arborisis</Link>
+          <Link href="/" className="section-kicker">
+            Arborisis
+          </Link>
           <h1 className="mt-4 text-3xl text-canopy-50">Mot de passe oublié</h1>
           <p className="mt-2 text-sm text-canopy-100/50">
             Entrez votre email pour recevoir un lien de réinitialisation.
@@ -56,12 +58,11 @@ export default function ForgotPasswordPage() {
                 <FiMail className="h-14 w-14 text-amber-400" />
                 <p className="text-lg font-medium text-canopy-300">Email envoyé !</p>
                 <p className="text-sm text-canopy-100/55 max-w-xs">
-                  Si un compte existe pour <span className="text-canopy-300 font-medium">{email}</span>,
-                  vous recevrez un lien de réinitialisation dans quelques instants.
+                  Si un compte existe pour{' '}
+                  <span className="text-canopy-300 font-medium">{email}</span>, vous recevrez un
+                  lien de réinitialisation dans quelques instants.
                 </p>
-                <p className="text-xs text-canopy-100/35 mt-2">
-                  Le lien expire dans 1 heure.
-                </p>
+                <p className="text-xs text-canopy-100/35 mt-2">Le lien expire dans 1 heure.</p>
               </motion.div>
             ) : (
               <motion.form
@@ -73,7 +74,9 @@ export default function ForgotPasswordPage() {
                 exit={{ opacity: 0 }}
               >
                 <div>
-                  <label className="label" htmlFor="email">Adresse email</label>
+                  <label className="label" htmlFor="email">
+                    Adresse email
+                  </label>
                   <input
                     id="email"
                     type="email"
@@ -99,11 +102,7 @@ export default function ForgotPasswordPage() {
                   )}
                 </AnimatePresence>
 
-                <button
-                  type="submit"
-                  className="btn-primary w-full"
-                  disabled={loading}
-                >
+                <button type="submit" className="btn-primary w-full" disabled={loading}>
                   {loading ? 'Envoi en cours…' : 'Envoyer le lien'}
                 </button>
               </motion.form>
