@@ -12,6 +12,7 @@ import {
   PlanetSpecialization,
   PlanetType,
   ResearchType,
+  usedPlanetFields,
   type PlanetDetail,
   type PlanetSummary,
 } from '@arborisis/shared';
@@ -51,7 +52,7 @@ export class PlanetsService {
       coordinates: planetCoordinates(p),
       isHomeworld: p.isHomeworld,
       planetType: p.planetType as PlanetType,
-      usedFields: p.buildings.reduce((sum, b) => sum + b.level, 0),
+      usedFields: usedPlanetFields(p.buildings.map((b) => b.level)),
       maxFields: planetFields(terraform),
       specialization: (p.specialization as PlanetSpecialization) ?? null,
     }));
@@ -77,7 +78,7 @@ export class PlanetsService {
     });
 
     const terraform = settled.research[ResearchType.TERRAFORMATION] ?? 0;
-    const usedFields = settled.planet.buildings.reduce((sum, b) => sum + b.level, 0);
+    const usedFields = usedPlanetFields(settled.planet.buildings.map((b) => b.level));
 
     return {
       id: settled.planet.id,
@@ -116,7 +117,7 @@ export class PlanetsService {
       coordinates: planetCoordinates(updated),
       isHomeworld: updated.isHomeworld,
       planetType: updated.planetType as PlanetType,
-      usedFields: updated.buildings.reduce((sum, b) => sum + b.level, 0),
+      usedFields: usedPlanetFields(updated.buildings.map((b) => b.level)),
       maxFields: planetFields(terraform),
       specialization: (updated.specialization as PlanetSpecialization) ?? null,
     };
@@ -144,7 +145,7 @@ export class PlanetsService {
       coordinates: planetCoordinates(updated),
       isHomeworld: updated.isHomeworld,
       planetType: updated.planetType as PlanetType,
-      usedFields: updated.buildings.reduce((sum, b) => sum + b.level, 0),
+      usedFields: usedPlanetFields(updated.buildings.map((b) => b.level)),
       maxFields: planetFields(terraform),
       specialization: (updated.specialization as PlanetSpecialization) ?? null,
     };

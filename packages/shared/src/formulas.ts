@@ -336,6 +336,11 @@ export function planetFields(terraformationLevel: number): number {
   return BASE_PLANET_FIELDS + terraformationLevel * FIELDS_PER_TERRAFORMATION;
 }
 
+/** Un bâtiment construit occupe un emplacement, indépendamment de son niveau. */
+export function usedPlanetFields(buildingLevels: readonly number[]): number {
+  return buildingLevels.filter((level) => level > 0).length;
+}
+
 /** Nombre maximum de colonies (hors Noyau-Monde) selon la Propulsion sporale. */
 export function maxColonies(sporalPropulsionLevel: number): number {
   return sporalPropulsionLevel * COLONIES_PER_PROPULSION_LEVEL;

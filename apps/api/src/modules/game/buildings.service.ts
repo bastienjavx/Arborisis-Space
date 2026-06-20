@@ -9,6 +9,7 @@ import {
   planetFields,
   ResearchType,
   unmetBuildingRequirements,
+  usedPlanetFields,
   type JobView,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -51,9 +52,9 @@ export class BuildingsService {
         if (unmetBuildingRequirements(type, { buildings, research }).length > 0) {
           throw new BadRequestException('Prérequis non satisfaits.');
         }
-        const usedFields = settled.planet.buildings.reduce((sum, b) => sum + b.level, 0);
+        const usedFields = usedPlanetFields(settled.planet.buildings.map((b) => b.level));
         const maxFields = planetFields(research[ResearchType.TERRAFORMATION] ?? 0);
-        if (usedFields >= maxFields) {
+        if (targetLevel === 1 && usedFields >= maxFields) {
           throw new ConflictException(
             'Plus d’emplacements disponibles. Recherchez la Terraformation.',
           );

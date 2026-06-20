@@ -21,6 +21,7 @@ import {
   maxColonies,
   npcCombatPower,
   planetFields,
+  usedPlanetFields,
   pveCombatDurationSeconds,
   pveResolve,
   pveTravelTimeSeconds,
@@ -275,6 +276,12 @@ describe('colonisation', () => {
 describe('planetFields', () => {
   it('augmente avec la Terraformation', () => {
     expect(planetFields(2)).toBeGreaterThan(planetFields(0));
+  });
+});
+
+describe('usedPlanetFields', () => {
+  it('compte les bâtiments construits et non leurs niveaux', () => {
+    expect(usedPlanetFields([0, 1, 4, 12])).toBe(3);
   });
 });
 

@@ -1,15 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import type { GalacticEvent, Planet, PlanetBuilding, Prisma, ResearchLevel } from '@prisma/client';
 import {
-  BASE_PLANET_FIELDS,
   BuildingType,
   computeProduction,
   computeStabilityDecay,
   effectiveStability,
-  FIELDS_PER_TERRAFORMATION,
   GalacticEventType,
   PlanetSpecialization,
   PlanetType,
+  planetFields,
   RaceType,
   ResearchType,
   ResourceType,
@@ -17,6 +16,7 @@ import {
   STABILITY_MIN,
   STABILITY_SYMBIOSIS_BONUS,
   storageCap,
+  usedPlanetFields,
   type ProductionResult,
   type ResourceState,
 } from '@arborisis/shared';
@@ -122,9 +122,9 @@ export class GameEngineService {
 
     // Compute stability decay
     const sporrangeLevel = buildings[BuildingType.SPORANGE] ?? 0;
-    const usedFields = planet.buildings.reduce((sum, b) => sum + (b.level > 0 ? 1 : 0), 0);
+    const usedFields = usedPlanetFields(planet.buildings.map((b) => b.level));
     const terraform = research[ResearchType.TERRAFORMATION] ?? 0;
-    const maxFields = BASE_PLANET_FIELDS + terraform * FIELDS_PER_TERRAFORMATION;
+    const maxFields = planetFields(terraform);
     const decayPerHour = computeStabilityDecay(usedFields, maxFields, sporrangeLevel);
     const symbiosis = research[ResearchType.SYMBIOSIS] ?? 0;
     const stabilityMax = STABILITY_MAX + symbiosis * STABILITY_SYMBIOSIS_BONUS;
