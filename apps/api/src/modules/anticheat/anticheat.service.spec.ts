@@ -71,7 +71,7 @@ describe('AntiCheatService', () => {
     expect(prisma.antiCheatEvent.create).not.toHaveBeenCalled();
   });
 
-  it('ne compte pas les comptes d\'un autre univers', async () => {
+  it("ne compte pas les comptes d'un autre univers", async () => {
     prisma.accountIpLink.findMany.mockResolvedValueOnce([
       { userId: 'u0', universeId: 'uni-1' },
       { userId: 'u1', universeId: 'uni-2' },

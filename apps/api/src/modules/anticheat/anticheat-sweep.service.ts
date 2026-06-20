@@ -120,7 +120,13 @@ export class AntiCheatSweepService implements OnModuleInit, OnModuleDestroy {
           type: AntiCheatEventType.IMPOSSIBLE_LEVEL,
           severity: 'CRITICAL',
           userId: v.planet.ownerId,
-          detail: { kind: 'building', type, planetId: v.planetId, level: v.level, maxLevel: cfg.maxLevel },
+          detail: {
+            kind: 'building',
+            type,
+            planetId: v.planetId,
+            level: v.level,
+            maxLevel: cfg.maxLevel,
+          },
         });
       }
     }

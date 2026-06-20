@@ -61,7 +61,11 @@ export class AntiCheatService {
    * de comptes distincts partagent la même IP dans le même univers. L'IP n'est
    * jamais stockée en clair. Best-effort.
    */
-  async noteAccess(userId: string, ip: string | undefined, universeId?: string | null): Promise<void> {
+  async noteAccess(
+    userId: string,
+    ip: string | undefined,
+    universeId?: string | null,
+  ): Promise<void> {
     if (!ip) return;
     const ipHash = this.hashIp(ip);
     const scopedUniverse = universeId ?? getCurrentUniverseId() ?? null;
