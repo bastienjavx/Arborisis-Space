@@ -538,6 +538,7 @@ export class AuthService {
     bannerColor: string | null;
     avatarSeed: string | null;
     totpEnabled: boolean;
+    title?: string | null;
   }): AuthUser {
     return {
       id: user.id,
@@ -550,6 +551,7 @@ export class AuthService {
       bannerColor: user.bannerColor,
       avatarSeed: user.avatarSeed,
       totpEnabled: user.totpEnabled,
+      title: user.title ?? null,
     };
   }
 }

@@ -18,6 +18,7 @@ import { EventProcessor } from './processors/event.processor';
 import { TransferProcessor } from './processors/transfer.processor';
 import { GameQueueService } from './game-queue.service';
 import { ExpeditionsService } from '../game/expeditions.service';
+import { SeasonsService } from '../game/seasons.service';
 
 /**
  * Workers BullMQ. Importe GameModule (logique de finalisation) et QueueModule
@@ -50,6 +51,7 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     private readonly pve: PveService,
     private readonly pvp: PvpService,
     private readonly npcSpawner: NpcSpawnerService,
+    private readonly seasons: SeasonsService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -57,6 +59,7 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     await this.expeditions.sweepAllDue();
     await this.pve.sweepAllDue();
     await this.pvp.sweepAllDue();
+    await this.seasons.sweepAllDue();
     await this.queues.reconcilePending();
     await this.queues.scheduleNextEvent().catch(() => void 0);
     await this.npcSpawner.spawnBatch().catch(() => void 0);
@@ -81,6 +84,7 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
       await this.expeditions.sweepAllDue();
       await this.pve.sweepAllDue();
       await this.pvp.sweepAllDue();
+      await this.seasons.sweepAllDue();
       await this.queues.reconcilePending();
     } finally {
       this.reconciling = false;

@@ -3,9 +3,13 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AbsenceSummaryModal } from '@/components/AbsenceSummaryModal';
+import { DailyRewardModal } from '@/components/DailyRewardModal';
+import { EngagementFeedback } from '@/components/EngagementFeedback';
 import { EventBanner } from '@/components/EventBanner';
 import { GameTopBar } from '@/components/GameTopBar';
 import { Nav } from '@/components/Nav';
+import { NearMissBanner } from '@/components/NearMissBanner';
 import { OrganicBackgroundInner } from '@/components/OrganicBackgroundInner';
 import { PlanetProvider } from '@/components/PlanetContext';
 import { useMe } from '@/lib/queries';
@@ -39,10 +43,14 @@ export function GameShell({ children }: { children: React.ReactNode }) {
       <div className="pointer-events-none fixed inset-0 z-0 bg-bark-950/80 shadow-[inset_0_0_180px_rgba(0,0,0,0.7)]" />
       <Nav username={user.username} />
       <GameTopBar />
+      <DailyRewardModal />
+      <AbsenceSummaryModal />
+      <EngagementFeedback />
       <div className="relative z-10 min-h-screen pb-24 lg:pl-[15rem] lg:pt-[5rem] lg:pb-0">
         <main className="mx-auto max-w-[96rem] px-4 py-5 sm:px-6 sm:py-7 xl:px-9">
           <div className="mb-5">
             <EventBanner />
+            <NearMissBanner />
           </div>
           <AnimatePresence mode="wait">
             <motion.div

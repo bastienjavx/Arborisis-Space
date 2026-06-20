@@ -500,6 +500,8 @@ export interface AchievementConfig {
   name: string;
   description: string;
   rewardText: string;
+  /** Butin concret crédité au Noyau-Monde lors du déblocage (cappé au stockage). */
+  reward: ResourceBundle;
 }
 
 export const ACHIEVEMENTS: Record<AchievementType, AchievementConfig> = {
@@ -508,120 +510,152 @@ export const ACHIEVEMENTS: Record<AchievementType, AchievementConfig> = {
     name: 'Première Pousse',
     description: 'Améliorer un premier bâtiment.',
     rewardText: "L'éveil commence. Chapitre I débloqué.",
+    reward: { [ResourceType.BIOMASS]: 300, [ResourceType.SAP]: 150 },
   },
   [AchievementType.RESEARCH_PIONEER]: {
     type: AchievementType.RESEARCH_PIONEER,
     name: 'Pionnier de la Recherche',
     description: 'Terminer une première recherche.',
     rewardText: 'Les souvenirs des Tisserands refluent.',
+    reward: { [ResourceType.SPORES]: 100, [ResourceType.SAP]: 200 },
   },
   [AchievementType.COSMIC_TRAVELER]: {
     type: AchievementType.COSMIC_TRAVELER,
     name: 'Voyageur Cosmique',
     description: 'Lancer une première expédition.',
     rewardText: 'Le Réseau Mycélial attend.',
+    reward: { [ResourceType.SPORES]: 150, [ResourceType.BIOMASS]: 300 },
   },
   [AchievementType.COLONIAL_FUNGUS]: {
     type: AchievementType.COLONIAL_FUNGUS,
     name: 'Fonge Coloniale',
     description: 'Fonder une première colonie.',
     rewardText: "L'essaimage reprend. Chapitre II débloqué.",
+    reward: { [ResourceType.BIOMASS]: 1_000, [ResourceType.SAP]: 500, [ResourceType.SPORES]: 200 },
   },
   [AchievementType.FLEET_COMMANDER]: {
     type: AchievementType.FLEET_COMMANDER,
     name: 'Commandant de Flotte',
     description: 'Posséder 10 vaisseaux au total.',
     rewardText: 'La flotte prend vie.',
+    reward: { [ResourceType.MINERALS]: 800, [ResourceType.BIOMASS]: 800 },
   },
   [AchievementType.SPORE_MASTER]: {
     type: AchievementType.SPORE_MASTER,
     name: 'Maître des Spores',
     description: 'Atteindre Sporanges niveau 5.',
     rewardText: 'Les spores obéissent à votre volonté.',
+    reward: { [ResourceType.SPORES]: 500, [ResourceType.BIOMASS]: 1_000 },
   },
   [AchievementType.ANCIENT_DISCOVERY]: {
     type: AchievementType.ANCIENT_DISCOVERY,
     name: 'Découverte Ancienne',
     description: "Obtenir le résultat ANOMALIE lors d'une expédition.",
     rewardText: 'Un artefact des Tisserands trouvé. Chapitre III débloqué.',
+    reward: { [ResourceType.SPORES]: 800, [ResourceType.MINERALS]: 500 },
   },
   [AchievementType.GALACTIC_HIVE]: {
     type: AchievementType.GALACTIC_HIVE,
     name: 'Ruche Galactique',
     description: 'Posséder 5 colonies.',
     rewardText: "L'empire organique prend forme.",
+    reward: {
+      [ResourceType.BIOMASS]: 3_000,
+      [ResourceType.SAP]: 2_000,
+      [ResourceType.SPORES]: 500,
+    },
   },
   [AchievementType.MASTER_BUILDER]: {
     type: AchievementType.MASTER_BUILDER,
     name: 'Grand Architecte',
     description: 'Atteindre 50 niveaux de bâtiments au total.',
     rewardText: 'La mémoire architecturale est restaurée.',
+    reward: { [ResourceType.BIOMASS]: 5_000, [ResourceType.MINERALS]: 3_000 },
   },
   [AchievementType.SCHOLAR]: {
     type: AchievementType.SCHOLAR,
     name: 'Érudit',
     description: `Débloquer les ${RESEARCH_TYPES.length} types de recherche (≥ niveau 1).`,
     rewardText: 'Toutes les branches du savoir sont explorées.',
+    reward: { [ResourceType.SPORES]: 2_000, [ResourceType.SAP]: 2_000 },
   },
   [AchievementType.TITAN_BREEDER]: {
     type: AchievementType.TITAN_BREEDER,
     name: 'Éleveur de Titans',
     description: 'Posséder un Titan Sporogenèse.',
     rewardText: 'Le plus grand organisme interstellaire est né.',
+    reward: { [ResourceType.SPORES]: 1_500, [ResourceType.MINERALS]: 2_000 },
   },
   [AchievementType.HUNDRED_SHIPS]: {
     type: AchievementType.HUNDRED_SHIPS,
     name: 'Centurion Stellaire',
     description: 'Posséder 100 vaisseaux au total.',
     rewardText: 'La flotte est une force de nature.',
+    reward: {
+      [ResourceType.BIOMASS]: 8_000,
+      [ResourceType.MINERALS]: 5_000,
+      [ResourceType.SPORES]: 1_000,
+    },
   },
   [AchievementType.CONVERGENCE_HERALD]: {
     type: AchievementType.CONVERGENCE_HERALD,
     name: 'Héraut de la Convergence',
     description: '3 artefacts arborisiens récupérés.',
     rewardText: 'La Convergence se rapproche. Vitesse de recherche +15%.',
+    reward: { [ResourceType.SPORES]: 3_000 },
   },
   [AchievementType.EVENT_SURVIVOR]: {
     type: AchievementType.EVENT_SURVIVOR,
     name: 'Survivant',
     description: 'Traverser une Épidémie Mycotoxique.',
     rewardText: 'Ce qui ne tue pas rend plus fort.',
+    reward: { [ResourceType.BIOMASS]: 1_500, [ResourceType.SAP]: 1_000 },
   },
   [AchievementType.DEEP_SPACE]: {
     type: AchievementType.DEEP_SPACE,
     name: 'Explorateur des Profondeurs',
     description: 'Lancer une expédition à distance ≥ 20.',
     rewardText: 'Les confins de la galaxie vous appellent.',
+    reward: { [ResourceType.SPORES]: 1_000, [ResourceType.MINERALS]: 1_000 },
   },
   [AchievementType.RESOURCE_BARON]: {
     type: AchievementType.RESOURCE_BARON,
     name: 'Baron des Ressources',
     description: 'Stocker 100 000 Biomasse.',
     rewardText: "L'abondance organique est maîtrisée.",
+    reward: { [ResourceType.SPORES]: 2_000, [ResourceType.MINERALS]: 3_000 },
   },
   [AchievementType.SPEED_BUILDER]: {
     type: AchievementType.SPEED_BUILDER,
     name: 'Bâtisseur Éclair',
     description: 'Construire un bâtiment en moins de 10 secondes.',
     rewardText: "Le temps n'a plus de prise sur vous.",
+    reward: { [ResourceType.BIOMASS]: 1_000, [ResourceType.MINERALS]: 500 },
   },
   [AchievementType.PEACEFUL_EXPLORER]: {
     type: AchievementType.PEACEFUL_EXPLORER,
     name: 'Explorateur Pacifique',
     description: '50 expéditions sans incident.',
     rewardText: 'La chance sourit aux prudents.',
+    reward: { [ResourceType.SPORES]: 2_500, [ResourceType.BIOMASS]: 3_000 },
   },
   [AchievementType.SPORAL_SAGE]: {
     type: AchievementType.SPORAL_SAGE,
     name: 'Sage Sporique',
     description: 'Atteindre Propulsion Sporale niveau 10.',
     rewardText: "Le cosmos entier s'ouvre à votre essaimage.",
+    reward: { [ResourceType.SPORES]: 5_000, [ResourceType.SAP]: 5_000 },
   },
   [AchievementType.THE_CONVERGENCE]: {
     type: AchievementType.THE_CONVERGENCE,
     name: 'La Convergence',
     description: 'Posséder 10 colonies actives.',
     rewardText: "Vous avez reconstitué l'empire des Tisserands. Titre : Tisserand Ressuscité.",
+    reward: {
+      [ResourceType.SPORES]: 10_000,
+      [ResourceType.BIOMASS]: 10_000,
+      [ResourceType.MINERALS]: 8_000,
+    },
   },
 };
 
@@ -1366,3 +1400,262 @@ export const SPECIALIZATION_CONFIGS: Record<PlanetSpecialization, Specialization
     icon: 'lock',
   },
 };
+
+// ──────────────────────────── Quêtes dirigées ────────────────────────────────
+
+/**
+ * Objectifs évaluables d'une quête. Chaque clé est interprétée par le serveur
+ * (`QuestsService`) à partir de l'état réel du joueur. Stable : ne pas renommer
+ * (persisté dans `PlayerQuest.questId` via l'id de la quête, pas l'objectif).
+ */
+export type QuestObjective =
+  | 'BUILDING_LEVEL_TOTAL'
+  | 'BIOMASS_SYNTHESIZER_LEVEL'
+  | 'PHOTOSYNTHETIC_CANOPY_LEVEL'
+  | 'RESEARCH_NEXUS_LEVEL'
+  | 'STORAGE_VACUOLE_LEVEL'
+  | 'SYMBIOTIC_CORE_LEVEL'
+  | 'SPORANGE_LEVEL'
+  | 'ORBITAL_NURSERY_LEVEL'
+  | 'RESEARCH_LEVEL_ANY'
+  | 'BIOENGINEERING_LEVEL'
+  | 'SPORAL_PROPULSION_LEVEL'
+  | 'TERRAFORMATION_LEVEL'
+  | 'TOTAL_SHIPS'
+  | 'EXPEDITIONS_LAUNCHED'
+  | 'COLONIES_OWNED';
+
+export interface QuestConfig {
+  /** Identifiant stable persisté (`PlayerQuest.questId`). Ne jamais renommer. */
+  id: string;
+  name: string;
+  description: string;
+  /** Ordre d'apparition (la 1re quête non réclamée devient « active »). */
+  order: number;
+  objective: QuestObjective;
+  target: number;
+  /** Butin crédité au Noyau-Monde lors de la réclamation (cappé au stockage). */
+  reward: ResourceBundle;
+}
+
+/**
+ * Chaîne d'objectifs dirigés (early → mid game). Donne au joueur une « prochaine
+ * action évidente » à chaque connexion, avec une récompense concrète à réclamer.
+ */
+export const QUESTS: QuestConfig[] = [
+  {
+    id: 'first-build',
+    name: 'Premier bourgeon',
+    description: 'Améliore un bâtiment de ta planète mère.',
+    order: 1,
+    objective: 'BUILDING_LEVEL_TOTAL',
+    target: 1,
+    reward: { [ResourceType.BIOMASS]: 400, [ResourceType.SAP]: 200 },
+  },
+  {
+    id: 'biomass-3',
+    name: 'Tisser la matière',
+    description: 'Porte ton Synthétiseur de Biomasse au niveau 3.',
+    order: 2,
+    objective: 'BIOMASS_SYNTHESIZER_LEVEL',
+    target: 3,
+    reward: { [ResourceType.BIOMASS]: 800, [ResourceType.MINERALS]: 300 },
+  },
+  {
+    id: 'canopy-2',
+    name: 'Capter la lumière',
+    description: 'Construis une Canopée Photosynthétique de niveau 2 pour ton énergie.',
+    order: 3,
+    objective: 'PHOTOSYNTHETIC_CANOPY_LEVEL',
+    target: 2,
+    reward: { [ResourceType.SAP]: 600, [ResourceType.BIOMASS]: 400 },
+  },
+  {
+    id: 'research-nexus',
+    name: 'Éveil du Noyau',
+    description: 'Édifie un Noyau de Recherche pour débloquer le savoir.',
+    order: 4,
+    objective: 'RESEARCH_NEXUS_LEVEL',
+    target: 1,
+    reward: { [ResourceType.SPORES]: 300, [ResourceType.SAP]: 400 },
+  },
+  {
+    id: 'first-research',
+    name: 'Première étincelle',
+    description: 'Termine ta première recherche.',
+    order: 5,
+    objective: 'RESEARCH_LEVEL_ANY',
+    target: 1,
+    reward: { [ResourceType.SPORES]: 500, [ResourceType.BIOMASS]: 600 },
+  },
+  {
+    id: 'storage-3',
+    name: 'Enfler les réserves',
+    description: 'Porte une Vacuole de Stockage au niveau 3.',
+    order: 6,
+    objective: 'STORAGE_VACUOLE_LEVEL',
+    target: 3,
+    reward: { [ResourceType.BIOMASS]: 1_500, [ResourceType.MINERALS]: 800 },
+  },
+  {
+    id: 'symbiotic-core',
+    name: 'Cœur battant',
+    description: 'Construis un Cœur Symbiotique pour accélérer tes constructions.',
+    order: 7,
+    objective: 'SYMBIOTIC_CORE_LEVEL',
+    target: 1,
+    reward: { [ResourceType.BIOMASS]: 1_200, [ResourceType.SAP]: 600 },
+  },
+  {
+    id: 'bioengineering-2',
+    name: 'Ingénierie du vivant',
+    description: 'Atteins Bio-ingénierie niveau 2.',
+    order: 8,
+    objective: 'BIOENGINEERING_LEVEL',
+    target: 2,
+    reward: { [ResourceType.SPORES]: 800, [ResourceType.MINERALS]: 600 },
+  },
+  {
+    id: 'sporange',
+    name: 'Cultiver les spores',
+    description: 'Construis des Sporanges pour produire des spores.',
+    order: 9,
+    objective: 'SPORANGE_LEVEL',
+    target: 1,
+    reward: { [ResourceType.SPORES]: 1_000, [ResourceType.BIOMASS]: 1_000 },
+  },
+  {
+    id: 'nursery',
+    name: 'Berceau des étoiles',
+    description: 'Recherche la Propulsion sporale puis construis un Berceau Orbital.',
+    order: 10,
+    objective: 'ORBITAL_NURSERY_LEVEL',
+    target: 1,
+    reward: {
+      [ResourceType.BIOMASS]: 2_000,
+      [ResourceType.MINERALS]: 1_200,
+      [ResourceType.SPORES]: 400,
+    },
+  },
+  {
+    id: 'fleet-5',
+    name: 'Première nuée',
+    description: 'Fais éclore 5 bio-vaisseaux au total.',
+    order: 11,
+    objective: 'TOTAL_SHIPS',
+    target: 5,
+    reward: { [ResourceType.BIOMASS]: 2_500, [ResourceType.SAP]: 1_500 },
+  },
+  {
+    id: 'first-expedition',
+    name: 'Au-delà du voile',
+    description: 'Lance une première expédition vers les anomalies galactiques.',
+    order: 12,
+    objective: 'EXPEDITIONS_LAUNCHED',
+    target: 1,
+    reward: { [ResourceType.SPORES]: 1_500, [ResourceType.MINERALS]: 1_000 },
+  },
+  {
+    id: 'first-colony',
+    name: "L'essaimage",
+    description: 'Fonde ta première colonie.',
+    order: 13,
+    objective: 'COLONIES_OWNED',
+    target: 2,
+    reward: {
+      [ResourceType.SPORES]: 2_500,
+      [ResourceType.BIOMASS]: 3_000,
+      [ResourceType.SAP]: 1_500,
+    },
+  },
+  {
+    id: 'terraform',
+    name: 'Façonner les mondes',
+    description: 'Recherche la Terraformation pour agrandir tes planètes.',
+    order: 14,
+    objective: 'TERRAFORMATION_LEVEL',
+    target: 1,
+    reward: { [ResourceType.SPORES]: 3_000, [ResourceType.MINERALS]: 2_500 },
+  },
+];
+
+// ──────────────────────────── Récompense quotidienne ─────────────────────────
+
+/** Au-delà de ce délai sans réclamer, la série (streak) repart de zéro. */
+export const DAILY_STREAK_RESET_HOURS = 48;
+
+/** En deçà de cette absence, on n'affiche pas le résumé « pendant votre absence ». */
+export const ABSENCE_SUMMARY_MIN_SECONDS = 300;
+
+// ──────────────────────────── Saisons de classement ──────────────────────────
+
+/** Durée d'une saison hebdomadaire (jours). */
+export const SEASON_DURATION_DAYS = 7;
+
+export interface SeasonRewardTier {
+  /** Rang maximal (inclus) couvert par ce palier. */
+  maxRank: number;
+  reward: ResourceBundle;
+  /** Titre cosmétique octroyé (le plus prestigieux est conservé). */
+  title?: string;
+}
+
+/** Paliers de récompense pour le classement individuel d'une saison. */
+export const SEASON_PLAYER_TIERS: SeasonRewardTier[] = [
+  {
+    maxRank: 1,
+    reward: {
+      [ResourceType.SPORES]: 20_000,
+      [ResourceType.BIOMASS]: 20_000,
+      [ResourceType.MINERALS]: 15_000,
+    },
+    title: 'Tisserand Suprême',
+  },
+  {
+    maxRank: 3,
+    reward: {
+      [ResourceType.SPORES]: 10_000,
+      [ResourceType.BIOMASS]: 10_000,
+      [ResourceType.MINERALS]: 8_000,
+    },
+    title: 'Archonte Sporal',
+  },
+  {
+    maxRank: 10,
+    reward: { [ResourceType.SPORES]: 5_000, [ResourceType.BIOMASS]: 5_000 },
+    title: 'Élu de la Canopée',
+  },
+];
+
+/** Paliers de récompense (par membre) pour le classement d'alliances d'une saison. */
+export const SEASON_ALLIANCE_TIERS: SeasonRewardTier[] = [
+  {
+    maxRank: 1,
+    reward: {
+      [ResourceType.SPORES]: 12_000,
+      [ResourceType.BIOMASS]: 12_000,
+      [ResourceType.MINERALS]: 10_000,
+    },
+    title: 'Ruche Dominante',
+  },
+  {
+    maxRank: 3,
+    reward: { [ResourceType.SPORES]: 6_000, [ResourceType.BIOMASS]: 6_000 },
+    title: 'Ruche Ascendante',
+  },
+];
+
+/**
+ * Cycle de 7 jours de récompenses quotidiennes (escaladant). Le jour réclamé est
+ * `(streak - 1) % 7`. Le 7e jour est un gros lot de spores pour récompenser
+ * l'assiduité. Crédité au Noyau-Monde (cappé au stockage).
+ */
+export const DAILY_REWARDS: ResourceBundle[] = [
+  { [ResourceType.BIOMASS]: 500, [ResourceType.SAP]: 250 },
+  { [ResourceType.BIOMASS]: 800, [ResourceType.MINERALS]: 400 },
+  { [ResourceType.SAP]: 700, [ResourceType.SPORES]: 150 },
+  { [ResourceType.BIOMASS]: 1_200, [ResourceType.MINERALS]: 800 },
+  { [ResourceType.SPORES]: 400, [ResourceType.SAP]: 800 },
+  { [ResourceType.BIOMASS]: 2_000, [ResourceType.MINERALS]: 1_200, [ResourceType.SAP]: 800 },
+  { [ResourceType.SPORES]: 1_500, [ResourceType.BIOMASS]: 2_500 },
+];

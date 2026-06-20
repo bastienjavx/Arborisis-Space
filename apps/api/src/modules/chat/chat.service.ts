@@ -16,6 +16,7 @@ const authorSelect = {
   role: true,
   race: true,
   bannerColor: true,
+  title: true,
 } as const;
 
 @Injectable()
@@ -186,6 +187,7 @@ export class ChatService {
       role: UserRole;
       race: string;
       bannerColor: string | null;
+      title: string | null;
     };
   }): ChatMessageView {
     return {

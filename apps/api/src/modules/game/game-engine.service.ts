@@ -200,6 +200,74 @@ export class GameEngineService {
     };
   }
 
+  /**
+   * Crédite un bundle de ressources à une planète, cappé au stockage courant.
+   * Settle d'abord la planète (autorité serveur), puis incrémente les stocks sans
+   * dépasser la capacité. Renvoie les montants réellement acceptés et l'excédent perdu.
+   * Réutilisé par les récompenses (succès, quêtes, daily, saisons).
+   */
+  async creditResourcesToPlanet(
+    planetId: string,
+    bundle: Partial<Record<ResourceType, number>>,
+    now = new Date(),
+    db?: Prisma.TransactionClient,
+  ): Promise<{
+    accepted: Record<ResourceType, number>;
+    overflow: Record<ResourceType, number>;
+  }> {
+    if (!db) {
+      return this.prisma.serializable((tx) =>
+        this.creditResourcesToPlanet(planetId, bundle, now, tx),
+      );
+    }
+    const settled = await this.settlePlanet(planetId, now, db);
+    const cap = storageCap(settled.buildings[BuildingType.STORAGE_VACUOLE] ?? 0);
+    const current = this.amountsOf(settled.planet);
+    const accepted = {} as Record<ResourceType, number>;
+    const overflow = {} as Record<ResourceType, number>;
+    for (const resource of Object.values(ResourceType)) {
+      const want = Math.max(0, Math.floor(bundle[resource] ?? 0));
+      accepted[resource] = Math.max(0, Math.min(want, cap - current[resource]));
+      overflow[resource] = want - accepted[resource];
+    }
+    await db.planet.update({
+      where: { id: planetId },
+      data: {
+        biomass: { increment: accepted[ResourceType.BIOMASS] },
+        sap: { increment: accepted[ResourceType.SAP] },
+        minerals: { increment: accepted[ResourceType.MINERALS] },
+        spores: { increment: accepted[ResourceType.SPORES] },
+      },
+    });
+    return { accepted, overflow };
+  }
+
+  /**
+   * Crédite un butin sur le Noyau-Monde du joueur (ou, à défaut, sa plus ancienne
+   * planète). Renvoie les montants acceptés, ou null si le joueur n'a aucune planète.
+   */
+  async creditResourcesToHomeworld(
+    userId: string,
+    bundle: Partial<Record<ResourceType, number>>,
+    now = new Date(),
+    db?: Prisma.TransactionClient,
+  ): Promise<Record<ResourceType, number> | null> {
+    const client = db ?? this.prisma;
+    const home =
+      (await client.planet.findFirst({
+        where: { ownerId: userId, isHomeworld: true },
+        select: { id: true },
+      })) ??
+      (await client.planet.findFirst({
+        where: { ownerId: userId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      }));
+    if (!home) return null;
+    const { accepted } = await this.creditResourcesToPlanet(home.id, bundle, now, db);
+    return accepted;
+  }
+
   /** Retourne l'événement galactique actif (endsAt > now), ou null. */
   async getActiveEvent(db?: Prisma.TransactionClient): Promise<GalacticEvent | null> {
     const client = db ?? this.prisma;

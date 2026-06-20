@@ -49,6 +49,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       bannerColor: null,
       avatarSeed: null,
       totpEnabled: false,
+      title: null,
       sessionId: payload.sid,
     };
   }
