@@ -9,6 +9,29 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   // Le worker webpack échoue silencieusement dans l'environnement de build du monorepo.
   experimental: { webpackBuildWorker: false },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.arborisis.com' }],
+        destination: 'https://arborisis.com/:path*',
+        permanent: true,
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, nosnippet, noarchive',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

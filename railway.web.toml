@@ -8,6 +8,8 @@
 # Variables du service web :
 #   API_INTERNAL_URL      → URL réseau privée du service API (ex. http://api.railway.internal:4000)
 #   UNIVERSE_COOKIE_SECRET→ secret de signature du cookie d'univers (≥ 32 caractères)
+#   SITE_URL             → URL canonique publique (https://arborisis.com)
+#   GOOGLE_SITE_VERIFICATION → jeton de validation Google Search Console (optionnel)
 #   NEXT_PUBLIC_API_URL   → inliné au BUILD du front (rebuild requis si modifié)
 
 [build]

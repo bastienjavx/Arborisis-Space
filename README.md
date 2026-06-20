@@ -178,7 +178,9 @@ Le projet Railway comporte PostgreSQL, Redis, `api` et `web` (plus les nodes `un
 auto-provisionnés). `railway.toml` configure l'API ; le service web doit pointer son
 **chemin de config** sur `/railway.web.toml` (Settings → Config-as-code). Seul le web est
 public ; définir `API_INTERNAL_URL` sur le web avec l'adresse privée Railway de l'API, et
-`WEB_ORIGIN` sur l'API avec l'URL publique du web.
+`WEB_ORIGIN` sur l'API avec l'URL publique du web. Le service web utilise
+`SITE_URL=https://arborisis.com` pour les URLs canoniques, le sitemap et les aperçus sociaux.
+`GOOGLE_SITE_VERIFICATION` peut recevoir le jeton fourni par Google Search Console.
 
 **Migrations & seed** : exécutés une seule fois par déploiement via la _release phase_
 (`preDeployCommand` dans `railway.toml`), pas au boot des réplicas. Le seed est idempotent.
