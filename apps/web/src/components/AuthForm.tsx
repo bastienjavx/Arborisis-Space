@@ -172,8 +172,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         </motion.div>
 
         {/* Glass card form */}
-        <motion.form
-          onSubmit={onSubmit}
+        <motion.div
           className="mycelium-panel space-y-5 p-6 sm:p-8"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -283,8 +282,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 <p className="mt-1 text-sm text-canopy-100/50">Redirection...</p>
               </motion.div>
             ) : (
-              <motion.div
+              <motion.form
                 key="form"
+                onSubmit={onSubmit}
                 className="space-y-5"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -477,10 +477,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
                     <span>{isRegister ? 'Faire germer' : 'Se connecter'}</span>
                   )}
                 </motion.button>
-              </motion.div>
+              </motion.form>
             )}
           </AnimatePresence>
-        </motion.form>
+        </motion.div>
 
         {/* Link to other mode */}
         <motion.p
