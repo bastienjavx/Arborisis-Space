@@ -54,3 +54,10 @@ API préfixée `/api` ; health : `GET /api/health`.
 - Validation par `ZodValidationPipe` au niveau des routes (pas de `ValidationPipe` global :
   `class-validator` n'est volontairement pas installé).
 - `NEXT_PUBLIC_API_URL` est inliné au **build** du front.
+- Migrations/seed prod : **release phase** (`preDeployCommand` dans `railway.toml`), pas dans
+  `docker/entrypoint.sh` (qui ne fait que démarrer l'API). Le seed doit rester idempotent.
+- Service web Railway : régler le **chemin de config** sur `/railway.web.toml` (sinon il hérite
+  de `railway.toml` côté API et crashe sur `DATABASE_URL` absent).
+- Auto-scaling univers : à `UNIVERSE_PROVISION_THRESHOLD` un node API est dupliqué via Railway.
+  Les inscriptions choisissent l'univers `ACTIVE` non plein le plus ancien
+  (`UniverseService.pickAvailableUniverse`), jamais l'univers `default` en dur.

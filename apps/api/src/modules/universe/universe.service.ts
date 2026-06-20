@@ -81,6 +81,38 @@ export class UniverseService implements OnApplicationBootstrap {
     return universe.playerCount >= universe.maxPlayers;
   }
 
+  /**
+   * Indique si l'univers a franchi le seuil de pré-provisioning (par défaut 90 %).
+   * À ce stade on prépare un nouveau node AVANT la saturation totale, afin qu'il
+   * soit chaud et `ACTIVE` quand le dernier emplacement est consommé.
+   */
+  shouldProvision(universe: Pick<Universe, 'playerCount' | 'maxPlayers'>): boolean {
+    const threshold = this.config.get('UNIVERSE_PROVISION_THRESHOLD', { infer: true });
+    return universe.playerCount >= universe.maxPlayers * threshold;
+  }
+
+  /**
+   * Sélectionne l'univers `ACTIVE` le plus ancien disposant encore d'un emplacement
+   * libre (stratégie *fill-then-spill* : on densifie les mondes les plus anciens).
+   * Verrou `FOR UPDATE SKIP LOCKED` pour éviter qu'une inscription concurrente ne
+   * dépasse `maxPlayers`. Retourne `null` si tous les univers actifs sont pleins.
+   *
+   * À utiliser DANS une transaction (`tx`) qui incrémente ensuite `playerCount`.
+   */
+  async pickAvailableUniverse(tx: Prisma.TransactionClient): Promise<Universe | null> {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "universes"
+      WHERE status = ${UniverseStatus.ACTIVE}::"UniverseStatus"
+        AND "playerCount" < "maxPlayers"
+      ORDER BY "createdAt" ASC
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    `;
+    const picked = rows[0];
+    if (!picked) return null;
+    return tx.universe.findUnique({ where: { id: picked.id } });
+  }
+
   async create(dto: CreateUniverseDto): Promise<Universe> {
     return this.prisma.universe.create({
       data: {

@@ -7,6 +7,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,7 +19,6 @@ import QRCode from 'qrcode';
 import { Universe, User } from '@prisma/client';
 import type { AuthUser, LoginDto, RegisterDto } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { getDefaultUniverse } from '../../common/prisma/default-universe.helper';
 import type { Env } from '../../common/config/env';
 import { UniverseService } from '../universe/universe.service';
 import { WorldFactoryService } from '../game/world-factory.service';
@@ -59,9 +59,13 @@ export class AuthService {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         ({ user, updatedUniverse } = await this.prisma.serializable(async (tx) => {
-          const universe = await getDefaultUniverse(tx);
-          if (this.universeService.isSaturated(universe)) {
-            throw new ConflictException('Univers saturé.');
+          const universe = await this.universeService.pickAvailableUniverse(tx);
+          if (!universe) {
+            // Tous les univers actifs sont pleins : on signale 503 et on déclenche
+            // le provisioning d'un nouveau node (le réconciliateur sert de filet).
+            throw new ServiceUnavailableException(
+              'Tous les univers sont pleins, un nouveau se prépare. Réessayez dans un instant.',
+            );
           }
           const verificationToken = randomBytes(32).toString('base64url');
           const created = await tx.user.create({
@@ -86,6 +90,11 @@ export class AuthService {
         }));
         break;
       } catch (error) {
+        if (error instanceof ServiceUnavailableException) {
+          // Aucun emplacement libre : déclencher la création d'un nouvel univers.
+          await this.enqueueProvisioning();
+          throw error;
+        }
         if (!this.isUniqueViolation(error)) throw error;
         const duplicate = await this.prisma.user.findFirst({
           where: { OR: [{ email: dto.email }, { username: dto.username }] },
@@ -96,15 +105,10 @@ export class AuthService {
     }
     if (!user) throw new ConflictException('Création du joueur impossible.');
 
-    const shouldProvisionUniverse =
-      updatedUniverse !== undefined && this.universeService.isSaturated(updatedUniverse);
-
-    if (shouldProvisionUniverse) {
-      await this.provisioningQueue
-        .add(PROVISION_UNIVERSE_JOB, {}, { removeOnComplete: true, removeOnFail: 10 })
-        .catch((error) => {
-          this.logger.error(error, "Impossible de planifier le provisioning d'un nouvel univers.");
-        });
+    // Pré-provisioning : dès que l'univers franchit le seuil (90 % par défaut), on
+    // prépare un nouveau node pour qu'il soit chaud avant la saturation totale.
+    if (updatedUniverse !== undefined && this.universeService.shouldProvision(updatedUniverse)) {
+      await this.enqueueProvisioning();
     }
 
     await this.emailService
@@ -114,6 +118,18 @@ export class AuthService {
       });
 
     return { pending: true, email: user.email };
+  }
+
+  /**
+   * Enfile un job de provisioning d'univers (idempotent côté ProvisioningService :
+   * un seul univers en PROVISIONING à la fois). Ne propage jamais d'erreur de file.
+   */
+  private async enqueueProvisioning(): Promise<void> {
+    await this.provisioningQueue
+      .add(PROVISION_UNIVERSE_JOB, {}, { removeOnComplete: true, removeOnFail: 10 })
+      .catch((error) => {
+        this.logger.error(error, "Impossible de planifier le provisioning d'un nouvel univers.");
+      });
   }
 
   async login(
@@ -127,7 +143,9 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides.');
     }
     if (!user.emailVerified) {
-      throw new ForbiddenException('Veuillez vérifier votre adresse email avant de vous connecter.');
+      throw new ForbiddenException(
+        'Veuillez vérifier votre adresse email avant de vous connecter.',
+      );
     }
 
     if (user.totpEnabled && user.totpSecret) {
@@ -162,7 +180,12 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || !user.totpEnabled || !user.totpSecret) throw new UnauthorizedException();
 
-    const isValid = speakeasy.totp.verify({ secret: user.totpSecret, encoding: 'base32', token: code, window: 1 });
+    const isValid = speakeasy.totp.verify({
+      secret: user.totpSecret,
+      encoding: 'base32',
+      token: code,
+      window: 1,
+    });
     if (!isValid) throw new UnauthorizedException('Code de double authentification invalide.');
 
     const authUser = this.toAuthUser(user);
@@ -225,10 +248,7 @@ export class AuthService {
     if (!user || !user.emailVerified) return; // on ne révèle pas si l'email existe
 
     // Anti-spam : 1 minute entre deux envois
-    if (
-      user.passwordResetSentAt &&
-      Date.now() - user.passwordResetSentAt.getTime() < 60_000
-    ) {
+    if (user.passwordResetSentAt && Date.now() - user.passwordResetSentAt.getTime() < 60_000) {
       return;
     }
 
@@ -280,12 +300,18 @@ export class AuthService {
 
   // ── 2FA TOTP ──
 
-  async setup2fa(userId: string): Promise<{ secret: string; qrCodeDataUrl: string; otpauthUrl: string }> {
+  async setup2fa(
+    userId: string,
+  ): Promise<{ secret: string; qrCodeDataUrl: string; otpauthUrl: string }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
-    if (user.totpEnabled) throw new BadRequestException('La double authentification est déjà activée.');
+    if (user.totpEnabled)
+      throw new BadRequestException('La double authentification est déjà activée.');
 
-    const generated = speakeasy.generateSecret({ length: 20, name: `${TOTP_APP_NAME} (${user.email})` });
+    const generated = speakeasy.generateSecret({
+      length: 20,
+      name: `${TOTP_APP_NAME} (${user.email})`,
+    });
     const secret = generated.base32;
     const otpauthUrl = speakeasy.otpauthURL({
       secret,
@@ -305,11 +331,21 @@ export class AuthService {
 
   async enable2fa(userId: string, code: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.totpSecret) throw new BadRequestException("Initialisez d'abord la double authentification.");
-    if (user.totpEnabled) throw new BadRequestException('La double authentification est déjà activée.');
+    if (!user || !user.totpSecret)
+      throw new BadRequestException("Initialisez d'abord la double authentification.");
+    if (user.totpEnabled)
+      throw new BadRequestException('La double authentification est déjà activée.');
 
-    const isValid = speakeasy.totp.verify({ secret: user.totpSecret, encoding: 'base32', token: code, window: 1 });
-    if (!isValid) throw new BadRequestException("Code invalide. Vérifiez votre application d'authentification.");
+    const isValid = speakeasy.totp.verify({
+      secret: user.totpSecret,
+      encoding: 'base32',
+      token: code,
+      window: 1,
+    });
+    if (!isValid)
+      throw new BadRequestException(
+        "Code invalide. Vérifiez votre application d'authentification.",
+      );
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -323,7 +359,12 @@ export class AuthService {
       throw new BadRequestException("La double authentification n'est pas activée.");
     }
 
-    const isValid = speakeasy.totp.verify({ secret: user.totpSecret, encoding: 'base32', token: code, window: 1 });
+    const isValid = speakeasy.totp.verify({
+      secret: user.totpSecret,
+      encoding: 'base32',
+      token: code,
+      window: 1,
+    });
     if (!isValid) throw new BadRequestException('Code invalide.');
 
     await this.prisma.user.update({

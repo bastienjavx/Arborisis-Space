@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import argon2 from 'argon2';
 import { RaceType, UserRole } from '@arborisis/shared';
 import { AuthService } from './auth.service';
@@ -52,13 +57,19 @@ describe('AuthService', () => {
       }),
     };
     universeService = {
+      pickAvailableUniverse: jest.fn().mockResolvedValue({
+        id: 'univ1',
+        slug: 'default',
+        playerCount: 0,
+        maxPlayers: 100,
+      }),
       incrementPlayerCount: jest.fn().mockResolvedValue({
         id: 'univ1',
         slug: 'default',
         playerCount: 1,
         maxPlayers: 100,
       }),
-      isSaturated: jest.fn().mockReturnValue(false),
+      shouldProvision: jest.fn().mockReturnValue(false),
     };
     worldFactory = { initNewPlayer: jest.fn().mockResolvedValue(undefined) };
     emailService = { sendVerificationEmail: jest.fn().mockResolvedValue(undefined) };
@@ -90,12 +101,6 @@ describe('AuthService', () => {
 
     it('crée le joueur, envoie un email de vérification et retourne pending', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
-      prisma.universe.findUnique.mockResolvedValue({
-        id: 'univ1',
-        slug: 'default',
-        playerCount: 0,
-        maxPlayers: 100,
-      });
       prisma.user.create.mockResolvedValue({
         id: 'u1',
         email: 'a@b.co',
@@ -119,7 +124,8 @@ describe('AuthService', () => {
         race: RaceType.MYCELIANS,
       });
 
-      expect(universeService.isSaturated).toHaveBeenCalledWith({
+      expect(universeService.pickAvailableUniverse).toHaveBeenCalledWith(prisma);
+      expect(universeService.shouldProvision).toHaveBeenCalledWith({
         id: 'univ1',
         slug: 'default',
         playerCount: 1,
@@ -127,26 +133,19 @@ describe('AuthService', () => {
       });
       expect(worldFactory.initNewPlayer).toHaveBeenCalledWith('u1', prisma, RaceType.MYCELIANS);
       expect(universeService.incrementPlayerCount).toHaveBeenCalledWith(prisma, 'univ1');
+      expect(provisioningQueue.add).not.toHaveBeenCalled();
       expect(emailService.sendVerificationEmail).toHaveBeenCalledWith('a@b.co', 'sylv', 'tok123');
       expect(result.pending).toBe(true);
       expect(result.email).toBe('a@b.co');
     });
 
-    it('planifie le provisioning quand l\'univers devient saturé après inscription', async () => {
+    it('planifie le provisioning quand le seuil est franchi après inscription', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
-      prisma.universe.findUnique.mockResolvedValue({
-        id: 'univ1',
-        slug: 'default',
-        playerCount: 99,
-        maxPlayers: 100,
-      });
-      universeService.isSaturated.mockImplementation(
-        (u: { playerCount: number; maxPlayers: number }) => u.playerCount >= u.maxPlayers,
-      );
+      universeService.shouldProvision.mockReturnValue(true);
       universeService.incrementPlayerCount.mockResolvedValue({
         id: 'univ1',
         slug: 'default',
-        playerCount: 100,
+        playerCount: 90,
         maxPlayers: 100,
       });
       prisma.user.create.mockResolvedValue({
@@ -179,15 +178,9 @@ describe('AuthService', () => {
       );
     });
 
-    it("refuse l'inscription si l'univers par défaut est saturé", async () => {
+    it('renvoie 503 et déclenche le provisioning si tous les univers sont pleins', async () => {
       prisma.user.findFirst.mockResolvedValue(null);
-      prisma.universe.findUnique.mockResolvedValue({
-        id: 'univ1',
-        slug: 'default',
-        playerCount: 100,
-        maxPlayers: 100,
-      });
-      universeService.isSaturated.mockReturnValue(true);
+      universeService.pickAvailableUniverse.mockResolvedValue(null);
 
       await expect(
         service.register({
@@ -196,16 +189,16 @@ describe('AuthService', () => {
           password: 'motdepasse12',
           race: RaceType.MYCELIANS,
         }),
-      ).rejects.toBeInstanceOf(ConflictException);
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
 
-      expect(universeService.isSaturated).toHaveBeenCalledWith({
-        id: 'univ1',
-        slug: 'default',
-        playerCount: 100,
-        maxPlayers: 100,
-      });
+      expect(universeService.pickAvailableUniverse).toHaveBeenCalledWith(prisma);
       expect(worldFactory.initNewPlayer).not.toHaveBeenCalled();
       expect(universeService.incrementPlayerCount).not.toHaveBeenCalled();
+      expect(provisioningQueue.add).toHaveBeenCalledWith(
+        'provisioning.universe',
+        {},
+        expect.objectContaining({ removeOnComplete: true, removeOnFail: 10 }),
+      );
     });
   });
 

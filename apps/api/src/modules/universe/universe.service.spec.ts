@@ -62,3 +62,26 @@ describe('UniverseService.onApplicationBootstrap', () => {
     await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
   });
 });
+
+describe('UniverseService.shouldProvision', () => {
+  const makeService = (threshold: number) =>
+    new UniverseService(
+      {} as any,
+      {
+        get: jest.fn((key: keyof Env) =>
+          key === 'UNIVERSE_PROVISION_THRESHOLD' ? threshold : undefined,
+        ),
+      } as any,
+    );
+
+  it('est vrai au-dessus du seuil (90 % par défaut)', () => {
+    const service = makeService(0.9);
+    expect(service.shouldProvision({ playerCount: 450, maxPlayers: 500 })).toBe(true);
+    expect(service.shouldProvision({ playerCount: 500, maxPlayers: 500 })).toBe(true);
+  });
+
+  it('est faux en dessous du seuil', () => {
+    const service = makeService(0.9);
+    expect(service.shouldProvision({ playerCount: 449, maxPlayers: 500 })).toBe(false);
+  });
+});

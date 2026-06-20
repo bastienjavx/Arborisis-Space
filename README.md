@@ -174,10 +174,33 @@ npm run test:e2e -w @arborisis/api    # parcours auth + planète + construction
 
 ## Déploiement Railway
 
-Le projet Railway comporte PostgreSQL, Redis, `api` et `web`. `railway.toml` configure
-l'API et `railway.web.toml` le web. Seul le web doit être public ; définir
-`API_INTERNAL_URL` sur le web avec l'adresse privée Railway de l'API. L'API applique
-`prisma migrate deploy` au démarrage et reçoit `WEB_ORIGIN` avec l'URL publique du web.
+Le projet Railway comporte PostgreSQL, Redis, `api` et `web` (plus les nodes `univers-N`
+auto-provisionnés). `railway.toml` configure l'API ; le service web doit pointer son
+**chemin de config** sur `/railway.web.toml` (Settings → Config-as-code). Seul le web est
+public ; définir `API_INTERNAL_URL` sur le web avec l'adresse privée Railway de l'API, et
+`WEB_ORIGIN` sur l'API avec l'URL publique du web.
+
+**Migrations & seed** : exécutés une seule fois par déploiement via la _release phase_
+(`preDeployCommand` dans `railway.toml`), pas au boot des réplicas. Le seed est idempotent.
+
+**CD (intégration GitHub native)** : connecter les services `api` et `web` au dépôt avec
+auto-deploy sur `main`. La CI GitHub Actions (`.github/workflows/ci.yml`) sert de **garde** :
+protéger `main` (Settings → Branches) en exigeant le check `build-and-test`. Aucun token
+Railway n'est stocké dans GitHub. Rollback : dashboard Railway → service → déploiement
+précédent → _Redeploy_.
+
+**Auto-scaling à saturation** : chaque univers est plafonné à `UNIVERSE_MAX_PLAYERS` (500).
+À 90 % de remplissage (`UNIVERSE_PROVISION_THRESHOLD`), l'API duplique le service `api` en
+un nouveau node via l'API Railway (`UNIVERSE_PROVISIONING_ENABLED=true` +
+`RAILWAY_API_TOKEN`/`RAILWAY_PROJECT_ID`/`RAILWAY_SERVICE_TEMPLATE_ID`). Le node ne devient
+`ACTIVE` (et n'accueille de joueurs) qu'une fois son déploiement sain. Un réconciliateur
+périodique garantit qu'il reste toujours de la capacité d'accueil même si un job échoue.
+
+**Un seul domaine public** : les nodes `univers-N` n'ont **pas** de domaine — seul le
+service `web` est exposé. Le joueur reste sur le domaine du site ; le proxy web route
+chaque univers vers son node en **réseau privé Railway** via l'`internalApiUrl` stocké dans
+le cookie d'univers (`http://univers-<slug>.railway.internal:4000`). Chaque node force donc
+`PORT=4000` pour une adresse privée déterministe.
 
 ## Sécurité
 

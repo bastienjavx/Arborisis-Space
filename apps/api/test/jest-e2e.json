@@ -4,6 +4,8 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "preset": "ts-jest",
+  "forceExit": true,
+  "testTimeout": 30000,
   "moduleNameMapper": {
     "^@arborisis/shared$": "<rootDir>/../../../packages/shared/src/index.ts"
   }

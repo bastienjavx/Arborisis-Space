@@ -75,6 +75,24 @@ describe('RailwayClient', () => {
     });
   });
 
+  describe('waitForDeployment', () => {
+    const okDeploy = (status: string) =>
+      new Response(JSON.stringify({ data: { deployment: { status } } }), { status: 200 });
+
+    it('résout dès que le déploiement est SUCCESS', async () => {
+      fetchSpy.mockResolvedValueOnce(okDeploy('SUCCESS'));
+
+      await expect(client.waitForDeployment('deploy-1', 10_000)).resolves.toBeUndefined();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('lève une erreur si le déploiement échoue', async () => {
+      fetchSpy.mockResolvedValueOnce(okDeploy('FAILED'));
+
+      await expect(client.waitForDeployment('deploy-1', 10_000)).rejects.toThrow('a échoué');
+    });
+  });
+
   describe('getServiceUrl', () => {
     it('retourne https://<domain> quand Railway fournit un domaine', async () => {
       fetchSpy.mockResolvedValue(
@@ -88,7 +106,7 @@ describe('RailwayClient', () => {
       expect(url).toBe('https://api.test.app');
     });
 
-    it('fallback sur http://<serviceName>:4000 sans domaine', async () => {
+    it('fallback sur le domaine privé Railway sans domaine public', async () => {
       fetchSpy
         .mockResolvedValueOnce(
           new Response(JSON.stringify({ data: { serviceDomain: [] } }), { status: 200 }),
@@ -101,7 +119,7 @@ describe('RailwayClient', () => {
 
       const url = await client.getServiceUrl('svc-1');
 
-      expect(url).toBe('http://arborisis-api:4000');
+      expect(url).toBe('http://arborisis-api.railway.internal:4000');
     });
   });
 });

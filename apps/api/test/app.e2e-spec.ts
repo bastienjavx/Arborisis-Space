@@ -29,14 +29,27 @@ describe('Arborisis API (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app?.close();
-  });
+    // `app.close()` peut traîner si des workers BullMQ gardent des connexions Redis
+    // ouvertes ; on borne l'attente pour que le hook se termine toujours (forceExit
+    // dans jest-e2e.json garantit l'arrêt du process).
+    await Promise.race([app?.close(), new Promise((resolve) => setTimeout(resolve, 10_000))]);
+  }, 20_000);
 
-  it('inscrit un nouveau joueur et pose les cookies', async () => {
-    const res = await request(app.getHttpServer())
+  it('inscrit un joueur, vérifie son email et pose les cookies', async () => {
+    const username = `e2e${Date.now() % 100000}`;
+    const registration = await request(app.getHttpServer())
       .post('/api/auth/register')
-      .send({ email, username: `e2e${Date.now() % 100000}`, password: 'motdepasse-e2e' })
+      .send({ email, username, password: 'motdepasse-e2e' })
       .expect(201);
+    expect(registration.body.pending).toBe(true);
+
+    // Le flux d'inscription exige une vérification d'email avant l'émission des cookies.
+    // On récupère le token en base (l'envoi SMTP n'a pas lieu en test) et on le confirme.
+    const created = await prisma.user.findUniqueOrThrow({ where: { email } });
+    const res = await request(app.getHttpServer())
+      .post('/api/auth/verify-email')
+      .send({ token: created.emailVerificationToken })
+      .expect(200);
 
     expect(res.body.user.email).toBe(email);
     const setCookie = res.headers['set-cookie'] as unknown as string[];

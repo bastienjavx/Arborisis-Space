@@ -1,7 +1,7 @@
 import { UniverseStatus } from '@prisma/client';
 import type { Job } from 'bullmq';
 import { ProvisioningProcessor } from './provisioning.processor';
-import { PROVISION_UNIVERSE_JOB } from '../queue/queue.constants';
+import { PROVISION_UNIVERSE_JOB, RECONCILE_UNIVERSES_JOB } from '../queue/queue.constants';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -11,7 +11,10 @@ describe('ProvisioningProcessor', () => {
   let processor: ProvisioningProcessor;
 
   beforeEach(() => {
-    provisioningService = { provisionUniverse: jest.fn().mockResolvedValue(undefined) };
+    provisioningService = {
+      provisionUniverse: jest.fn().mockResolvedValue(undefined),
+      reconcile: jest.fn().mockResolvedValue(undefined),
+    };
     prisma = {
       universe: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -30,12 +33,22 @@ describe('ProvisioningProcessor', () => {
       expect(provisioningService.provisionUniverse).toHaveBeenCalled();
     });
 
+    it('appelle ProvisioningService.reconcile pour un job de réconciliation', async () => {
+      const job = { id: 'job-r', name: RECONCILE_UNIVERSES_JOB } as Job;
+
+      await processor.process(job);
+
+      expect(provisioningService.reconcile).toHaveBeenCalled();
+      expect(provisioningService.provisionUniverse).not.toHaveBeenCalled();
+    });
+
     it('ignore les jobs non provisioning', async () => {
       const job = { id: 'job-2', name: 'other.job' } as Job;
 
       await processor.process(job);
 
       expect(provisioningService.provisionUniverse).not.toHaveBeenCalled();
+      expect(provisioningService.reconcile).not.toHaveBeenCalled();
     });
   });
 

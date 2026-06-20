@@ -16,7 +16,7 @@ const envSchema = z.object({
   JWT_REFRESH_TTL: z.coerce.number().int().positive().default(1_209_600),
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
   COOKIE_DOMAIN: z.string().optional(),
-  // Adresse réseau privée de CETTE instance API (ex. http://api:4000 sur Railway).
+  // Adresse réseau privée de CETTE instance API (ex. http://api.railway.internal:4000).
   // Si définie, l'univers par défaut est réaligné sur cette URL au démarrage afin
   // que le proxy web route correctement (la migration insère un placeholder localhost).
   API_INTERNAL_URL: z.string().url().optional(),
@@ -26,6 +26,13 @@ const envSchema = z.object({
   RAILWAY_ENVIRONMENT_ID: z.string().optional(),
   UNIVERSE_PROVISIONING_ENABLED: z.enum(['true', 'false']).default('false'),
   UNIVERSE_MAX_PLAYERS: z.coerce.number().int().positive().default(500),
+  // Fraction de `maxPlayers` à partir de laquelle on pré-provisionne un nouvel univers
+  // (node chaud AVANT saturation totale). 0.9 = on déclenche à 90 % de remplissage.
+  UNIVERSE_PROVISION_THRESHOLD: z.coerce.number().positive().max(1).default(0.9),
+  // Nombre de réplicas du service API du node provisionné.
+  UNIVERSE_PROVISION_REPLICAS: z.coerce.number().int().positive().default(2),
+  // Temps max d'attente que le node provisionné soit sain avant de le passer ACTIVE.
+  RAILWAY_DEPLOY_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
   // Email (Mailtrap SMTP — optionnel en dev, requis en prod pour la vérification)
   MAILTRAP_HOST: z.string().default('sandbox.smtp.mailtrap.io'),
   MAILTRAP_PORT: z.coerce.number().int().positive().default(2525),

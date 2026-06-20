@@ -25,6 +25,8 @@ describe('ProvisioningService', () => {
           JWT_ACCESS_SECRET: 'shared-access-secret',
           JWT_REFRESH_SECRET: 'shared-refresh-secret',
           UNIVERSE_MAX_PLAYERS: 500,
+          UNIVERSE_PROVISION_REPLICAS: 2,
+          RAILWAY_DEPLOY_TIMEOUT_MS: 180_000,
         };
         return values[key];
       }),
@@ -33,6 +35,7 @@ describe('ProvisioningService', () => {
     prisma = {
       universe: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
@@ -131,7 +134,9 @@ describe('ProvisioningService', () => {
       const fakeClient = {
         createServiceFromTemplate: jest.fn().mockResolvedValue('service-1'),
         setServiceVariables: jest.fn().mockResolvedValue(undefined),
+        setServiceReplicas: jest.fn().mockResolvedValue(undefined),
         triggerDeployment: jest.fn().mockResolvedValue('deploy-1'),
+        waitForDeployment: jest.fn().mockResolvedValue(undefined),
         getServiceUrl: jest.fn().mockResolvedValue('https://api-generated-123.up.railway.app'),
       };
       jest.spyOn(service as any, 'newRailwayClient').mockImplementation(() => fakeClient);
@@ -164,7 +169,9 @@ describe('ProvisioningService', () => {
           NODE_ENV: 'production',
         }),
       );
+      expect(fakeClient.setServiceReplicas).toHaveBeenCalledWith('service-1', 'env-id', 2);
       expect(fakeClient.triggerDeployment).toHaveBeenCalledWith('service-1', 'env-id');
+      expect(fakeClient.waitForDeployment).toHaveBeenCalledWith('deploy-1', 180_000);
       expect(fakeClient.getServiceUrl).toHaveBeenCalledWith('service-1');
       expect(prisma.universe.update).toHaveBeenCalledWith({
         where: { id: 'univ-1' },
@@ -174,6 +181,37 @@ describe('ProvisioningService', () => {
         },
       });
       expect(result).toMatchObject({ status: 'ACTIVE' });
+    });
+
+    it("laisse l'univers en PROVISIONING si le node n'est pas sain (waitForDeployment échoue)", async () => {
+      prisma.universe.findFirst.mockResolvedValue(null);
+      prisma.universe.create.mockResolvedValue({
+        id: 'univ-unhealthy',
+        slug: 'generated-789',
+        name: 'Univers 2026',
+        internalApiUrl: '',
+        maxPlayers: 500,
+        playerCount: 0,
+        status: UniverseStatus.PROVISIONING,
+        createdAt: new Date(),
+      });
+
+      const fakeClient = {
+        createServiceFromTemplate: jest.fn().mockResolvedValue('service-9'),
+        setServiceVariables: jest.fn().mockResolvedValue(undefined),
+        setServiceReplicas: jest.fn().mockResolvedValue(undefined),
+        triggerDeployment: jest.fn().mockResolvedValue('deploy-9'),
+        waitForDeployment: jest.fn().mockRejectedValue(new Error('non sain après 180000ms')),
+        getServiceUrl: jest.fn(),
+      };
+      jest.spyOn(service as any, 'newRailwayClient').mockImplementation(() => fakeClient);
+
+      const result = await service.provisionUniverse();
+
+      expect(fakeClient.waitForDeployment).toHaveBeenCalled();
+      expect(fakeClient.getServiceUrl).not.toHaveBeenCalled();
+      expect(prisma.universe.update).not.toHaveBeenCalled();
+      expect(result).toBeNull();
     });
 
     it("retourne null et laisse l'univers en PROVISIONING en cas d'échec Railway", async () => {
@@ -224,6 +262,54 @@ describe('ProvisioningService', () => {
 
       expect(universeService.toView).toHaveBeenCalledWith(existing);
       expect(result).toMatchObject({ id: 'univ-race', status: 'PROVISIONING' });
+    });
+  });
+
+  describe('reconcile', () => {
+    it('ne fait rien quand le provisioning est désactivé', async () => {
+      config.get.mockImplementation((key: keyof Env) =>
+        key === 'UNIVERSE_PROVISIONING_ENABLED' ? 'false' : undefined,
+      );
+      const spy = jest.spyOn(service, 'provisionUniverse').mockResolvedValue(null);
+
+      await service.reconcile();
+
+      expect(prisma.universe.findMany).not.toHaveBeenCalled();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it("ne provisionne pas s'il reste un emplacement libre", async () => {
+      prisma.universe.findMany.mockResolvedValue([
+        { status: UniverseStatus.ACTIVE, playerCount: 499, maxPlayers: 500 },
+      ]);
+      const spy = jest.spyOn(service, 'provisionUniverse').mockResolvedValue(null);
+
+      await service.reconcile();
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('ne provisionne pas si un univers est déjà en PROVISIONING', async () => {
+      prisma.universe.findMany.mockResolvedValue([
+        { status: UniverseStatus.ACTIVE, playerCount: 500, maxPlayers: 500 },
+        { status: UniverseStatus.PROVISIONING, playerCount: 0, maxPlayers: 500 },
+      ]);
+      const spy = jest.spyOn(service, 'provisionUniverse').mockResolvedValue(null);
+
+      await service.reconcile();
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('provisionne quand tout est plein et rien en cours', async () => {
+      prisma.universe.findMany.mockResolvedValue([
+        { status: UniverseStatus.ACTIVE, playerCount: 500, maxPlayers: 500 },
+      ]);
+      const spy = jest.spyOn(service, 'provisionUniverse').mockResolvedValue(null);
+
+      await service.reconcile();
+
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 });

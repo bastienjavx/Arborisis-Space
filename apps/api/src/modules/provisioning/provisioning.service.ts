@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { UniverseService } from '../universe/universe.service';
 import type { Env } from '../../common/config/env';
-import { RailwayClient } from './railway.client';
+import { INTERNAL_API_PORT, RailwayClient } from './railway.client';
 
 /**
  * Ordonne le provisioning d'un nouvel univers via l'API Railway.
@@ -34,6 +34,8 @@ export class ProvisioningService {
     const templateServiceId = this.config.get('RAILWAY_SERVICE_TEMPLATE_ID', { infer: true });
     const environmentId = this.config.get('RAILWAY_ENVIRONMENT_ID', { infer: true });
     const maxPlayers = this.config.get('UNIVERSE_MAX_PLAYERS', { infer: true });
+    const replicas = this.config.get('UNIVERSE_PROVISION_REPLICAS', { infer: true });
+    const deployTimeoutMs = this.config.get('RAILWAY_DEPLOY_TIMEOUT_MS', { infer: true });
 
     if (!enabled) {
       this.logger.debug('Provisioning univers désactivé.');
@@ -99,15 +101,23 @@ export class ProvisioningService {
     try {
       const client = this.newRailwayClient(token);
 
+      // Nom DNS-safe : il sert de domaine privé Railway (`<nom>.railway.internal`).
+      // Le slug est un UUID (minuscules + tirets) → déjà compatible DNS.
+      const serviceName = `univers-${universe.slug}`;
       const serviceId = await client.createServiceFromTemplate(
         projectId,
         environmentId,
         templateServiceId,
-        universe.name,
+        serviceName,
       );
 
       await client.setServiceVariables(serviceId, environmentId, this.buildVariables());
-      await client.triggerDeployment(serviceId, environmentId);
+      await client.setServiceReplicas(serviceId, environmentId, replicas);
+      const deploymentId = await client.triggerDeployment(serviceId, environmentId);
+
+      // On n'active l'univers que lorsque le node est réellement sain : sinon les
+      // joueurs y seraient routés et recevraient des 502 pendant le démarrage.
+      await client.waitForDeployment(deploymentId, deployTimeoutMs);
       const internalApiUrl = await client.getServiceUrl(serviceId);
 
       const updated = await this.prisma.universe.update({
@@ -119,7 +129,7 @@ export class ProvisioningService {
       });
 
       this.logger.log(
-        { universeId: updated.id, serviceId, internalApiUrl },
+        { universeId: updated.id, serviceId, deploymentId, internalApiUrl },
         'Univers provisionné avec succès.',
       );
       return this.universeService.toView(updated);
@@ -130,6 +140,36 @@ export class ProvisioningService {
       );
       return null;
     }
+  }
+
+  /**
+   * Filet de sécurité : s'assure qu'il existe toujours de la capacité d'accueil.
+   * Si AUCUN univers `ACTIVE` n'a d'emplacement libre ET qu'aucun n'est en cours de
+   * provisioning, on en provisionne un. Idempotent (cf. `provisionUniverse`) et sans
+   * effet si le provisioning est désactivé. Appelé périodiquement et au boot.
+   */
+  async reconcile(): Promise<void> {
+    const enabled = this.config.get('UNIVERSE_PROVISIONING_ENABLED', { infer: true }) === 'true';
+    if (!enabled) return;
+
+    const universes = await this.prisma.universe.findMany({
+      where: { status: { in: [UniverseStatus.ACTIVE, UniverseStatus.PROVISIONING] } },
+      select: { status: true, playerCount: true, maxPlayers: true },
+    });
+
+    const hasProvisioning = universes.some((u) => u.status === UniverseStatus.PROVISIONING);
+    const hasFreeSlot = universes.some(
+      (u) => u.status === UniverseStatus.ACTIVE && u.playerCount < u.maxPlayers,
+    );
+
+    if (hasProvisioning || hasFreeSlot) {
+      return;
+    }
+
+    this.logger.warn(
+      "Aucune capacité d'accueil disponible et aucun provisioning en cours ; déclenchement.",
+    );
+    await this.provisionUniverse();
   }
 
   private newRailwayClient(token: string): RailwayClient {
@@ -147,6 +187,9 @@ export class ProvisioningService {
       JWT_REFRESH_SECRET: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
       WEB_ORIGIN: this.config.get('WEB_ORIGIN', { infer: true }),
       NODE_ENV: 'production',
+      // Port d'écoute fixe → adresse privée déterministe `<nom>.railway.internal:4000`
+      // attendue par le proxy web (sinon Railway injecte un PORT aléatoire injoignable).
+      PORT: String(INTERNAL_API_PORT),
     };
   }
 

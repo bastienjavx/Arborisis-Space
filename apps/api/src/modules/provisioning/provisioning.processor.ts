@@ -3,7 +3,11 @@ import { Logger } from '@nestjs/common';
 import { UniverseStatus } from '@prisma/client';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { PROVISION_UNIVERSE_JOB, PROVISIONING_QUEUE } from '../queue/queue.constants';
+import {
+  PROVISION_UNIVERSE_JOB,
+  PROVISIONING_QUEUE,
+  RECONCILE_UNIVERSES_JOB,
+} from '../queue/queue.constants';
 import { ProvisioningService } from './provisioning.service';
 
 /**
@@ -21,17 +25,29 @@ export class ProvisioningProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<void> {
-    if (job.name !== PROVISION_UNIVERSE_JOB) {
-      this.logger.warn({ jobName: job.name }, 'Job de provisioning ignoré.');
-      return;
+    switch (job.name) {
+      case PROVISION_UNIVERSE_JOB:
+        this.logger.debug({ jobId: job.id }, "Démarrage du provisioning d'univers.");
+        await this.provisioningService.provisionUniverse();
+        return;
+      case RECONCILE_UNIVERSES_JOB:
+        this.logger.debug({ jobId: job.id }, 'Réconciliation de la capacité des univers.');
+        await this.provisioningService.reconcile();
+        return;
+      default:
+        this.logger.warn({ jobName: job.name }, 'Job de provisioning ignoré.');
     }
-
-    this.logger.debug({ jobId: job.id }, "Démarrage du provisioning d'univers.");
-    await this.provisioningService.provisionUniverse();
   }
 
   @OnWorkerEvent('failed')
   async onFailed(job: Job | undefined, error: Error): Promise<void> {
+    // Seul l'échec du provisioning doit marquer un univers FAILED ; un échec du
+    // réconciliateur (lecture seule) ne doit pas toucher au statut des univers.
+    if (job?.name !== PROVISION_UNIVERSE_JOB) {
+      this.logger.warn({ jobId: job?.id, jobName: job?.name, err: error }, 'Job échoué.');
+      return;
+    }
+
     const attempts = job?.opts?.attempts ?? 1;
     const attemptsMade = job?.attemptsMade ?? 0;
 

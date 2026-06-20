@@ -1,31 +1,39 @@
-# Configuration Railway d'Arborisis.
+# Configuration Railway d'Arborisis — service API (service par défaut du dépôt).
 #
-# Architecture recommandée sur Railway : 4 services dans le même projet
+# Architecture sur Railway (un seul projet) :
 #   1. PostgreSQL   (plugin Railway)
 #   2. Redis        (plugin Railway)
-#   3. api          (ce dépôt, docker/api.Dockerfile)
-#   4. web          (ce dépôt, docker/web.Dockerfile)
-#
-# Ce fichier configure le service API (le service par défaut du dépôt).
-# Pour le service web, utiliser `railway.web.toml` et définir `API_INTERNAL_URL`
-# avec l'adresse privée Railway de l'API.
+#   3. api          (ce dépôt, docker/api.Dockerfile) ← CE fichier
+#   4. web          (ce dépôt, docker/web.Dockerfile) ← railway.web.toml
+#   5. univers-N    (nodes API auto-provisionnés à saturation, dupliqués depuis « api »)
 #
 # Variables à définir sur le service API :
 #   DATABASE_URL          → référence du plugin PostgreSQL
 #   REDIS_URL             → référence du plugin Redis
-#   JWT_ACCESS_SECRET     → openssl rand -base64 48
-#   JWT_REFRESH_SECRET    → openssl rand -base64 48
+#   JWT_ACCESS_SECRET     → openssl rand -base64 48   (PARTAGÉ par tous les nodes)
+#   JWT_REFRESH_SECRET    → openssl rand -base64 48   (PARTAGÉ par tous les nodes)
 #   WEB_ORIGIN            → URL publique du service web
 #   NODE_ENV=production
-# Le service API n'a pas besoin d'un domaine public lorsque le proxy web utilise
-# le réseau privé Railway. Le service web utilise railway.web.toml et définit
-# API_INTERNAL_URL vers l'adresse privée du service API.
+#
+# Auto-scaling (création d'un node par univers à saturation) :
+#   UNIVERSE_PROVISIONING_ENABLED=true
+#   RAILWAY_API_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_SERVICE_TEMPLATE_ID(=id du service « api »)
+#   RAILWAY_ENVIRONMENT_ID (optionnel), UNIVERSE_MAX_PLAYERS (def. 500)
+#   UNIVERSE_PROVISION_THRESHOLD (def. 0.9), UNIVERSE_PROVISION_REPLICAS (def. 2)
+#
+# IMPORTANT : les nodes provisionnés sont dupliqués depuis le service « api ». Ils
+# héritent donc de ce fichier, Y COMPRIS le `preDeployCommand`. Comme ils partagent la
+# même base, migrate+seed y sont des no-op idempotents (migrate = aucune migration en
+# attente, seed = upserts). Aucune action requise.
 
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "docker/api.Dockerfile"
 
 [deploy]
+# Release phase : migrations + seed une seule fois par déploiement, dans un conteneur
+# dédié, AVANT la mise en service des réplicas (plus de course entre instances).
+preDeployCommand = ["npx prisma migrate deploy && npx prisma db seed"]
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"

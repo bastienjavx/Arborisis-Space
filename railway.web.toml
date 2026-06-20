@@ -1,3 +1,15 @@
+# Configuration Railway du service WEB (Next.js).
+#
+# Railway ne lit `railway.toml` qu'à la racine par défaut. Pour que le service web
+# utilise CE fichier, définir dans ses réglages Railway :
+#   Settings → Config-as-code → Config file path = /railway.web.toml
+# (Sans ça, le web hérite de railway.toml — config API — et crashe : DATABASE_URL absent.)
+#
+# Variables du service web :
+#   API_INTERNAL_URL      → URL réseau privée du service API (ex. http://api.railway.internal:4000)
+#   UNIVERSE_COOKIE_SECRET→ secret de signature du cookie d'univers (≥ 32 caractères)
+#   NEXT_PUBLIC_API_URL   → inliné au BUILD du front (rebuild requis si modifié)
+
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "docker/web.Dockerfile"
