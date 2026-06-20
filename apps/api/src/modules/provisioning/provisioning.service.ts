@@ -186,6 +186,11 @@ export class ProvisioningService {
       JWT_ACCESS_SECRET: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
       JWT_REFRESH_SECRET: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
       WEB_ORIGIN: this.config.get('WEB_ORIGIN', { infer: true }),
+      // Les secrets TOTP sont chiffrés en base PARTAGÉE : tous les nœuds doivent
+      // utiliser la même clé, sinon la vérification 2FA échoue (401) sur un nœud tiers.
+      ...(this.config.get('TOTP_ENC_KEY', { infer: true })
+        ? { TOTP_ENC_KEY: this.config.get('TOTP_ENC_KEY', { infer: true })! }
+        : {}),
       NODE_ENV: 'production',
       // Port d'écoute fixe → adresse privée déterministe `<nom>.railway.internal:4000`
       // attendue par le proxy web (sinon Railway injecte un PORT aléatoire injoignable).
