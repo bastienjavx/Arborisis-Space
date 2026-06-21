@@ -1,11 +1,13 @@
 'use client';
 
 import { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { GalaxySlot } from '@arborisis/shared';
 import { orbitProfile, starProfile, type OrbitProfile, type StarProfile } from '@/lib/procgen';
+import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
+import { tier, useIsMobile } from '@/lib/device';
 
 const prefersReducedMotion =
   typeof window !== 'undefined' && window.matchMedia
@@ -63,10 +65,11 @@ interface OrbitBodyProps {
   slot: GalaxySlot;
   orbit: OrbitProfile;
   selected: boolean;
+  bodySeg: number;
   onSelect?: (slot: GalaxySlot) => void;
 }
 
-function OrbitBody({ slot, orbit, selected, onSelect }: OrbitBodyProps) {
+function OrbitBody({ slot, orbit, selected, bodySeg, onSelect }: OrbitBodyProps) {
   const bodyRef = useRef<THREE.Group>(null);
   const tmp = useMemo(() => new THREE.Vector3(), []);
 
@@ -114,7 +117,7 @@ function OrbitBody({ slot, orbit, selected, onSelect }: OrbitBodyProps) {
       {/* Corps en orbite */}
       <group ref={bodyRef}>
         <mesh scale={size} onClick={() => onSelect?.(slot)}>
-          <sphereGeometry args={[1, 28, 28]} />
+          <sphereGeometry args={[1, bodySeg, bodySeg]} />
           <meshStandardMaterial
             color={bodyColor}
             emissive={emissive}
@@ -148,7 +151,7 @@ function OrbitBody({ slot, orbit, selected, onSelect }: OrbitBodyProps) {
   );
 }
 
-function Scene({ slots, selectedSlot, onSelect }: GalaxyViewProps) {
+function Scene({ slots, selectedSlot, onSelect, mobile }: GalaxyViewProps & { mobile: boolean }) {
   const star = useMemo(() => {
     const first = slots[0]?.coordinates;
     return starProfile(first?.galaxy ?? 1, first?.system ?? 1);
@@ -165,7 +168,15 @@ function Scene({ slots, selectedSlot, onSelect }: GalaxyViewProps) {
   return (
     <>
       <ambientLight intensity={0.18} />
-      <Stars radius={70} depth={45} count={900} factor={3} saturation={0.4} fade speed={0.3} />
+      <Stars
+        radius={70}
+        depth={45}
+        count={tier(mobile, 400, 900)}
+        factor={3}
+        saturation={0.4}
+        fade
+        speed={0.3}
+      />
       <Star star={star} />
       {slots.map((slot, i) => (
         <OrbitBody
@@ -173,6 +184,7 @@ function Scene({ slots, selectedSlot, onSelect }: GalaxyViewProps) {
           slot={slot}
           orbit={orbits[i]}
           selected={selectedSlot?.coordinates.position === slot.coordinates.position}
+          bodySeg={tier(mobile, 16, 28)}
           onSelect={onSelect}
         />
       ))}
@@ -199,17 +211,15 @@ export interface GalaxyViewProps {
 }
 
 export function GalaxyView({ slots, selectedSlot, onSelect, className = '' }: GalaxyViewProps) {
+  const mobile = useIsMobile();
+
   return (
     <div className={className}>
-      <Canvas
-        camera={{ position: [0, 8, 11], fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 1.7]}
-      >
+      <AdaptiveCanvas camera={{ position: [0, 8, 11], fov: 45 }} gl={{ alpha: true }} maxDpr={1.7}>
         <Suspense fallback={null}>
-          <Scene slots={slots} selectedSlot={selectedSlot} onSelect={onSelect} />
+          <Scene slots={slots} selectedSlot={selectedSlot} onSelect={onSelect} mobile={mobile} />
         </Suspense>
-      </Canvas>
+      </AdaptiveCanvas>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 'use client';
 
 import { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SHIP_TYPES, ShipType, type ShipCounts } from '@arborisis/shared';
+import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
+import { tier, useIsMobile } from '@/lib/device';
 
 const SHIP_COLORS: Record<ShipType, string> = {
   [ShipType.SPORAL_SCOUT]: '#16bf6c',
@@ -128,24 +130,35 @@ export interface FleetViewProps {
   className?: string;
 }
 
-function Scene({ ships }: FleetViewProps) {
+function Scene({ ships, mobile }: FleetViewProps & { mobile: boolean }) {
+  const cap = tier(mobile, 12, 24);
   const shipList = useMemo(() => {
     const list: ShipType[] = [];
     SHIP_TYPES.forEach((type) => {
       const count = ships[type] ?? 0;
-      for (let i = 0; i < Math.min(count, 24); i++) {
+      for (let i = 0; i < Math.min(count, cap); i++) {
         list.push(type);
       }
     });
     return list;
-  }, [ships]);
+  }, [ships, cap]);
+
+  const starCount = tier(mobile, 220, 400);
 
   if (shipList.length === 0) {
     return (
       <>
         <ambientLight intensity={0.2} />
-        <Stars radius={50} depth={40} count={400} factor={3} saturation={0.4} fade speed={0.4} />
-        <TrailParticles count={80} />
+        <Stars
+          radius={50}
+          depth={40}
+          count={starCount}
+          factor={3}
+          saturation={0.4}
+          fade
+          speed={0.4}
+        />
+        <TrailParticles count={tier(mobile, 40, 80)} />
       </>
     );
   }
@@ -153,27 +166,33 @@ function Scene({ ships }: FleetViewProps) {
   return (
     <>
       <ambientLight intensity={0.2} />
-      <Stars radius={50} depth={40} count={400} factor={3} saturation={0.4} fade speed={0.4} />
+      <Stars
+        radius={50}
+        depth={40}
+        count={starCount}
+        factor={3}
+        saturation={0.4}
+        fade
+        speed={0.4}
+      />
       {shipList.map((type, i) => (
         <BioShip key={i} type={type} index={i} total={shipList.length} />
       ))}
-      <TrailParticles count={60} />
+      <TrailParticles count={tier(mobile, 30, 60)} />
     </>
   );
 }
 
 export function FleetView({ ships, className = '' }: FleetViewProps) {
+  const mobile = useIsMobile();
+
   return (
     <div className={className}>
-      <Canvas
-        camera={{ position: [0, 3, 5], fov: 55 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 1.5]}
-      >
+      <AdaptiveCanvas camera={{ position: [0, 3, 5], fov: 55 }} gl={{ alpha: true }} maxDpr={1.5}>
         <Suspense fallback={null}>
-          <Scene ships={ships} />
+          <Scene ships={ships} mobile={mobile} />
         </Suspense>
-      </Canvas>
+      </AdaptiveCanvas>
     </div>
   );
 }

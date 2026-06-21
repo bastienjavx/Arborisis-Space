@@ -1,11 +1,13 @@
 'use client';
 
 import { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { PlanetType } from '@arborisis/shared';
 import { planetProfile, seedFromCoords, type PlanetProfile } from '@/lib/procgen';
+import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
+import { tier, useIsMobile } from '@/lib/device';
 
 const prefersReducedMotion =
   typeof window !== 'undefined' && window.matchMedia
@@ -63,16 +65,21 @@ float snoise(vec3 v){
 }
 float fbm(vec3 p){
   float f=0.0,amp=0.5;
-  for(int i=0;i<5;i++){f+=amp*snoise(p);p*=2.03;amp*=0.5;}
+  for(int i=0;i<FBM_OCTAVES;i++){f+=amp*snoise(p);p*=2.03;amp*=0.5;}
   return f;
 }
 `;
+
+/** Préfixe le bruit du nombre d'octaves FBM (5 desktop, 3 mobile). */
+function noiseGlsl(octaves: number): string {
+  return `#define FBM_OCTAVES ${octaves}\n${NOISE_GLSL}`;
+}
 
 interface SurfaceUniforms {
   [key: string]: THREE.IUniform;
 }
 
-function makeSurfaceMaterial(profile: PlanetProfile): THREE.ShaderMaterial {
+function makeSurfaceMaterial(profile: PlanetProfile, octaves: number): THREE.ShaderMaterial {
   const uniforms: SurfaceUniforms = {
     uTime: { value: 0 },
     uFreq: { value: profile.frequency },
@@ -90,7 +97,7 @@ function makeSurfaceMaterial(profile: PlanetProfile): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms,
     vertexShader: /* glsl */ `
-      ${NOISE_GLSL}
+      ${noiseGlsl(octaves)}
       uniform float uFreq;
       uniform float uRelief;
       uniform float uOcean;
@@ -146,7 +153,11 @@ function makeSurfaceMaterial(profile: PlanetProfile): THREE.ShaderMaterial {
   });
 }
 
-function makeCloudMaterial(color: THREE.Color, coverage: number): THREE.ShaderMaterial {
+function makeCloudMaterial(
+  color: THREE.Color,
+  coverage: number,
+  octaves: number,
+): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -166,7 +177,7 @@ function makeCloudMaterial(color: THREE.Color, coverage: number): THREE.ShaderMa
       }
     `,
     fragmentShader: /* glsl */ `
-      ${NOISE_GLSL}
+      ${noiseGlsl(octaves)}
       uniform float uTime;
       uniform float uCoverage;
       uniform vec3 uColor;
@@ -185,15 +196,28 @@ function makeCloudMaterial(color: THREE.Color, coverage: number): THREE.ShaderMa
   });
 }
 
-function ProceduralPlanet({ profile }: { profile: PlanetProfile }) {
+interface Quality {
+  /** Segments de la sphère de surface (relief déplacé par-sommet). */
+  surfaceSeg: number;
+  cloudSeg: number;
+  atmoSeg: number;
+  /** Octaves du FBM dans les shaders. */
+  octaves: number;
+  starCount: number;
+}
+
+function ProceduralPlanet({ profile, quality }: { profile: PlanetProfile; quality: Quality }) {
   const tiltRef = useRef<THREE.Group>(null);
   const surfaceRef = useRef<THREE.Mesh>(null);
   const cloudRef = useRef<THREE.Mesh>(null);
 
-  const surfaceMat = useMemo(() => makeSurfaceMaterial(profile), [profile]);
+  const surfaceMat = useMemo(
+    () => makeSurfaceMaterial(profile, quality.octaves),
+    [profile, quality.octaves],
+  );
   const cloudMat = useMemo(
-    () => makeCloudMaterial(new THREE.Color('#dff5ea'), profile.clouds),
-    [profile],
+    () => makeCloudMaterial(new THREE.Color('#dff5ea'), profile.clouds, quality.octaves),
+    [profile, quality.octaves],
   );
   const atmoUniforms = useMemo(
     () => ({
@@ -217,21 +241,21 @@ function ProceduralPlanet({ profile }: { profile: PlanetProfile }) {
     <group ref={tiltRef} rotation={[profile.axialTilt, 0, 0]} scale={1.7}>
       {/* Surface déplacée */}
       <mesh ref={surfaceRef}>
-        <sphereGeometry args={[1, 192, 192]} />
+        <sphereGeometry args={[1, quality.surfaceSeg, quality.surfaceSeg]} />
         <primitive object={surfaceMat} attach="material" />
       </mesh>
 
       {/* Couche nuageuse */}
       {hasClouds && (
         <mesh ref={cloudRef} scale={1.015}>
-          <sphereGeometry args={[1, 96, 96]} />
+          <sphereGeometry args={[1, quality.cloudSeg, quality.cloudSeg]} />
           <primitive object={cloudMat} attach="material" />
         </mesh>
       )}
 
       {/* Halo atmosphérique (Fresnel) */}
       <mesh scale={1.14}>
-        <sphereGeometry args={[1, 64, 64]} />
+        <sphereGeometry args={[1, quality.atmoSeg, quality.atmoSeg]} />
         <shaderMaterial
           transparent
           depthWrite={false}
@@ -306,14 +330,22 @@ function Moons({ profile }: { profile: PlanetProfile }) {
   );
 }
 
-function Scene({ profile }: { profile: PlanetProfile }) {
+function Scene({ profile, quality }: { profile: PlanetProfile; quality: Quality }) {
   return (
     <>
       <ambientLight intensity={0.22} color="#9fe7c4" />
       <directionalLight position={[6, 2.5, 5]} intensity={1.5} color="#fff4e0" />
       <pointLight position={[-6, -2, 3]} intensity={0.4} color={profile.colorAtmosphere} />
-      <Stars radius={90} depth={50} count={1200} factor={3.2} saturation={0.4} fade speed={0.4} />
-      <ProceduralPlanet profile={profile} />
+      <Stars
+        radius={90}
+        depth={50}
+        count={quality.starCount}
+        factor={3.2}
+        saturation={0.4}
+        fade
+        speed={0.4}
+      />
+      <ProceduralPlanet profile={profile} quality={quality} />
       <OrbitControls
         enablePan={false}
         enableZoom
@@ -343,22 +375,29 @@ export function PlanetView({
   position = 1,
   planetType = PlanetType.VERDANT,
 }: PlanetViewProps) {
+  const mobile = useIsMobile();
   const profile = useMemo(
     () => planetProfile(seedFromCoords(galaxy, system, position), planetType),
     [galaxy, system, position, planetType],
   );
+  const quality = useMemo<Quality>(
+    () => ({
+      surfaceSeg: tier(mobile, 64, 128),
+      cloudSeg: tier(mobile, 40, 96),
+      atmoSeg: tier(mobile, 32, 64),
+      octaves: tier(mobile, 3, 5),
+      starCount: tier(mobile, 500, 1200),
+    }),
+    [mobile],
+  );
 
   return (
     <div className={className}>
-      <Canvas
-        camera={{ position: [0, 0.6, 6], fov: 48 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 1.8]}
-      >
+      <AdaptiveCanvas camera={{ position: [0, 0.6, 6], fov: 48 }} gl={{ alpha: true }} maxDpr={1.8}>
         <Suspense fallback={null}>
-          <Scene profile={profile} />
+          <Scene profile={profile} quality={quality} />
         </Suspense>
-      </Canvas>
+      </AdaptiveCanvas>
     </div>
   );
 }

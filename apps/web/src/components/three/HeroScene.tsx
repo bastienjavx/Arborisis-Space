@@ -1,11 +1,13 @@
 'use client';
 
 import { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { MeshDistortMaterial, Stars } from '@react-three/drei';
 import * as THREE from 'three';
+import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
+import { tier, useIsMobile } from '@/lib/device';
 
-function HeroPlanet() {
+function HeroPlanet({ segments }: { segments: number }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const ring1Ref = useRef<THREE.Mesh>(null);
   const ring2Ref = useRef<THREE.Mesh>(null);
@@ -23,7 +25,7 @@ function HeroPlanet() {
   return (
     <group>
       <mesh ref={meshRef} scale={2.2}>
-        <sphereGeometry args={[1, 128, 128]} />
+        <sphereGeometry args={[1, segments, segments]} />
         <MeshDistortMaterial
           color="#0a7a47"
           emissive="#0a9a56"
@@ -110,31 +112,37 @@ function FloatingSpores({ count = 100 }) {
   );
 }
 
-function Scene() {
+function Scene({ mobile }: { mobile: boolean }) {
   return (
     <>
       <ambientLight intensity={0.25} color="#7eecae" />
       <pointLight position={[6, 4, 6]} intensity={1} color="#7b66f0" />
       <pointLight position={[-5, -3, 4]} intensity={0.6} color="#16bf6c" />
-      <Stars radius={90} depth={60} count={1000} factor={4} saturation={0.5} fade speed={0.5} />
-      <HeroPlanet />
-      <FloatingSpores count={150} />
+      <Stars
+        radius={90}
+        depth={60}
+        count={tier(mobile, 400, 1000)}
+        factor={4}
+        saturation={0.5}
+        fade
+        speed={0.5}
+      />
+      <HeroPlanet segments={tier(mobile, 48, 128)} />
+      <FloatingSpores count={tier(mobile, 60, 150)} />
     </>
   );
 }
 
 export function HeroScene({ className = '' }: { className?: string }) {
+  const mobile = useIsMobile();
+
   return (
     <div className={className}>
-      <Canvas
-        camera={{ position: [0, 0, 10], fov: 50 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 1.5]}
-      >
+      <AdaptiveCanvas camera={{ position: [0, 0, 10], fov: 50 }} gl={{ alpha: true }} maxDpr={1.5}>
         <Suspense fallback={null}>
-          <Scene />
+          <Scene mobile={mobile} />
         </Suspense>
-      </Canvas>
+      </AdaptiveCanvas>
     </div>
   );
 }

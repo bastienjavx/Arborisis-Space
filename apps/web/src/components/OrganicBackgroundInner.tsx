@@ -1,11 +1,13 @@
 'use client';
 
 import { useRef, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
+import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
+import { tier, useIsMobile } from '@/lib/device';
 
-function NoyauMonde() {
+function NoyauMonde({ segments }: { segments: number }) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   useFrame((state) => {
@@ -17,7 +19,7 @@ function NoyauMonde() {
 
   return (
     <mesh ref={meshRef} scale={1.8}>
-      <sphereGeometry args={[1, 64, 64]} />
+      <sphereGeometry args={[1, segments, segments]} />
       <MeshDistortMaterial
         color="#0a7a47"
         emissive="#0a9a56"
@@ -75,12 +77,12 @@ function SporeField({ count = 300, radius = 8, color = '#16bf6c' }) {
   );
 }
 
-function FloatingOrbs() {
+function FloatingOrbs({ count }: { count: number }) {
   const groupRef = useRef<THREE.Group>(null);
 
   const orbs = useMemo(
     () =>
-      Array.from({ length: 12 }).map((_, i) => ({
+      Array.from({ length: count }).map((_, i) => ({
         id: i,
         position: [
           (Math.random() - 0.5) * 10,
@@ -92,7 +94,7 @@ function FloatingOrbs() {
         offset: Math.random() * Math.PI * 2,
         color: i % 3 === 0 ? '#7b66f0' : i % 3 === 1 ? '#e0a93f' : '#16bf6c',
       })),
-    [],
+    [count],
   );
 
   useFrame((state) => {
@@ -117,22 +119,24 @@ function FloatingOrbs() {
   );
 }
 
-function Scene() {
+function Scene({ mobile }: { mobile: boolean }) {
   return (
     <>
       <ambientLight intensity={0.3} color="#7eecae" />
       <pointLight position={[5, 5, 5]} intensity={0.8} color="#7b66f0" />
       <pointLight position={[-5, -3, 4]} intensity={0.5} color="#16bf6c" />
-      <NoyauMonde />
-      <SporeField count={400} radius={7} color="#16bf6c" />
-      <SporeField count={200} radius={5} color="#7b66f0" />
-      <SporeField count={150} radius={9} color="#e0a93f" />
-      <FloatingOrbs />
+      <NoyauMonde segments={tier(mobile, 24, 64)} />
+      <SporeField count={tier(mobile, 140, 400)} radius={7} color="#16bf6c" />
+      <SporeField count={tier(mobile, 70, 200)} radius={5} color="#7b66f0" />
+      <SporeField count={tier(mobile, 50, 150)} radius={9} color="#e0a93f" />
+      <FloatingOrbs count={tier(mobile, 6, 12)} />
     </>
   );
 }
 
 export function OrganicBackgroundInner() {
+  const mobile = useIsMobile();
+
   return (
     <div
       style={{
@@ -142,15 +146,11 @@ export function OrganicBackgroundInner() {
         pointerEvents: 'none',
       }}
     >
-      <Canvas
-        camera={{ position: [0, 0, 6], fov: 60 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 1.5]}
-      >
+      <AdaptiveCanvas camera={{ position: [0, 0, 6], fov: 60 }} gl={{ alpha: true }} maxDpr={1.5}>
         <Suspense fallback={null}>
-          <Scene />
+          <Scene mobile={mobile} />
         </Suspense>
-      </Canvas>
+      </AdaptiveCanvas>
     </div>
   );
 }
