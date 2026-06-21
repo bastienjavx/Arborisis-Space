@@ -7,7 +7,9 @@ import { RESOURCE_TYPES, ResourceType, type ResourceState } from '@arborisis/sha
 import { FiShield, FiZap } from 'react-icons/fi';
 import { formatNumber, resourceLabel } from '@/lib/format';
 import { RESOURCE_VISUALS } from '@/lib/resourceVisuals';
+import { codexId } from '@/lib/codex';
 import { AnimatedCounter } from './AnimatedCounter';
+import { WikiPopover } from './WikiPopover';
 
 /**
  * Barre de ressources avec accumulation fluide côté client (extrapolation de la
@@ -61,7 +63,9 @@ export function ResourceBar({
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-canopy-100/38">
-                  {resourceLabel(r)}
+                  <WikiPopover entryId={codexId.resource(r)} underline={false}>
+                    {resourceLabel(r)}
+                  </WikiPopover>
                 </span>
                 <span
                   className={full ? 'font-semibold text-sap-400' : 'font-semibold text-canopy-50'}

@@ -22,6 +22,8 @@ import { usePlanetSelection } from '@/components/PlanetContext';
 import { ResourceBar } from '@/components/ResourceBar';
 import { ResourceCost } from '@/components/ResourceCost';
 import { QuantityControl } from '@/components/QuantityControl';
+import { WikiPopover } from '@/components/WikiPopover';
+import { codexId } from '@/lib/codex';
 import { ApiError } from '@/lib/api';
 import { formatDuration, formatNumber } from '@/lib/format';
 import {
@@ -188,7 +190,9 @@ export default function FleetsPage() {
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="truncate text-sm text-canopy-50/85">{ship.name}</h3>
+                      <h3 className="truncate text-sm text-canopy-50/85">
+                        <WikiPopover entryId={codexId.ship(ship.type)}>{ship.name}</WikiPopover>
+                      </h3>
                       <span className="text-[10px] text-canopy-300/55">
                         {ship.available} dispo.
                       </span>
@@ -309,7 +313,9 @@ export default function FleetsPage() {
                     <div key={type} className="flex items-center gap-3 px-3 py-3">
                       <FiNavigation className="h-4 w-4 text-spore-400/55" aria-hidden="true" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs text-canopy-100/70">{ship.name}</p>
+                        <p className="truncate text-xs text-canopy-100/70">
+                        <WikiPopover entryId={codexId.ship(type)}>{ship.name}</WikiPopover>
+                      </p>
                         <p className="mt-0.5 text-[10px] text-canopy-100/30">
                           {ship.available} disponibles
                         </p>
@@ -425,7 +431,9 @@ export default function FleetsPage() {
                     <div key={type} className="flex items-center gap-3 px-3 py-3">
                       <FiTruck className="h-4 w-4 text-spore-400/55" aria-hidden="true" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs text-canopy-100/70">{ship.name}</p>
+                        <p className="truncate text-xs text-canopy-100/70">
+                        <WikiPopover entryId={codexId.ship(type)}>{ship.name}</WikiPopover>
+                      </p>
                         <p className="mt-0.5 text-[10px] text-canopy-100/30">
                           {ship.available} disponibles · charge {ship.cargo}
                         </p>

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { UserRole } from '@arborisis/shared';
 import {
   FiAward,
+  FiBookOpen,
   FiUsers,
   FiBarChart2,
   FiChevronDown,
@@ -46,6 +47,7 @@ const LINKS = [
   { href: '/reports', label: 'Rapports', icon: FiFileText },
   { href: '/leaderboard', label: 'Classement', icon: FiBarChart2 },
   { href: '/achievements', label: 'Succès', icon: FiAward },
+  { href: '/codex', label: 'Codex', icon: FiBookOpen },
   { href: '/profile', label: 'Profil', icon: FiUser },
 ] as const;
 

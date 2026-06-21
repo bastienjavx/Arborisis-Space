@@ -9,6 +9,8 @@ import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { ResourceBar } from '@/components/ResourceBar';
 import { ResourceCost } from '@/components/ResourceCost';
+import { WikiPopover } from '@/components/WikiPopover';
+import { codexId } from '@/lib/codex';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
 import { formatDuration } from '@/lib/format';
@@ -164,7 +166,11 @@ export default function ResearchPage() {
                     <FiShare2 className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm text-canopy-50/90">{research.name}</h3>
+                    <h3 className="truncate text-sm text-canopy-50/90">
+                      <WikiPopover entryId={codexId.research(research.type)}>
+                        {research.name}
+                      </WikiPopover>
+                    </h3>
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">
                       {research.description}
                     </p>

@@ -8,6 +8,8 @@ import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { ResourceBar } from '@/components/ResourceBar';
 import { ResourceCost } from '@/components/ResourceCost';
+import { WikiPopover } from '@/components/WikiPopover';
+import { codexId } from '@/lib/codex';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
 import { formatDuration, formatNumber } from '@/lib/format';
@@ -170,7 +172,11 @@ export default function BuildingsPage() {
                     <FiLayers className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm text-canopy-50/90">{building.name}</h3>
+                    <h3 className="truncate text-sm text-canopy-50/90">
+                      <WikiPopover entryId={codexId.building(building.type)}>
+                        {building.name}
+                      </WikiPopover>
+                    </h3>
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">
                       {building.description}
                     </p>
