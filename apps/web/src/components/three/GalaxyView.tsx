@@ -48,7 +48,13 @@ function Star({ star }: { star: StarProfile }) {
           depthWrite={false}
         />
       </mesh>
-      <pointLight position={[0, 0, 0]} intensity={2.4} color={star.light} distance={40} decay={1.5} />
+      <pointLight
+        position={[0, 0, 0]}
+        intensity={2.4}
+        color={star.light}
+        distance={40}
+        decay={1.5}
+      />
     </group>
   );
 }
@@ -134,12 +140,7 @@ function OrbitBody({ slot, orbit, selected, onSelect }: OrbitBodyProps) {
         {selected && (
           <mesh rotation={[Math.PI / 2, 0, 0]} scale={size}>
             <ringGeometry args={[2.4, 2.7, 48]} />
-            <meshBasicMaterial
-              color="#7eecae"
-              transparent
-              opacity={0.7}
-              side={THREE.DoubleSide}
-            />
+            <meshBasicMaterial color="#7eecae" transparent opacity={0.7} side={THREE.DoubleSide} />
           </mesh>
         )}
       </group>

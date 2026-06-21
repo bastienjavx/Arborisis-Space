@@ -238,14 +238,17 @@ function ProceduralPlanet({ profile }: { profile: PlanetProfile }) {
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
           uniforms={atmoUniforms}
-          vertexShader={/* glsl */ `
+          vertexShader={
+            /* glsl */ `
             varying vec3 vN;
             void main(){
               vN = normalize(normalMatrix * normal);
               gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
             }
-          `}
-          fragmentShader={/* glsl */ `
+          `
+          }
+          fragmentShader={
+            /* glsl */ `
             uniform vec3 uColor;
             uniform float uStrength;
             varying vec3 vN;
@@ -253,7 +256,8 @@ function ProceduralPlanet({ profile }: { profile: PlanetProfile }) {
               float f = pow(1.0 - abs(vN.z), 2.4);
               gl_FragColor = vec4(uColor, f * uStrength * 0.6);
             }
-          `}
+          `
+          }
         />
       </mesh>
 
