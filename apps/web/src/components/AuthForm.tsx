@@ -136,11 +136,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
         />
         <div className="absolute inset-0 bg-bark-950/30" />
         <div className="absolute inset-x-12 bottom-14 mycelium-panel p-8 backdrop-blur-xl">
+          <div className="mycelium-rule mb-6 w-24" aria-hidden="true" />
           <p className="section-kicker">Civilisation organique persistante</p>
-          <h2 className="mt-3 text-4xl text-canopy-50">Arborisis</h2>
-          <p className="mt-3 max-w-lg text-sm leading-7 text-canopy-100/60">
-            Reliez vos mondes, cultivez leurs ressources et faites évoluer un empire vivant à
-            travers la Convergence.
+          <h2 className="display mt-3 text-5xl text-canopy-50">Arborisis</h2>
+          <p className="mt-4 max-w-lg text-sm leading-7 text-canopy-100/60">
+            Reliez vos mondes, cultivez leurs ressources et faites évoluer un empire{' '}
+            <span className="italic text-canopy-300">vivant</span> à travers la Convergence.
           </p>
         </div>
       </div>
@@ -162,7 +163,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
             Arborisis
           </Link>
           <h1 className="mt-4 text-4xl text-canopy-50 sm:text-5xl">
-            {isRegister ? 'Créer votre civilisation' : 'Connexion'}
+            {isRegister ? (
+              <>
+                Créer votre <span className="italic text-canopy-300">civilisation</span>
+              </>
+            ) : (
+              'Connexion'
+            )}
           </h1>
           <p className="mt-3 text-sm text-canopy-100/50">
             {isRegister
@@ -356,7 +363,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                             className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${
                               race === cfg.type
                                 ? 'border-canopy-500 bg-canopy-500/20 text-canopy-100'
-                                : 'border-bark-700 bg-bark-900/50 text-canopy-100/70 hover:border-canopy-500/50'
+                                : 'border-canopy-700/20 bg-bark-900/50 text-canopy-100/70 hover:border-canopy-500/50'
                             }`}
                           >
                             <span className="block font-semibold">{cfg.name}</span>

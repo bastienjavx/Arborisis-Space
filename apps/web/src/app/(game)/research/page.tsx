@@ -47,7 +47,11 @@ export default function ResearchPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Mycélium de recherche"
+        title={
+          <>
+            Mycélium de <span className="italic text-spore-400">recherche</span>
+          </>
+        }
         subtitle="Recherchez et développez les connaissances du réseau mycélien."
       >
         <div className="flex flex-wrap gap-2">
@@ -127,7 +131,12 @@ export default function ResearchPage() {
       </AnimatePresence>
 
       <section className="mycelium-panel overflow-hidden">
-        <div className="border-b border-canopy-700/15 px-5 py-4">
+        <div className="flex items-center gap-2.5 border-b border-canopy-700/15 px-5 py-4">
+          <span
+            className="h-1.5 w-1.5 rotate-45 bg-spore-400/70"
+            style={{ boxShadow: '0 0 10px rgba(155,140,255,0.5)' }}
+            aria-hidden="true"
+          />
           <h2 className="section-title">Technologies</h2>
         </div>
         <div className="hidden grid-cols-[minmax(16rem,1.6fr)_6rem_minmax(13rem,1.1fr)_7rem_minmax(11rem,1fr)_9rem] gap-4 border-b border-canopy-700/15 bg-spore-500/[0.02] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-canopy-100/32 xl:grid">

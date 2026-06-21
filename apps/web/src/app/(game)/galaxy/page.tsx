@@ -250,7 +250,14 @@ export default function GalaxyPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Galaxie vivante" subtitle="Explorez, colonisez et étendez le mycélium.">
+      <PageHeader
+        title={
+          <>
+            Galaxie <span className="italic text-canopy-300">vivante</span>
+          </>
+        }
+        subtitle="Explorez, colonisez et étendez le mycélium."
+      >
         <div className="flex flex-wrap items-end justify-end gap-2">
           <div className="flex items-end gap-1 rounded-xl border border-canopy-700/20 bg-bark-950/45 p-1.5">
             <AnimatedButton

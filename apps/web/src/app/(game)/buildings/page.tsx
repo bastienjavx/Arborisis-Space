@@ -47,7 +47,11 @@ export default function BuildingsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Structures organiques"
+        title={
+          <>
+            Structures <span className="italic text-canopy-300">organiques</span>
+          </>
+        }
         subtitle="Développez les organes vivants de votre mycélium pour étendre sa portée et sa résilience."
       >
         <div className="flex flex-wrap gap-2">
@@ -134,7 +138,12 @@ export default function BuildingsPage() {
       </AnimatePresence>
 
       <section className="mycelium-panel overflow-hidden">
-        <div className="border-b border-canopy-700/15 px-5 py-4">
+        <div className="flex items-center gap-2.5 border-b border-canopy-700/15 px-5 py-4">
+          <span
+            className="h-1.5 w-1.5 rotate-45 bg-canopy-400/70"
+            style={{ boxShadow: '0 0 10px rgba(63,217,137,0.5)' }}
+            aria-hidden="true"
+          />
           <h2 className="section-title">Catalogue des structures</h2>
         </div>
 
