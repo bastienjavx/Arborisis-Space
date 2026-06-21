@@ -302,7 +302,13 @@ export default function PlayPage() {
               Synchronisation active
             </span>
           </div>
-          <PlanetView className="absolute inset-0 h-full w-full pt-14" />
+          <PlanetView
+            className="absolute inset-0 h-full w-full pt-14"
+            galaxy={planet.coordinates.galaxy}
+            system={planet.coordinates.system}
+            position={planet.coordinates.position}
+            planetType={planet.planetType}
+          />
           <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_90px_rgba(0,0,0,0.55)]" />
         </motion.section>
       </div>

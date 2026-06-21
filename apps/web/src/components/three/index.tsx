@@ -3,6 +3,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import type { GalaxyViewProps } from './GalaxyView';
+import type { PlanetViewProps } from './PlanetView';
 import type { FleetViewProps } from './FleetView';
 
 function Spinner() {
@@ -63,10 +64,10 @@ export function HeroScene({ className }: { className?: string }) {
   );
 }
 
-export function PlanetView({ className }: { className?: string }) {
+export function PlanetView(props: PlanetViewProps) {
   return (
     <ThreeErrorBoundary>
-      <PlanetViewInner className={className} />
+      <PlanetViewInner {...props} />
     </ThreeErrorBoundary>
   );
 }
