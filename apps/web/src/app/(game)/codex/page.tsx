@@ -1,6 +1,7 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FiSearch, FiX } from 'react-icons/fi';
@@ -269,6 +270,8 @@ function CodexContent() {
     return entry?.category ?? 'all';
   });
   const [selectedId, setSelectedId] = useState<string | undefined>(initialEntry ?? undefined);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const results = useMemo(() => {
     const base = searchCodex(query);
@@ -352,20 +355,24 @@ function CodexContent() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {selected && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[65] bg-bark-950/70 backdrop-blur-sm"
-              onClick={() => setSelectedId(undefined)}
-            />
-            <EntryDetail entry={selected} onClose={() => setSelectedId(undefined)} />
-          </>
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {selected && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[65] bg-bark-950/70 backdrop-blur-sm"
+                  onClick={() => setSelectedId(undefined)}
+                />
+                <EntryDetail entry={selected} onClose={() => setSelectedId(undefined)} />
+              </>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }
