@@ -31,7 +31,7 @@ export function StatCard({ label, value, hint, icon, delay = 0, color = 'green' 
         {icon && <span className="text-lg">{icon}</span>}
         <span className="text-[10px] font-semibold uppercase tracking-[0.16em]">{label}</span>
       </div>
-      <div className="text-xl font-semibold tracking-[-0.025em]">{value}</div>
+      <div className="tabular text-xl font-semibold tracking-[-0.025em]">{value}</div>
       {hint && <div className="mt-0.5 text-[11px] text-canopy-100/35">{hint}</div>}
     </motion.div>
   );

@@ -3,12 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-display: Georgia, 'Times New Roman', serif;
+  /* Les polices réelles arrivent via next/font (Fraunces / Hanken Grotesk) ; les
+     pile de secours restent ici pour le premier rendu. */
+  --font-sans-fallback: system-ui, -apple-system, sans-serif;
+  --font-display-fallback: Georgia, 'Times New Roman', serif;
   --surface: rgba(6, 15, 11, 0.86);
   --surface-soft: rgba(10, 24, 17, 0.72);
   --line: rgba(142, 183, 113, 0.2);
   --line-strong: rgba(188, 209, 145, 0.34);
+  /* Accent or « sève » réservé à la ponctuation et aux moments précieux. */
+  --sap: #f5c96b;
 }
 
 @layer base {
@@ -19,16 +23,37 @@
 
   body {
     @apply bg-bark-950 text-canopy-50/90 antialiased;
+    font-family: var(--font-sans), var(--font-sans-fallback);
     background-color: #030906;
     background-attachment: fixed;
+  }
+
+  /* Données chiffrées : chasse fixe pour des colonnes stables (jeu de gestion). */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 
   h1,
   h2,
   h3,
   .font-display {
-    font-family: var(--font-display);
+    font-family: var(--font-display), var(--font-display-fallback);
     font-weight: 400;
+    font-optical-sizing: auto;
+    /* SOFT adoucit les terminaisons → lecture « organique » ; WONK gardé à 0
+       pour rester premium plutôt que fantaisiste. */
+    font-variation-settings:
+      'SOFT' 45,
+      'WONK' 0;
+    letter-spacing: -0.025em;
+  }
+
+  /* Accessibilité — focus clavier visible et homogène. */
+  :focus-visible {
+    outline: 2px solid rgba(126, 236, 174, 0.7);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
 
   ::selection {
@@ -66,12 +91,27 @@
   .btn-primary {
     @apply btn border text-canopy-50 shadow-lg;
     border-color: rgba(167, 197, 119, 0.45);
-    background: rgba(65, 93, 46, 0.68);
-    box-shadow: inset 0 0 24px rgba(142, 236, 174, 0.05), 0 12px 28px -18px #000;
+    background: linear-gradient(180deg, rgba(79, 112, 57, 0.82), rgba(58, 84, 41, 0.7));
+    box-shadow:
+      inset 0 1px rgba(199, 220, 151, 0.25),
+      inset 0 0 24px rgba(142, 236, 174, 0.06),
+      0 14px 30px -18px #000;
+    transition:
+      border-color 0.2s,
+      background 0.2s,
+      transform 0.2s,
+      box-shadow 0.2s;
   }
   .btn-primary:hover {
-    border-color: rgba(199, 220, 151, 0.7);
-    background: rgba(79, 112, 57, 0.82);
+    border-color: rgba(199, 220, 151, 0.75);
+    background: linear-gradient(180deg, rgba(90, 126, 64, 0.92), rgba(66, 95, 47, 0.82));
+    box-shadow:
+      inset 0 1px rgba(199, 220, 151, 0.3),
+      inset 0 0 30px rgba(142, 236, 174, 0.1),
+      0 18px 40px -20px #000;
+  }
+  .btn-primary:active {
+    transform: translateY(1px);
   }
   .btn-ghost {
     @apply btn border bg-bark-950/20 text-canopy-100/75 hover:text-canopy-100;
@@ -105,8 +145,20 @@
 
   .section-title {
     @apply text-xl normal-case tracking-[-0.015em] text-canopy-100/80;
-    font-family: var(--font-display);
+    font-family: var(--font-display), var(--font-display-fallback);
     font-weight: 400;
+  }
+
+  /* Titre signature : Fraunces en grand format optique, courbes adoucies. */
+  .display {
+    font-family: var(--font-display), var(--font-display-fallback);
+    font-weight: 400;
+    font-optical-sizing: auto;
+    font-variation-settings:
+      'SOFT' 55,
+      'WONK' 0;
+    line-height: 0.95;
+    letter-spacing: -0.045em;
   }
 
   .mycelium-panel {
@@ -114,12 +166,39 @@
     border: 1px solid var(--line);
     border-radius: 0.75rem;
     background: var(--surface);
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.015), 0 24px 72px -54px #000;
+    box-shadow:
+      inset 0 1px rgba(255, 255, 255, 0.015),
+      0 24px 72px -54px #000;
   }
 
   .mycelium-divider {
     height: 1px;
     background: rgba(142, 183, 113, 0.18);
+  }
+
+  /* Signature : trait racinaire qui s'estompe vers les bords, ponctué d'un
+     nœud lumineux central — le motif mycélien d'Arborisis. */
+  .mycelium-rule {
+    position: relative;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(142, 183, 113, 0.28) 18%,
+      rgba(142, 183, 113, 0.28) 82%,
+      transparent
+    );
+  }
+  .mycelium-rule::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 4px;
+    height: 4px;
+    transform: translate(-50%, -50%) rotate(45deg);
+    background: rgba(126, 236, 174, 0.55);
+    box-shadow: 0 0 12px rgba(126, 236, 174, 0.5);
   }
 }
 
@@ -259,5 +338,17 @@
 @layer utilities {
   .animate-float {
     animation: float linear infinite;
+  }
+}
+
+/* Respect des préférences système — coupe animations et parallaxe. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

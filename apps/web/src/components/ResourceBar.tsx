@@ -47,7 +47,7 @@ export function ResourceBar({
 
   return (
     <div
-      className={`${compact ? 'grid grid-cols-6 gap-0 overflow-visible' : 'flex gap-2 overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible'} text-sm ${className}`}
+      className={`tabular ${compact ? 'grid grid-cols-6 gap-0 overflow-visible' : 'flex gap-2 overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible'} text-sm ${className}`}
     >
       {RESOURCE_TYPES.map((r) => {
         const full = display[r] >= resources.capacity[r];

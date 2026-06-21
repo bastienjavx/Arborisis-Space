@@ -178,8 +178,9 @@ export default function LandingPage() {
               <p className="mb-6 text-xs font-semibold uppercase tracking-[0.28em] text-canopy-300/80">
                 Stratégie spatiale organique
               </p>
-              <h1 className="font-display max-w-xl text-5xl leading-[0.98] tracking-[-0.055em] text-white sm:text-7xl lg:text-[5.5rem]">
-                Cultivez un empire <span className="text-canopy-300">vivant.</span>
+              <h1 className="display max-w-xl text-[3.25rem] text-white sm:text-7xl lg:text-[5.75rem] [text-wrap:balance]">
+                Cultivez un empire <span className="italic text-canopy-300">vivant</span>
+                <span style={{ color: 'var(--sap)' }}>.</span>
               </h1>
               <p className="mt-7 max-w-lg text-base leading-7 text-canopy-100/65 sm:text-lg">
                 Faites germer votre empire sur des mondes vivants, développez des technologies
@@ -194,6 +195,10 @@ export default function LandingPage() {
                 </Link>
               </div>
               <div className="mt-12 flex items-center gap-4 text-xs uppercase tracking-[0.2em] text-canopy-100/35">
+                <span
+                  className="h-1.5 w-1.5 rotate-45 bg-canopy-400/70"
+                  style={{ boxShadow: '0 0 12px rgba(63,217,137,0.6)' }}
+                />
                 <span className="h-px w-12 bg-canopy-500/40" />
                 Une galaxie vivante vous attend
               </div>
@@ -213,8 +218,8 @@ export default function LandingPage() {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-canopy-400">
                   Les piliers du vivant
                 </p>
-                <h2 className="text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
-                  Votre empire est un écosystème.
+                <h2 className="text-3xl tracking-[-0.04em] sm:text-5xl">
+                  Votre empire est un <span className="italic text-canopy-300">écosystème</span>.
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-6 text-canopy-100/50">
@@ -244,10 +249,16 @@ export default function LandingPage() {
                     <div className="absolute inset-0 bg-bark-950/20" />
                   </div>
                   <div className="p-6 sm:p-7">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-canopy-100/35">
-                      0{index + 1} · {item.eyebrow}
-                    </p>
-                    <h3 className={`mt-3 text-2xl font-semibold ${item.accent}`}>{item.title}</h3>
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-display text-sm italic text-canopy-100/30">
+                        0{index + 1}
+                      </span>
+                      <span className="h-px w-5 bg-canopy-500/30" />
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-canopy-100/40">
+                        {item.eyebrow}
+                      </span>
+                    </div>
+                    <h3 className={`mt-3 font-display text-3xl ${item.accent}`}>{item.title}</h3>
                     <p className="mt-3 text-sm leading-6 text-canopy-100/55">{item.description}</p>
                   </div>
                 </motion.article>
@@ -266,10 +277,7 @@ export default function LandingPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-canopy-400">
                 Jeu de stratégie multijoueur
               </p>
-              <h2
-                id="experience-title"
-                className="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl"
-              >
+              <h2 id="experience-title" className="mt-4 text-3xl tracking-[-0.04em] sm:text-5xl">
                 Bâtissez, évoluez, survivez.
               </h2>
               <p className="mt-6 text-base leading-7 text-canopy-100/55">
@@ -280,10 +288,14 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-12 grid gap-px overflow-hidden rounded-xl border border-canopy-700/20 bg-canopy-700/20 md:grid-cols-3">
-              {EXPERIENCE.map((item, index) => (
+              {EXPERIENCE.map((item) => (
                 <article key={item.title} className="bg-bark-950 p-7 sm:p-8">
-                  <span className="text-xs font-semibold text-canopy-400">0{index + 1}</span>
-                  <h3 className="mt-5 text-xl font-semibold text-canopy-100">{item.title}</h3>
+                  <span
+                    className="inline-block h-1.5 w-1.5 rotate-45 bg-canopy-400/70"
+                    style={{ boxShadow: '0 0 10px rgba(63,217,137,0.6)' }}
+                    aria-hidden="true"
+                  />
+                  <h3 className="mt-5 font-display text-2xl text-canopy-100">{item.title}</h3>
                   <p className="mt-3 text-sm leading-6 text-canopy-100/50">{item.description}</p>
                 </article>
               ))}
@@ -293,10 +305,7 @@ export default function LandingPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-canopy-400">
                 Questions fréquentes
               </p>
-              <h2
-                id="faq-title"
-                className="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl"
-              >
+              <h2 id="faq-title" className="mt-4 text-3xl tracking-[-0.04em] sm:text-4xl">
                 Découvrir Arborisis
               </h2>
               <dl className="mt-9 divide-y divide-canopy-700/20 border-y border-canopy-700/20">
@@ -325,11 +334,13 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.5 }}
           >
+            <div className="mycelium-rule mx-auto mb-8 w-32" aria-hidden="true" />
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-canopy-400">
               Commencer l'expansion
             </p>
-            <h2 className="mt-5 text-4xl font-semibold tracking-[-0.045em] sm:text-6xl">
-              Plantez la première graine.
+            <h2 className="mt-5 text-4xl tracking-[-0.045em] sm:text-6xl">
+              Plantez la première <span className="italic text-canopy-300">graine</span>
+              <span style={{ color: 'var(--sap)' }}>.</span>
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-canopy-100/55">
               Créez votre monde-noyau et prenez part à l'éveil d'une civilisation qui ne ressemble à
