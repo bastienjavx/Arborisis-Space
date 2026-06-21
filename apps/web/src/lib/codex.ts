@@ -260,7 +260,7 @@ const RESOURCE_SUMMARIES: Record<ResourceType, string> = {
   [ResourceType.BIOMASS]:
     'Matériau de construction primaire, tissé depuis la matière organique brute. Le socle de toute croissance.',
   [ResourceType.SAP]:
-    "Sang de la planète : fluide vital qui alimente et fait croître la plupart de vos structures.",
+    'Sang de la planète : fluide vital qui alimente et fait croître la plupart de vos structures.',
   [ResourceType.MINERALS]:
     'Matériau structurel avancé extrait des veines cristallines profondes des mondes.',
   [ResourceType.SPORES]:
@@ -307,7 +307,10 @@ function buildEntries(): CodexEntry[] {
       });
     }
     if (config.baseEnergyProduction) {
-      stats.push({ label: 'Énergie produite', value: `${formatNumber(config.baseEnergyProduction)}/h` });
+      stats.push({
+        label: 'Énergie produite',
+        value: `${formatNumber(config.baseEnergyProduction)}/h`,
+      });
     }
     if (config.baseEnergyConsumption) {
       stats.push({
@@ -491,7 +494,7 @@ function buildEntries(): CodexEntry[] {
     name: 'La Convergence Primordiale',
     Icon: FiBookOpen,
     accent: 'spore',
-    summary: "Aux origines : la grandeur des Tisserands et la Grande Fragmentation.",
+    summary: 'Aux origines : la grandeur des Tisserands et la Grande Fragmentation.',
     lore: UNIVERSE_ORIGIN,
     stats: [],
   });

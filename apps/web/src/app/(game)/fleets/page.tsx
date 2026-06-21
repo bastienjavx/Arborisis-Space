@@ -314,8 +314,8 @@ export default function FleetsPage() {
                       <FiNavigation className="h-4 w-4 text-spore-400/55" aria-hidden="true" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs text-canopy-100/70">
-                        <WikiPopover entryId={codexId.ship(type)}>{ship.name}</WikiPopover>
-                      </p>
+                          <WikiPopover entryId={codexId.ship(type)}>{ship.name}</WikiPopover>
+                        </p>
                         <p className="mt-0.5 text-[10px] text-canopy-100/30">
                           {ship.available} disponibles
                         </p>
@@ -432,8 +432,8 @@ export default function FleetsPage() {
                       <FiTruck className="h-4 w-4 text-spore-400/55" aria-hidden="true" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs text-canopy-100/70">
-                        <WikiPopover entryId={codexId.ship(type)}>{ship.name}</WikiPopover>
-                      </p>
+                          <WikiPopover entryId={codexId.ship(type)}>{ship.name}</WikiPopover>
+                        </p>
                         <p className="mt-0.5 text-[10px] text-canopy-100/30">
                           {ship.available} disponibles · charge {ship.cargo}
                         </p>

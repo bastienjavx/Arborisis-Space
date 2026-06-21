@@ -1,8 +1,8 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { AbsenceSummaryModal } from '@/components/AbsenceSummaryModal';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { EngagementFeedback } from '@/components/EngagementFeedback';
@@ -16,7 +16,6 @@ import { useMe } from '@/lib/queries';
 
 export function GameShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const { data: user, isLoading, isError } = useMe();
 
   useEffect(() => {
@@ -52,17 +51,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
             <EventBanner />
             <NearMissBanner />
           </div>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.25 }}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          {children}
         </main>
       </div>
     </PlanetProvider>

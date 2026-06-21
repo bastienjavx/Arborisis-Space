@@ -109,7 +109,9 @@ export function WikiPopover({
       onFocus={open}
       onBlur={close}
       className={`cursor-help rounded-sm outline-none transition-colors hover:text-canopy-50 focus-visible:ring-2 focus-visible:ring-canopy-400/50 ${
-        underline ? 'decoration-canopy-400/40 decoration-dotted underline-offset-[3px] hover:underline' : ''
+        underline
+          ? 'decoration-canopy-400/40 decoration-dotted underline-offset-[3px] hover:underline'
+          : ''
       } ${className}`}
     >
       {children}
@@ -120,7 +122,11 @@ export function WikiPopover({
               <motion.div
                 id={popoverId}
                 role="tooltip"
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: coords.placement === 'top' ? 6 : -6, scale: 0.98 }}
+                initial={
+                  reduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, y: coords.placement === 'top' ? 6 : -6, scale: 0.98 }
+                }
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}

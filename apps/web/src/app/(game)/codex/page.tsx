@@ -31,7 +31,13 @@ function MyceliumRail({
   active: Filter;
   onSelect: (filter: Filter) => void;
 }) {
-  const items: { key: Filter; label: string; Icon?: (typeof CODEX_CATEGORIES)[number]['Icon']; accent: 'canopy' | 'sap' | 'spore'; count: number }[] = [
+  const items: {
+    key: Filter;
+    label: string;
+    Icon?: (typeof CODEX_CATEGORIES)[number]['Icon'];
+    accent: 'canopy' | 'sap' | 'spore';
+    count: number;
+  }[] = [
     { key: 'all', label: 'Tout le savoir', accent: 'canopy', count: CODEX_ENTRIES.length },
     ...CODEX_CATEGORIES.map((category) => ({
       key: category.key as Filter,
@@ -66,9 +72,7 @@ function MyceliumRail({
               >
                 <span
                   className={`relative z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full border transition ${
-                    isActive
-                      ? `${accent.node} ${accent.glow}`
-                      : 'border-canopy-700/30 bg-bark-950'
+                    isActive ? `${accent.node} ${accent.glow}` : 'border-canopy-700/30 bg-bark-950'
                   }`}
                 >
                   {Icon ? (
@@ -131,13 +135,16 @@ function EntryCard({ entry, onOpen }: { entry: CodexEntry; onOpen: () => void })
           <ResourceCost cost={entry.cost} />
         ) : entry.stats[0] ? (
           <span className="text-[11px] text-canopy-100/40">
-            {entry.stats[0].label} · <span className="text-canopy-100/65">{entry.stats[0].value}</span>
+            {entry.stats[0].label} ·{' '}
+            <span className="text-canopy-100/65">{entry.stats[0].value}</span>
           </span>
         ) : (
           <span />
         )}
         {entry.badge && (
-          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-wide ${accent.chip}`}>
+          <span
+            className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-wide ${accent.chip}`}
+          >
             {entry.badge.split(' · ')[0]}
           </span>
         )}
@@ -160,8 +167,13 @@ function EntryDetail({ entry, onClose }: { entry: CodexEntry; onClose: () => voi
       aria-label={entry.name}
     >
       <div className="flex items-start gap-4 border-b border-canopy-700/15 px-6 py-5">
-        <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border ${accent.node} ${accent.glow}`}>
-          <entry.Icon className={`h-6 w-6 ${entry.iconClassName ?? accent.text}`} aria-hidden="true" />
+        <span
+          className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border ${accent.node} ${accent.glow}`}
+        >
+          <entry.Icon
+            className={`h-6 w-6 ${entry.iconClassName ?? accent.text}`}
+            aria-hidden="true"
+          />
         </span>
         <div className="min-w-0 flex-1 pt-0.5">
           <span className="text-[10px] uppercase tracking-[0.18em] text-canopy-100/35">
@@ -171,7 +183,9 @@ function EntryDetail({ entry, onClose }: { entry: CodexEntry; onClose: () => voi
             {entry.name}
           </h2>
           {entry.badge && (
-            <span className={`mt-2 inline-block rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-wide ${accent.chip}`}>
+            <span
+              className={`mt-2 inline-block rounded-full border px-2.5 py-0.5 text-[10px] uppercase tracking-wide ${accent.chip}`}
+            >
               {entry.badge}
             </span>
           )}
@@ -320,17 +334,16 @@ function CodexContent() {
         {/* Entrées */}
         <div>
           {results.length > 0 ? (
-            <motion.div
-              layout
-              className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
-            >
+            <motion.div layout className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {results.map((entry) => (
                 <EntryCard key={entry.id} entry={entry} onOpen={() => setSelectedId(entry.id)} />
               ))}
             </motion.div>
           ) : (
             <div className="rounded-xl border border-canopy-700/15 bg-bark-950/40 px-6 py-16 text-center">
-              <p className="text-sm text-canopy-100/50">Aucun fragment ne correspond à « {query} ».</p>
+              <p className="text-sm text-canopy-100/50">
+                Aucun fragment ne correspond à « {query} ».
+              </p>
               <p className="mt-1 text-xs text-canopy-100/30">
                 Essayez un autre mot, ou explorez une catégorie du rail.
               </p>
