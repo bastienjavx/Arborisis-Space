@@ -15,6 +15,7 @@ import type {
   FleetOverview,
   ExpeditionView,
   ExpeditionReportView,
+  IncomingAttackView,
   JobView,
   ListUniversesView,
   NpcEncounterView,
@@ -22,7 +23,9 @@ import type {
   PlanetSummary,
   PublicProfile,
   PveMissionView,
+  PveReportView,
   PvpMissionView,
+  PvpReportView,
   RenamePlanetDto,
   ResearchOverview,
   ResourceTransferMissionView,
@@ -273,12 +276,15 @@ export const api = {
   attackEncounter: (id: string, body: AttackEncounterDto) =>
     request<PveMissionView>(`/pve/encounters/${id}/attack`, { method: 'POST', body }),
   pveMissions: () => request<PveMissionView[]>('/pve/missions'),
+  pveReports: () => request<PveReportView[]>('/pve/reports'),
 
   // ── PvP ──
   spyPlanet: (body: SpyPlanetDto) => request<PvpMissionView>('/pvp/spy', { method: 'POST', body }),
   attackPlanet: (body: AttackPlanetDto) =>
     request<PvpMissionView>('/pvp/attack', { method: 'POST', body }),
   pvpMissions: () => request<PvpMissionView[]>('/pvp/missions'),
+  pvpReports: () => request<PvpReportView[]>('/pvp/reports'),
+  incomingAttacks: () => request<IncomingAttackView[]>('/pvp/incoming'),
 
   // ── Classement / événements / succès ──
   leaderboard: () => request<LeaderboardEntry[]>('/leaderboard'),

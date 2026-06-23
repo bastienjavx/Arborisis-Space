@@ -1,10 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   BUILDINGS,
   PLANET_SPECIALIZATIONS,
-  PlanetSpecialization,
   SPECIALIZATION_CONFIGS,
   type BuildingType,
 } from '@arborisis/shared';
@@ -12,13 +12,31 @@ import { useState } from 'react';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ResourceBar } from '@/components/ResourceBar';
-import { keys, usePlanetDetail, useRenamePlanet, useSetSpecialization } from '@/lib/queries';
+import {
+  keys,
+  useExpeditions,
+  usePlanetDetail,
+  usePveMissions,
+  usePvpMissions,
+  useRenamePlanet,
+  useSetSpecialization,
+} from '@/lib/queries';
 import { PlanetView } from '@/components/three';
 import { PageHeader } from '@/components/PageHeader';
 import { QuestTracker } from '@/components/QuestTracker';
 import { StatCard } from '@/components/StatCard';
 import { motion } from 'framer-motion';
-import { FiCpu, FiEdit3, FiLayers, FiLock, FiShield, FiSun } from 'react-icons/fi';
+import {
+  FiAlertTriangle,
+  FiCpu,
+  FiCrosshair,
+  FiEdit3,
+  FiLayers,
+  FiLock,
+  FiNavigation,
+  FiShield,
+  FiSun,
+} from 'react-icons/fi';
 
 const SPEC_ICONS: Record<
   string,
@@ -90,6 +108,9 @@ export default function PlayPage() {
   const { selectedId } = usePlanetSelection();
   const { data: planet, isLoading } = usePlanetDetail(selectedId);
   const specialize = useSetSpecialization(planet?.id ?? '');
+  const { data: expeditions } = useExpeditions();
+  const { data: pvpMissions } = usePvpMissions();
+  const { data: pveMissions } = usePveMissions();
 
   if (isLoading || !planet) {
     return (
@@ -140,6 +161,61 @@ export default function PlayPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(25rem,0.8fr)_minmax(32rem,1.2fr)]">
         <div className="space-y-5">
           <QuestTracker />
+
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18 }}
+            className="mycelium-panel overflow-hidden"
+          >
+            <div className="border-b border-canopy-700/15 px-5 py-4">
+              <h2 className="section-title">Opérations actives</h2>
+            </div>
+            <div className="divide-y divide-canopy-700/10">
+              {[
+                {
+                  href: '/reports',
+                  label: 'Expéditions',
+                  count: expeditions?.length ?? 0,
+                  Icon: FiNavigation,
+                  color: 'text-canopy-300/70',
+                },
+                {
+                  href: '/pvp',
+                  label: 'Missions PvP',
+                  count: pvpMissions?.length ?? 0,
+                  Icon: FiCrosshair,
+                  color: 'text-red-300/70',
+                },
+                {
+                  href: '/pve',
+                  label: 'Raids PvE',
+                  count: pveMissions?.length ?? 0,
+                  Icon: FiAlertTriangle,
+                  color: 'text-sap-400/70',
+                },
+              ].map(({ href, label, count, Icon, color }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center gap-3 px-5 py-3 text-sm transition hover:bg-canopy-500/[0.035]"
+                >
+                  <span
+                    className={`grid h-8 w-8 place-items-center rounded-full border border-canopy-700/20 bg-bark-950/50 ${color}`}
+                  >
+                    <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  <span className="flex-1 text-canopy-100/70">{label}</span>
+                  <span
+                    className={`font-display text-lg ${count > 0 ? 'text-canopy-300' : 'text-canopy-100/25'}`}
+                  >
+                    {count}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </motion.section>
+
           <motion.section
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}

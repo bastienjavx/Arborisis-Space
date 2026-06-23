@@ -17,14 +17,16 @@ import { QuantityControl } from '@/components/QuantityControl';
 import { ResourceCost } from '@/components/ResourceCost';
 import { ApiError } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
-import { useAttackEncounter, useEncounters, useFleet, usePveMissions } from '@/lib/queries';
+import { useAttackEncounter, useEncounters, useFleet, usePveMissions, usePveReports } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiAlertTriangle,
+  FiCheckCircle,
   FiCircle,
   FiClock,
   FiCrosshair,
   FiFilter,
+  FiMinus,
   FiShield,
 } from 'react-icons/fi';
 
@@ -51,11 +53,23 @@ const TIER_LABELS: Record<TierFilter, string> = {
   elite: 'Élite',
 };
 
+const ENCOUNTER_NAMES_PVE: Record<NpcEncounterType, string> = Object.fromEntries(
+  Object.entries(NPC_ENCOUNTER_CONFIGS).map(([type, cfg]) => [type, cfg.name]),
+) as Record<NpcEncounterType, string>;
+
+function pveOutcomeStyle(outcome: string) {
+  if (outcome === 'SUCCESS') return { label: 'Victoire', cls: 'text-canopy-300', Icon: FiCheckCircle };
+  if (outcome === 'FAILURE') return { label: 'Défaite', cls: 'text-red-300', Icon: FiAlertTriangle };
+  if (outcome === 'DRAW') return { label: 'Nul', cls: 'text-sap-400', Icon: FiMinus };
+  return { label: '—', cls: 'text-canopy-100/30', Icon: FiMinus };
+}
+
 export default function PvePage() {
   const { selectedId } = usePlanetSelection();
   const { data: encounters, isLoading: loadingEncounters } = useEncounters();
   const { data: missions, isLoading: loadingMissions } = usePveMissions();
   const { data: fleet, isLoading: loadingFleet } = useFleet(selectedId);
+  const { data: history } = usePveReports();
   const [selectedEncounter, setSelectedEncounter] = useState<NpcEncounterView | null>(null);
   const [ships, setShips] = useState<Record<ShipType, number>>(
     Object.fromEntries(SHIP_TYPES.map((type) => [type, 0])) as Record<ShipType, number>,
@@ -387,6 +401,53 @@ export default function PvePage() {
                 )}
               </motion.article>
             ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mycelium-panel overflow-hidden">
+        <div className="border-b border-canopy-700/15 px-5 py-3">
+          <h2 className="section-title">Historique récent</h2>
+        </div>
+        {!history || history.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-canopy-100/40">Aucune anomalie terminée.</p>
+        ) : (
+          <div className="divide-y divide-canopy-700/10">
+            {history.slice(0, 10).map((report, index) => {
+              const { label, cls, Icon } = pveOutcomeStyle(report.result?.outcome ?? '');
+              return (
+                <motion.div
+                  key={report.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.035 }}
+                  className="grid gap-3 px-5 py-3.5 sm:grid-cols-[2rem_minmax(10rem,1fr)_6rem_1fr_8rem] sm:items-center"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-full border border-red-500/25 bg-red-500/[0.04] text-red-300/65">
+                    <FiAlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm text-canopy-100/75">
+                      {ENCOUNTER_NAMES_PVE[report.encounter.type as NpcEncounterType] ??
+                        report.encounter.type}
+                    </span>
+                    <span className="block text-[10px] text-canopy-100/30">
+                      Niveau {report.encounter.difficulty}
+                    </span>
+                  </span>
+                  <span className={`flex items-center gap-1.5 text-xs ${cls}`}>
+                    <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                    {label}
+                  </span>
+                  <span>
+                    <ResourceCost cost={report.encounter.rewards} />
+                  </span>
+                  <span className="text-[10px] text-canopy-100/30">
+                    {new Date(report.completedAt).toLocaleString('fr-FR')}
+                  </span>
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </section>

@@ -4,10 +4,20 @@ import { PvpMissionPhase, PvpMissionType, PvpOutcome, SHIPS, ShipType } from '@a
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { PageHeader } from '@/components/PageHeader';
 import { ResourceCost } from '@/components/ResourceCost';
-import { usePvpMissions } from '@/lib/queries';
+import { usePvpMissions, usePvpReports } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
-import { FiChevronDown, FiClock, FiCrosshair, FiEye, FiNavigation, FiShield } from 'react-icons/fi';
+import {
+  FiAlertTriangle,
+  FiCheckCircle,
+  FiChevronDown,
+  FiClock,
+  FiCrosshair,
+  FiEye,
+  FiMinus,
+  FiNavigation,
+  FiShield,
+} from 'react-icons/fi';
 
 const TYPE_LABELS: Record<PvpMissionType, string> = {
   [PvpMissionType.SPY]: 'Espionnage',
@@ -26,8 +36,19 @@ const OUTCOME_LABELS: Record<PvpOutcome, string> = {
   [PvpOutcome.DRAW]: 'Match nul',
 };
 
+function pvpOutcomeStyle(outcome: string) {
+  if (outcome === PvpOutcome.SUCCESS)
+    return { label: 'Victoire', cls: 'text-canopy-300', Icon: FiCheckCircle };
+  if (outcome === PvpOutcome.FAILURE)
+    return { label: 'Défaite', cls: 'text-red-300', Icon: FiAlertTriangle };
+  if (outcome === PvpOutcome.DRAW)
+    return { label: 'Nul', cls: 'text-sap-400', Icon: FiMinus };
+  return { label: '—', cls: 'text-canopy-100/30', Icon: FiMinus };
+}
+
 export default function PvpPage() {
   const { data: missions, isLoading } = usePvpMissions();
+  const { data: history } = usePvpReports();
   const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
 
   if (isLoading) return <p className="text-canopy-100/50">Scan des missions…</p>;
@@ -229,6 +250,65 @@ export default function PvpPage() {
                 );
               })}
             </div>
+          </div>
+        )}
+      </section>
+
+      <section className="mycelium-panel overflow-hidden">
+        <div className="border-b border-canopy-700/15 px-5 py-3">
+          <h2 className="section-title">Historique récent</h2>
+        </div>
+        {!history || history.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-canopy-100/40">Aucun combat terminé.</p>
+        ) : (
+          <div className="divide-y divide-canopy-700/10">
+            {history.slice(0, 10).map((report, index) => {
+              const { label, cls, Icon } = pvpOutcomeStyle(report.result?.outcome ?? '');
+              const isAttack = report.type === PvpMissionType.ATTACK;
+              return (
+                <motion.div
+                  key={report.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.035 }}
+                  className="grid gap-3 px-5 py-3.5 sm:grid-cols-[2rem_minmax(10rem,1fr)_6rem_6rem_1fr] sm:items-center"
+                >
+                  <span
+                    className={`grid h-8 w-8 place-items-center rounded-full border text-xs ${
+                      isAttack
+                        ? 'border-red-500/25 bg-red-500/[0.04] text-red-300/70'
+                        : 'border-canopy-500/25 bg-canopy-500/[0.04] text-canopy-300/70'
+                    }`}
+                  >
+                    {isAttack ? (
+                      <FiCrosshair className="h-3.5 w-3.5" aria-hidden="true" />
+                    ) : (
+                      <FiEye className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm text-canopy-100/75">
+                      {report.targetName ??
+                        `${report.target.galaxy}:${report.target.system}:${report.target.position}`}
+                    </span>
+                    <span className="block text-[10px] text-canopy-100/30">
+                      {report.target.galaxy}:{report.target.system}:{report.target.position} ·{' '}
+                      {isAttack ? 'Attaque' : 'Espionnage'}
+                    </span>
+                  </span>
+                  <span className={`flex items-center gap-1.5 text-xs ${cls}`}>
+                    <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                    {label}
+                  </span>
+                  <span className="text-xs">
+                    {report.result?.loot && <ResourceCost cost={report.result.loot} />}
+                  </span>
+                  <span className="text-[10px] text-canopy-100/30">
+                    {new Date(report.completedAt).toLocaleString('fr-FR')}
+                  </span>
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </section>

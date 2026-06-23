@@ -11,8 +11,11 @@ import type {
   ColonizeDto,
   CreateAllianceDto,
   DecideApplicationDto,
+  IncomingAttackView,
   PlanetDetail,
   ProduceShipsDto,
+  PveReportView,
+  PvpReportView,
   RenamePlanetDto,
   ResourceTransferMissionView,
   SetSpecializationDto,
@@ -43,7 +46,10 @@ export const keys = {
   expeditionReports: ['expedition-reports'] as const,
   encounters: ['encounters'] as const,
   pveMissions: ['pve-missions'] as const,
+  pveReports: ['pve-reports'] as const,
   pvpMissions: ['pvp-missions'] as const,
+  pvpReports: ['pvp-reports'] as const,
+  incomingAttacks: ['pvp-incoming'] as const,
   transfers: ['transfers'] as const,
   leaderboard: ['leaderboard'] as const,
   allianceLeaderboard: ['leaderboard', 'alliances'] as const,
@@ -234,11 +240,35 @@ export function usePveMissions() {
   });
 }
 
+export function usePveReports() {
+  return useQuery<PveReportView[]>({
+    queryKey: keys.pveReports,
+    queryFn: () => api.pveReports(),
+    refetchInterval: 60_000,
+  });
+}
+
 export function usePvpMissions() {
   return useQuery({
     queryKey: keys.pvpMissions,
     queryFn: () => api.pvpMissions(),
     refetchInterval: 15_000,
+  });
+}
+
+export function usePvpReports() {
+  return useQuery<PvpReportView[]>({
+    queryKey: keys.pvpReports,
+    queryFn: () => api.pvpReports(),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useIncomingAttacks() {
+  return useQuery<IncomingAttackView[]>({
+    queryKey: keys.incomingAttacks,
+    queryFn: () => api.incomingAttacks(),
+    refetchInterval: 30_000,
   });
 }
 
