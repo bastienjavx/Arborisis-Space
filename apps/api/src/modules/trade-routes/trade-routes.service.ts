@@ -241,7 +241,7 @@ export class TradeRoutesService {
       shipType: string;
       shipCount: number;
       intervalHours: number;
-      status: TradeRouteStatus;
+      status: string;
       lastRunAt: Date | null;
       nextRunAt: Date | null;
     },
@@ -258,7 +258,7 @@ export class TradeRoutesService {
       shipType: route.shipType as ShipType,
       shipCount: route.shipCount,
       intervalHours: route.intervalHours,
-      status: route.status,
+      status: route.status as TradeRouteStatus,
       lastRunAt: route.lastRunAt?.toISOString() ?? null,
       nextRunAt: route.nextRunAt?.toISOString() ?? null,
     };

@@ -1,12 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from '@nestjs/common';
-import { Request } from 'express';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   createTradeRouteSchema,
   updateTradeRouteStatusSchema,
+  type AuthUser,
   type CreateTradeRouteDto,
   type UpdateTradeRouteStatusDto,
 } from '@arborisis/shared';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { TradeRoutesService } from './trade-routes.service';
 
 @Controller('trade-routes')
@@ -14,29 +15,29 @@ export class TradeRoutesController {
   constructor(private readonly tradeRoutes: TradeRoutesService) {}
 
   @Get()
-  getAll(@Req() req: Request) {
-    return this.tradeRoutes.getRoutes(req.user!.id);
+  getAll(@CurrentUser() user: AuthUser) {
+    return this.tradeRoutes.getRoutes(user.id);
   }
 
   @Post()
   create(
-    @Req() req: Request,
+    @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createTradeRouteSchema)) dto: CreateTradeRouteDto,
   ) {
-    return this.tradeRoutes.createRoute(req.user!.id, dto);
+    return this.tradeRoutes.createRoute(user.id, dto);
   }
 
   @Patch(':id/status')
   updateStatus(
-    @Req() req: Request,
+    @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Body(new ZodValidationPipe(updateTradeRouteStatusSchema)) dto: UpdateTradeRouteStatusDto,
   ) {
-    return this.tradeRoutes.updateStatus(req.user!.id, id, dto.status);
+    return this.tradeRoutes.updateStatus(user.id, id, dto.status);
   }
 
   @Delete(':id')
-  delete(@Req() req: Request, @Param('id') id: string) {
-    return this.tradeRoutes.deleteRoute(req.user!.id, id);
+  delete(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.tradeRoutes.deleteRoute(user.id, id);
   }
 }

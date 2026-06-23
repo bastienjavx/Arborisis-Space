@@ -604,7 +604,7 @@ export class MarketService {
 
   private toOrderView(
     order: {
-      id: string; itemKey: string; side: MarketOrderSide; status: MarketOrderStatus;
+      id: string; itemKey: string; side: string; status: string;
       pricePerUnit: number; quantity: number; filledQuantity: number;
       createdAt: Date; expiresAt: Date | null; userId: string;
       user: { username: string };
@@ -614,8 +614,8 @@ export class MarketService {
     return {
       id: order.id,
       itemKey: order.itemKey as ItemKey,
-      side: order.side,
-      status: order.status,
+      side: order.side as MarketOrderSide,
+      status: order.status as MarketOrderStatus,
       pricePerUnit: order.pricePerUnit,
       quantity: order.quantity,
       filledQuantity: order.filledQuantity,

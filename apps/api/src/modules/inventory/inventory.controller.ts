@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Req } from '@nestjs/common';
-import { Request } from 'express';
+import { Controller, Get, Param } from '@nestjs/common';
+import { type AuthUser } from '@arborisis/shared';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { InventoryService } from './inventory.service';
 
 @Controller('inventory')
@@ -7,12 +8,12 @@ export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
 
   @Get()
-  getAll(@Req() req: Request) {
-    return this.inventory.getUserInventory(req.user!.id);
+  getAll(@CurrentUser() user: AuthUser) {
+    return this.inventory.getUserInventory(user.id);
   }
 
   @Get('planet/:planetId')
-  getPlanet(@Req() req: Request, @Param('planetId') planetId: string) {
-    return this.inventory.getPlanetInventory(req.user!.id, planetId);
+  getPlanet(@CurrentUser() user: AuthUser, @Param('planetId') planetId: string) {
+    return this.inventory.getPlanetInventory(user.id, planetId);
   }
 }
