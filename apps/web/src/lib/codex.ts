@@ -614,7 +614,7 @@ function buildEntries(): CodexEntry[] {
     Icon: FiTool,
     accent: 'canopy',
     summary:
-      "Atelier de transformation manuelle : combinez des objets bruts et des ressources pour créer des objets traités de rareté supérieure. Chaque recette prend du temps et consomme les ingrédients.",
+      'Atelier de transformation manuelle : combinez des objets bruts et des ressources pour créer des objets traités de rareté supérieure. Chaque recette prend du temps et consomme les ingrédients.',
     stats: [
       { label: 'Recettes disponibles', value: `${CRAFTING_RECIPES.length}` },
       { label: 'Ingrédients', value: 'Objets + ressources de base' },
@@ -645,7 +645,7 @@ function buildEntries(): CodexEntry[] {
         value: formatDuration(Math.min(...PRODUCTION_LINE_RECIPES.map((r) => r.cycleSeconds))),
       },
     ],
-    lore: "Une colonie qui dort produit quand même.\nConfigurez vos lignes avant de partir en campagne.",
+    lore: 'Une colonie qui dort produit quand même.\nConfigurez vos lignes avant de partir en campagne.',
   });
 
   entries.push({
@@ -656,14 +656,17 @@ function buildEntries(): CodexEntry[] {
     Icon: FiTruck,
     accent: 'canopy',
     summary:
-      "Convois automatiques qui transfèrent ressources ou objets entre vos planètes à intervalles réguliers. Utilisez les vaisseaux de transport adaptés pour maximiser la cargaison par trajet.",
+      'Convois automatiques qui transfèrent ressources ou objets entre vos planètes à intervalles réguliers. Utilisez les vaisseaux de transport adaptés pour maximiser la cargaison par trajet.',
     stats: [
       { label: 'Types de cargaison', value: "Ressources de base · Objets d'inventaire" },
-      { label: 'Vaisseaux transport', value: 'Moissonneur Symbiotique · Frégate Chitine · Nacelle' },
+      {
+        label: 'Vaisseaux transport',
+        value: 'Moissonneur Symbiotique · Frégate Chitine · Nacelle',
+      },
       { label: 'Intervalle min / max', value: '1 h — 168 h' },
       { label: 'Accès', value: 'Routes Commerciales → Nouvelle route' },
     ],
-    lore: "Les Tisserands ne portaient rien à la main.\nIls tendaient des fils entre les mondes, et les fils portaient pour eux.",
+    lore: 'Les Tisserands ne portaient rien à la main.\nIls tendaient des fils entre les mondes, et les fils portaient pour eux.',
   });
 
   // ── Chronique ──
