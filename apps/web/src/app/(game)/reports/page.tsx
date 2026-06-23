@@ -57,8 +57,7 @@ function outcomeStyle(outcome: string) {
     return { label: 'Victoire', cls: 'text-canopy-300', Icon: FiCheckCircle };
   if (outcome === PvpOutcome.FAILURE)
     return { label: 'Défaite', cls: 'text-red-300', Icon: FiAlertTriangle };
-  if (outcome === PvpOutcome.DRAW)
-    return { label: 'Nul', cls: 'text-sap-400', Icon: FiMinus };
+  if (outcome === PvpOutcome.DRAW) return { label: 'Nul', cls: 'text-sap-400', Icon: FiMinus };
   return { label: '—', cls: 'text-canopy-100/30', Icon: FiMinus };
 }
 
@@ -184,10 +183,7 @@ export default function ReportsPage() {
                           <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
                           {status.label}
                         </span>
-                        <FiChevronRight
-                          className="h-4 w-4 text-canopy-100/25"
-                          aria-hidden="true"
-                        />
+                        <FiChevronRight className="h-4 w-4 text-canopy-100/25" aria-hidden="true" />
                       </motion.button>
                     );
                   })}
@@ -197,9 +193,7 @@ export default function ReportsPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        expeditions
-                          .filter((r) => !r.isRead)
-                          .forEach((r) => markRead.mutate(r.id))
+                        expeditions.filter((r) => !r.isRead).forEach((r) => markRead.mutate(r.id))
                       }
                       disabled={markRead.isPending}
                       className="btn-ghost w-full px-4 py-2 text-xs disabled:opacity-40"
@@ -297,10 +291,7 @@ export default function ReportsPage() {
                           {EXPEDITION_SHIP_TYPES.filter(
                             (type) => selectedReport.losses[type] > 0,
                           ).map((type) => (
-                            <div
-                              key={type}
-                              className="flex items-center justify-between px-4 py-3"
-                            >
+                            <div key={type} className="flex items-center justify-between px-4 py-3">
                               <span className="text-xs text-canopy-100/62">{SHIPS[type].name}</span>
                               <span className="text-xs text-red-300">
                                 −{selectedReport.losses[type]}
@@ -472,8 +463,9 @@ export default function ReportsPage() {
                         </span>
                         <span className="mt-1 block text-[10px] text-canopy-100/30">
                           Niveau {report.encounter.difficulty} ·{' '}
-                          {report.encounter.coordinates.galaxy}:{report.encounter.coordinates.system}
-                          :{report.encounter.coordinates.position}
+                          {report.encounter.coordinates.galaxy}:
+                          {report.encounter.coordinates.system}:
+                          {report.encounter.coordinates.position}
                         </span>
                       </span>
                       {report.result ? (

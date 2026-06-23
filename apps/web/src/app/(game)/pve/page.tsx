@@ -17,7 +17,13 @@ import { QuantityControl } from '@/components/QuantityControl';
 import { ResourceCost } from '@/components/ResourceCost';
 import { ApiError } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
-import { useAttackEncounter, useEncounters, useFleet, usePveMissions, usePveReports } from '@/lib/queries';
+import {
+  useAttackEncounter,
+  useEncounters,
+  useFleet,
+  usePveMissions,
+  usePveReports,
+} from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiAlertTriangle,
@@ -58,8 +64,10 @@ const ENCOUNTER_NAMES_PVE: Record<NpcEncounterType, string> = Object.fromEntries
 ) as Record<NpcEncounterType, string>;
 
 function pveOutcomeStyle(outcome: string) {
-  if (outcome === 'SUCCESS') return { label: 'Victoire', cls: 'text-canopy-300', Icon: FiCheckCircle };
-  if (outcome === 'FAILURE') return { label: 'Défaite', cls: 'text-red-300', Icon: FiAlertTriangle };
+  if (outcome === 'SUCCESS')
+    return { label: 'Victoire', cls: 'text-canopy-300', Icon: FiCheckCircle };
+  if (outcome === 'FAILURE')
+    return { label: 'Défaite', cls: 'text-red-300', Icon: FiAlertTriangle };
   if (outcome === 'DRAW') return { label: 'Nul', cls: 'text-sap-400', Icon: FiMinus };
   return { label: '—', cls: 'text-canopy-100/30', Icon: FiMinus };
 }

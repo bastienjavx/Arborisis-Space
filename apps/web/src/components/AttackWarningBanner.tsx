@@ -24,7 +24,9 @@ export function AttackWarningBanner() {
           <div className="flex items-center gap-2">
             <FiAlertOctagon className="h-4 w-4 animate-pulse text-red-400" aria-hidden="true" />
             <span className="text-xs font-semibold uppercase tracking-widest text-red-300">
-              {incoming.length === 1 ? 'Alerte — Attaque entrante' : `Alerte — ${incoming.length} opérations ennemies`}
+              {incoming.length === 1
+                ? 'Alerte — Attaque entrante'
+                : `Alerte — ${incoming.length} opérations ennemies`}
             </span>
           </div>
           <Link

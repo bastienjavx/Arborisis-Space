@@ -41,8 +41,7 @@ function pvpOutcomeStyle(outcome: string) {
     return { label: 'Victoire', cls: 'text-canopy-300', Icon: FiCheckCircle };
   if (outcome === PvpOutcome.FAILURE)
     return { label: 'Défaite', cls: 'text-red-300', Icon: FiAlertTriangle };
-  if (outcome === PvpOutcome.DRAW)
-    return { label: 'Nul', cls: 'text-sap-400', Icon: FiMinus };
+  if (outcome === PvpOutcome.DRAW) return { label: 'Nul', cls: 'text-sap-400', Icon: FiMinus };
   return { label: '—', cls: 'text-canopy-100/30', Icon: FiMinus };
 }
 
