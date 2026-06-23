@@ -454,6 +454,24 @@ export interface PvpMissionView {
   result?: PvpMissionResultView;
 }
 
+export interface PvpReportView extends PvpMissionView {
+  completedAt: string;
+  targetName: string;
+}
+
+export interface PveReportView extends PveMissionView {
+  completedAt: string;
+}
+
+export interface IncomingAttackView {
+  id: string;
+  type: PvpMissionType;
+  attackerName: string;
+  sourcePlanet: Coordinates;
+  targetPlanet: { id: string; name: string; coordinates: Coordinates };
+  arrivesAt: string;
+}
+
 export interface UniverseSummaryView {
   id: string;
   slug: string;

@@ -25,6 +25,7 @@ import {
   type AttackEncounterDto,
   type NpcEncounterView,
   type PveMissionView,
+  type PveReportView,
   type PveResultView,
   type ShipCounts,
 } from '@arborisis/shared';
@@ -158,6 +159,20 @@ export class PveService {
       orderBy: { createdAt: 'desc' },
     });
     return missions.map((mission) => this.missionView(mission));
+  }
+
+  async listReports(userId: string, limit = 50): Promise<PveReportView[]> {
+    await this.finalizeDueForUser(userId);
+    const missions = await this.prisma.pveMission.findMany({
+      where: { userId, phase: PveMissionPhase.COMPLETED },
+      include: { encounter: true, sourcePlanet: true },
+      orderBy: { completedAt: 'desc' },
+      take: limit,
+    });
+    return missions.map((m) => ({
+      ...this.missionView(m),
+      completedAt: (m.completedAt ?? m.createdAt).toISOString(),
+    }));
   }
 
   async finalizeDueForUser(userId: string, now = new Date()): Promise<void> {

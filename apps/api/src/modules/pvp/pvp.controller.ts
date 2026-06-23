@@ -4,7 +4,9 @@ import {
   spyPlanetSchema,
   type AttackPlanetDto,
   type AuthUser,
+  type IncomingAttackView,
   type PvpMissionView,
+  type PvpReportView,
   type SpyPlanetDto,
 } from '@arborisis/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -34,5 +36,15 @@ export class PvpController {
   @Get('missions')
   missions(@CurrentUser() user: AuthUser): Promise<PvpMissionView[]> {
     return this.pvp.listMissions(user.id);
+  }
+
+  @Get('reports')
+  reports(@CurrentUser() user: AuthUser): Promise<PvpReportView[]> {
+    return this.pvp.listReports(user.id);
+  }
+
+  @Get('incoming')
+  incoming(@CurrentUser() user: AuthUser): Promise<IncomingAttackView[]> {
+    return this.pvp.listIncoming(user.id);
   }
 }
