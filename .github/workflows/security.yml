@@ -1,0 +1,58 @@
+name: Security
+
+# Scan de secrets (gitleaks) + audit des dépendances runtime (npm audit).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "23 5 * * 1" # lundi 05:23 UTC
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: Scan de secrets (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: "8.21.2"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Historique complet : gitleaks scanne aussi les commits passés sur les PR.
+          fetch-depth: 0
+      # Binaire épinglé plutôt que l'action : pas d'appel API GitHub (évite le 403
+      # « Resource not accessible by integration ») ni de dépendance à une licence.
+      - name: Installer gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Scan
+        run: gitleaks detect --source . --redact --verbose --exit-code 1
+
+  dependency-audit:
+    name: Audit dépendances runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Bloquant : toute faille CRITIQUE des dépendances livrées arrête le pipeline
+      # (--omit=dev : les outils de build ne sont pas dans l'image de prod).
+      - name: npm audit (critique = bloquant)
+        run: npm audit --audit-level=critical --omit=dev
+      # Informatif : les failles high/moderate sont remontées (annotation) mais ne
+      # bloquent pas — beaucoup proviennent de deps transitives non maîtrisées.
+      # La remédiation passe par Dependabot (groupe security) / PR dédiée.
+      - name: npm audit (high+ informatif)
+        if: always()
+        continue-on-error: true
+        run: npm audit --audit-level=high --omit=dev

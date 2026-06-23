@@ -1,0 +1,76 @@
+name: Smoke (post-deploy)
+
+# Vérification post-déploiement + sonde de disponibilité (uptime canary).
+#
+# Railway déploie nativement (intégration GitHub, mode « Wait for CI ») : à la fin
+# de la CI sur `main`, Railway lance build + release-phase (migrations) + rollout.
+# Ce workflow se déclenche APRÈS le succès de la CI (workflow_run), laisse à Railway
+# le temps de basculer les réplicas, puis sonde les endpoints publics jusqu'à ce que
+# la nouvelle version réponde — ou échoue bruyamment au bout de la fenêtre.
+#
+# Cibles surchargeables via Variables du dépôt (Settings → Secrets and variables →
+# Actions → Variables) : PROD_WEB_URL, PROD_API_HEALTH_URL. Défauts ci-dessous.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "*/15 * * * *" # canary toutes les 15 min
+  workflow_dispatch:
+    inputs:
+      web_url:
+        description: "URL web à sonder"
+        required: false
+      api_health_url:
+        description: "URL healthcheck API à sonder"
+        required: false
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Smoke test production
+    runs-on: ubuntu-latest
+    # Sur workflow_run, ne tester que si la CI a réussi (sinon Railway ne déploie pas).
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    env:
+      WEB_URL: ${{ github.event.inputs.web_url || vars.PROD_WEB_URL || 'https://arborisis.com' }}
+      API_HEALTH_URL: ${{ github.event.inputs.api_health_url || vars.PROD_API_HEALTH_URL || 'https://arborisis.com/api/health' }}
+      # Fenêtre d'attente (déclenchement post-CI : laisser Railway build+rollout).
+      GRACE_SECONDS: ${{ github.event_name == 'workflow_run' && '120' || '0' }}
+      MAX_ATTEMPTS: "30"
+      RETRY_DELAY: "10"
+    steps:
+      - name: Délai de grâce (rollout Railway)
+        run: sleep "${GRACE_SECONDS}"
+
+      - name: Healthcheck API (status=ok)
+        run: |
+          for i in $(seq 1 "${MAX_ATTEMPTS}"); do
+            body="$(curl -fsS -m 10 "${API_HEALTH_URL}" 2>/dev/null || true)"
+            echo "tentative ${i}: ${body:-<vide>}"
+            if printf '%s' "$body" | grep -q '"status":"ok"'; then
+              echo "✅ API saine"
+              exit 0
+            fi
+            sleep "${RETRY_DELAY}"
+          done
+          echo "❌ API non saine après $((MAX_ATTEMPTS * RETRY_DELAY))s"
+          exit 1
+
+      - name: Page web accessible (HTTP 200)
+        run: |
+          for i in $(seq 1 "${MAX_ATTEMPTS}"); do
+            code="$(curl -fsS -o /dev/null -w '%{http_code}' -m 10 "${WEB_URL}" 2>/dev/null || true)"
+            echo "tentative ${i}: HTTP ${code}"
+            if [ "$code" = "200" ]; then
+              echo "✅ Web accessible"
+              exit 0
+            fi
+            sleep "${RETRY_DELAY}"
+          done
+          echo "❌ Web inaccessible après $((MAX_ATTEMPTS * RETRY_DELAY))s"
+          exit 1
