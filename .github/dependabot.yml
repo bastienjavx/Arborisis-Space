@@ -1,0 +1,55 @@
+# Dependabot — mises à jour de dépendances automatisées.
+# Le monorepo utilise les npm workspaces : un seul manifeste/lockfile à la racine
+# couvre apps/* et packages/*. Dependabot ouvre des PR groupées (moins de bruit).
+version: 2
+updates:
+  # Dépendances npm (racine du workspace)
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    labels: ["dependencies", "npm"]
+    groups:
+      # Patch/minor non-majeurs regroupés en une seule PR.
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      # Failles de sécurité traitées à part, en priorité.
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+    ignore:
+      # React est épinglé via overrides dans package.json — bumps majeurs manuels.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+
+  # Actions GitHub
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    labels: ["dependencies", "ci"]
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Images de base Docker (api + web)
+  - package-ecosystem: docker
+    directories:
+      - "/docker"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    labels: ["dependencies", "docker"]
