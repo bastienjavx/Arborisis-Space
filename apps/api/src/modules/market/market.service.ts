@@ -369,11 +369,9 @@ export class MarketService {
     const order = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
     if (!order || order.status === MarketOrderStatus.FILLED || order.status === MarketOrderStatus.CANCELLED) return;
 
-    while (true) {
-      const fresh = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
-      if (!fresh) break;
+    let fresh = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
+    while (fresh && fresh.quantity - fresh.filledQuantity > 0) {
       const remaining = fresh.quantity - fresh.filledQuantity;
-      if (remaining <= 0) break;
 
       // Chercher le meilleur ordre opposé
       const opposing =
@@ -417,6 +415,8 @@ export class MarketService {
         execQty,
         execPrice,
       });
+
+      fresh = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
     }
   }
 
