@@ -13,13 +13,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly scopedClient: ExtendedPrismaClient;
 
   constructor() {
-    // Cap per-instance pool: 5 main replicas × 10 = 50 connections, leaving 50 for
-    // auto-provisioned universe nodes (UNIVERSE_PROVISION_REPLICAS=3 × 10 = 30 per node).
-    // Railway PostgreSQL default limit is 100; total budget with one provisioned node = 80.
+    // Keep the per-replica pool small so multi-region deployments stay within Postgres limits.
+    // Budget: Postgres hard cap ~100. With 3 conn/replica:
+    //   • 16 main replicas × 3 = 48
+    //   • 1 auto-provisioned universe node (UNIVERSE_PROVISION_REPLICAS=3) × 3 = 9
+    //   • Total ≈ 57 — safe headroom for PgBouncer overhead and admin connections.
     const dbUrl = process.env.DATABASE_URL ?? '';
     const pooledUrl = dbUrl.includes('connection_limit')
       ? dbUrl
-      : `${dbUrl}${dbUrl.includes('?') ? '&' : '?'}connection_limit=10`;
+      : `${dbUrl}${dbUrl.includes('?') ? '&' : '?'}connection_limit=3`;
     super({ datasources: { db: { url: pooledUrl } } });
     this.scopedClient = applyUniverseScopeMiddleware(this);
 
