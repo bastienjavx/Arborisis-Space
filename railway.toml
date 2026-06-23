@@ -45,7 +45,7 @@ watchPatterns = [
 # Release phase : migrations + seed une seule fois par déploiement, dans un conteneur
 # dédié, AVANT la mise en service des réplicas (plus de course entre instances).
 preDeployCommand = [
-  "DATABASE_URL=\"$DIRECT_DATABASE_URL\" npx prisma migrate deploy && DATABASE_URL=\"$DIRECT_DATABASE_URL\" npx prisma db seed",
+  "sh -lc 'export DATABASE_URL=\"$DIRECT_DATABASE_URL\"; npx prisma migrate deploy && npx prisma db seed'",
 ]
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
