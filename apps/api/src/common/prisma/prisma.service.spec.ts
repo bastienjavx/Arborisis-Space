@@ -63,5 +63,30 @@ describe('PrismaService', () => {
         expect.objectContaining({ where: { universeId: 'u-test' } }),
       );
     });
+
+    it('retries serializable write conflicts with backoff', async () => {
+      jest.spyOn(global.Math, 'random').mockReturnValue(0);
+      jest.spyOn(global, 'setTimeout').mockImplementation((callback: TimerHandler) => {
+        if (typeof callback === 'function') callback();
+        return 0 as unknown as NodeJS.Timeout;
+      });
+      const work = jest.fn().mockResolvedValue('ok');
+      const rawTx = {} as Prisma.TransactionClient;
+      const transaction = jest
+        .spyOn(
+          (prismaService as unknown as { scopedClient: PrismaClient }).scopedClient,
+          '$transaction',
+        )
+        .mockRejectedValueOnce({ code: 'P2034' })
+        .mockRejectedValueOnce({ code: 'P2034' })
+        .mockImplementation(async (fn: unknown) => {
+          return (fn as (tx: Prisma.TransactionClient) => Promise<unknown>)(rawTx);
+        });
+
+      await expect(prismaService.serializable(work)).resolves.toBe('ok');
+
+      expect(transaction).toHaveBeenCalledTimes(3);
+      expect(work).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -15,6 +15,15 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "docker/web.Dockerfile"
+watchPatterns = [
+  "apps/web/**",
+  "packages/shared/**",
+  "docker/web.Dockerfile",
+  "railway.web.toml",
+  "package.json",
+  "package-lock.json",
+  "turbo.json",
+]
 
 [deploy]
 healthcheckPath = "/"
@@ -22,14 +31,5 @@ healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
-[deploy.multiRegionConfig.us-west2]
-numReplicas = 3
-
-[deploy.multiRegionConfig.us-east4-eqdc4a]
-numReplicas = 5
-
 [deploy.multiRegionConfig.europe-west4-drams3a]
-numReplicas = 5
-
-[deploy.multiRegionConfig.asia-southeast1-eqsg3a]
 numReplicas = 3

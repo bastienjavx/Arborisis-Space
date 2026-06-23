@@ -7,21 +7,37 @@ import { wrapTransactionClient } from './transaction-client.wrapper';
 type ExtendedPrismaClient = ReturnType<typeof applyUniverseScopeMiddleware>;
 
 const PRISMA_SERVICE_METHODS = new Set<string>(['serializable', 'onModuleInit', 'onModuleDestroy']);
+const SERIALIZABLE_MAX_ATTEMPTS = 6;
+const SERIALIZABLE_BASE_DELAY_MS = 25;
+
+function appendConnectionLimit(url: string, limit: number): string {
+  if (!url || url.includes('connection_limit=')) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}connection_limit=${limit}`;
+}
+
+function isRetryableTransactionError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2034'
+  );
+}
+
+async function retryDelay(attempt: number): Promise<void> {
+  const jitter = Math.floor(Math.random() * SERIALIZABLE_BASE_DELAY_MS);
+  const delayMs = SERIALIZABLE_BASE_DELAY_MS * 2 ** attempt + jitter;
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+}
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly scopedClient: ExtendedPrismaClient;
 
   constructor() {
-    // Keep the per-replica pool small so multi-region deployments stay within Postgres limits.
-    // Budget: Postgres hard cap ~100. With 3 conn/replica:
-    //   • 16 main replicas × 3 = 48
-    //   • 1 auto-provisioned universe node (UNIVERSE_PROVISION_REPLICAS=3) × 3 = 9
-    //   • Total ≈ 57 — safe headroom for PgBouncer overhead and admin connections.
-    const dbUrl = process.env.DATABASE_URL ?? '';
-    const pooledUrl = dbUrl.includes('connection_limit')
-      ? dbUrl
-      : `${dbUrl}${dbUrl.includes('?') ? '&' : '?'}connection_limit=3`;
+    // Runtime traffic goes through PgBouncer in production. Keep each app-side
+    // Prisma pool tiny so replica spikes do not fan out into Postgres sessions.
+    const pooledUrl = appendConnectionLimit(process.env.DATABASE_URL ?? '', 2);
     super({ datasources: { db: { url: pooledUrl } } });
     this.scopedClient = applyUniverseScopeMiddleware(this);
 
@@ -37,7 +53,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async serializable<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     const universeId = getCurrentUniverseId();
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < SERIALIZABLE_MAX_ATTEMPTS; attempt++) {
       try {
         return await this.$transaction(
           async (rawTx) => {
@@ -46,12 +62,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           },
           {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            maxWait: 5_000,
+            timeout: 15_000,
           },
         );
       } catch (error) {
-        const retryable =
-          typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2034';
-        if (!retryable || attempt === 2) throw error;
+        if (!isRetryableTransactionError(error) || attempt === SERIALIZABLE_MAX_ATTEMPTS - 1) {
+          throw error;
+        }
+        await retryDelay(attempt);
       }
     }
     throw new Error('Transaction retry exhausted');

@@ -8,11 +8,12 @@
 #   5. univers-N    (nodes API auto-provisionnés à saturation, dupliqués depuis « api »)
 #
 # Variables à définir sur le service API :
-#   DATABASE_URL          → référence du plugin PostgreSQL
+#   DATABASE_URL          → référence PgBouncer.DATABASE_URL (runtime poolé)
+#   DIRECT_DATABASE_URL   → référence Postgres.DATABASE_URL (migrations/seed)
 #   REDIS_URL             → référence du plugin Redis
 #   JWT_ACCESS_SECRET     → openssl rand -base64 48   (PARTAGÉ par tous les nodes)
 #   JWT_REFRESH_SECRET    → openssl rand -base64 48   (PARTAGÉ par tous les nodes)
-#   WEB_ORIGIN            → URL publique du service web
+#   WEB_ORIGIN            → origine publique du service web, sans slash final
 #   NODE_ENV=production
 #
 # Auto-scaling (création d'un node par univers à saturation) :
@@ -29,24 +30,27 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "docker/api.Dockerfile"
+watchPatterns = [
+  "apps/api/**",
+  "packages/shared/**",
+  "prisma/**",
+  "docker/api.Dockerfile",
+  "railway.toml",
+  "package.json",
+  "package-lock.json",
+  "turbo.json",
+]
 
 [deploy]
 # Release phase : migrations + seed une seule fois par déploiement, dans un conteneur
 # dédié, AVANT la mise en service des réplicas (plus de course entre instances).
-preDeployCommand = ["npx prisma migrate deploy && npx prisma db seed"]
+preDeployCommand = [
+  "DATABASE_URL=\"$DIRECT_DATABASE_URL\" npx prisma migrate deploy && DATABASE_URL=\"$DIRECT_DATABASE_URL\" npx prisma db seed",
+]
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
-[deploy.multiRegionConfig.us-west2]
-numReplicas = 3
-
-[deploy.multiRegionConfig.us-east4-eqdc4a]
-numReplicas = 5
-
 [deploy.multiRegionConfig.europe-west4-drams3a]
-numReplicas = 5
-
-[deploy.multiRegionConfig.asia-southeast1-eqsg3a]
 numReplicas = 3
