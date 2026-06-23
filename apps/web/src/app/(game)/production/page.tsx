@@ -464,6 +464,13 @@ export default function ProductionPage() {
                         {recipe.outputQty} unité(s) / {formatDuration(recipe.cycleSeconds)}
                       </p>
                     </div>
+                    <a
+                      href={`/market/${recipe.outputKey}`}
+                      className="shrink-0 rounded-md border border-canopy-700/15 px-2 py-1 text-[10px] text-canopy-100/35 hover:border-canopy-500/30 hover:text-canopy-300"
+                      title="Voir sur le marché"
+                    >
+                      ~{(item.baseValue * recipe.outputQty).toLocaleString()} B
+                    </a>
                   </div>
                   <div className="mt-4 space-y-2">
                     {Object.entries(recipe.inputs).map(([resource, quantity]) => {

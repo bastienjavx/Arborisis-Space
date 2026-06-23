@@ -4,12 +4,19 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ITEMS, MarketOrderSide, type ItemKey, type PlaceMarketOrderDto } from '@arborisis/shared';
+import {
+  CRAFTING_RECIPES,
+  ITEMS,
+  MarketOrderSide,
+  PRODUCTION_LINE_RECIPES,
+  type ItemKey,
+  type PlaceMarketOrderDto,
+} from '@arborisis/shared';
 import { api } from '@/lib/api';
 import { TradingChart } from '@/components/market/TradingChart';
 import { OrderBook } from '@/components/market/OrderBook';
 import { usePlanetSelection } from '@/components/PlanetContext';
-import { FiArrowLeft, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiRepeat, FiTool, FiX, FiZap } from 'react-icons/fi';
 
 type Interval = '1h' | '4h' | '1d';
 
@@ -104,6 +111,9 @@ export default function ItemMarketPage() {
     });
   }
 
+  const lineRecipe = PRODUCTION_LINE_RECIPES.find((r) => r.outputKey === (itemKey as ItemKey));
+  const craftRecipe = CRAFTING_RECIPES.find((r) => r.outputKey === (itemKey as ItemKey));
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -131,6 +141,36 @@ export default function ItemMarketPage() {
           {item.rarity}
         </span>
       </div>
+
+      {/* Sources d'obtention */}
+      {(lineRecipe || craftRecipe) && (
+        <div className="flex flex-wrap gap-2">
+          {lineRecipe && (
+            <Link
+              href="/production"
+              className="flex items-center gap-1.5 rounded-lg border border-canopy-700/20 bg-bark-900/50 px-3 py-1.5 text-xs text-canopy-100/60 hover:border-canopy-500/40 hover:text-canopy-300"
+            >
+              <FiRepeat className="h-3.5 w-3.5" aria-hidden />
+              Ligne de production disponible
+            </Link>
+          )}
+          {craftRecipe && (
+            <Link
+              href="/crafting"
+              className="flex items-center gap-1.5 rounded-lg border border-canopy-700/20 bg-bark-900/50 px-3 py-1.5 text-xs text-canopy-100/60 hover:border-canopy-500/40 hover:text-canopy-300"
+            >
+              <FiTool className="h-3.5 w-3.5" aria-hidden />
+              Recette artisanale disponible
+            </Link>
+          )}
+          {!lineRecipe && !craftRecipe && (
+            <span className="flex items-center gap-1.5 rounded-lg border border-canopy-700/15 bg-bark-900/40 px-3 py-1.5 text-xs text-canopy-100/35">
+              <FiZap className="h-3.5 w-3.5" aria-hidden />
+              Obtention PvE uniquement
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         {/* Left: Chart */}

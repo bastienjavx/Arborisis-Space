@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { ITEMS, type ItemKey } from '@arborisis/shared';
+import { CRAFTING_RECIPES, ITEMS, ItemCategory, type ItemKey } from '@arborisis/shared';
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
-import { FiPackage, FiArrowRight } from 'react-icons/fi';
+import { FiPackage, FiArrowRight, FiRepeat, FiTool } from 'react-icons/fi';
 
 export default function InventoryPage() {
   const { data: slots, isLoading } = useQuery({
@@ -44,14 +44,14 @@ export default function InventoryPage() {
           <FiPackage className="h-12 w-12 text-canopy-100/20" aria-hidden />
           <p className="text-sm text-canopy-100/40">Votre inventaire est vide.</p>
           <p className="text-xs text-canopy-100/30">
-            Combattez des anomalies PvE ou lancez des expéditions pour obtenir des objets.
+            Combattez des anomalies PvE ou activez des lignes de production pour obtenir des objets.
           </p>
           <div className="flex gap-3">
             <Link href="/pve" className="btn btn-sm">
               Aller en PvE
             </Link>
-            <Link href="/pve" className="btn btn-sm btn-ghost">
-              Expéditions
+            <Link href="/production" className="btn btn-sm btn-ghost">
+              Lignes de production
             </Link>
           </div>
         </div>
@@ -66,6 +66,9 @@ export default function InventoryPage() {
             {planetSlots!.map((slot) => {
               const item = ITEMS[slot.itemKey as ItemKey];
               if (!item) return null;
+              const isIngredient = CRAFTING_RECIPES.some((r) =>
+                r.ingredients.some((ing) => ing.itemKey === slot.itemKey),
+              );
               return (
                 <div
                   key={`${planetId}-${slot.itemKey}`}
@@ -82,7 +85,7 @@ export default function InventoryPage() {
                         {item.name}
                       </p>
                       <p className="text-[10px] text-canopy-100/30">
-                        {item.category === 'RAW_MATERIAL' ? 'Matière' : 'Traité'}
+                        {item.category === ItemCategory.RAW_MATERIAL ? 'Matière' : 'Traité'}
                       </p>
                     </div>
                   </div>
@@ -90,12 +93,23 @@ export default function InventoryPage() {
                     <span className="font-mono text-lg font-bold text-canopy-100">
                       {slot.quantity.toLocaleString()}
                     </span>
-                    <Link
-                      href={`/market/${slot.itemKey}`}
-                      className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-canopy-100/40 hover:bg-bark-700/50 hover:text-canopy-300"
-                    >
-                      Vendre <FiArrowRight className="h-2.5 w-2.5" aria-hidden />
-                    </Link>
+                    <div className="flex items-center gap-1">
+                      {isIngredient && (
+                        <Link
+                          href="/crafting"
+                          className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-canopy-100/40 hover:bg-bark-700/50 hover:text-canopy-300"
+                          title="Transformer en artisanat"
+                        >
+                          <FiTool className="h-2.5 w-2.5" aria-hidden />
+                        </Link>
+                      )}
+                      <Link
+                        href={`/market/${slot.itemKey}`}
+                        className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-canopy-100/40 hover:bg-bark-700/50 hover:text-canopy-300"
+                      >
+                        Vendre <FiArrowRight className="h-2.5 w-2.5" aria-hidden />
+                      </Link>
+                    </div>
                   </div>
                   <div className="text-[10px] text-canopy-100/25">
                     ~{(item.baseValue * slot.quantity).toLocaleString()} B valeur

@@ -5,8 +5,13 @@ import {
   BUILDINGS,
   BuildingType,
   CHAPTER_UNLOCKS,
+  CRAFTING_RECIPES,
   GALACTIC_EVENTS,
   GalacticEventType,
+  ITEMS,
+  ItemCategory,
+  ItemKey,
+  ItemRarity,
   LORE_BUILDINGS,
   LORE_RESEARCH,
   LORE_SHIPS,
@@ -14,6 +19,7 @@ import {
   PLANET_TYPES_CONFIG,
   PlanetSpecialization,
   PlanetType,
+  PRODUCTION_LINE_RECIPES,
   RACES,
   RaceType,
   RESEARCHES,
@@ -36,7 +42,12 @@ import {
   FiGlobe,
   FiLayers,
   FiNavigation,
+  FiPackage,
+  FiRepeat,
+  FiShoppingCart,
   FiSliders,
+  FiTool,
+  FiTruck,
   FiUsers,
   FiZap,
 } from 'react-icons/fi';
@@ -69,7 +80,9 @@ export type CodexCategoryKey =
   | 'event'
   | 'spec'
   | 'achievement'
-  | 'chronicle';
+  | 'chronicle'
+  | 'item'
+  | 'mechanic';
 
 export interface CodexEntry {
   id: string;
@@ -165,6 +178,20 @@ export const CODEX_CATEGORIES: CodexCategory[] = [
     blurb: 'Les jalons de votre renaissance.',
   },
   {
+    key: 'item',
+    label: 'Objets',
+    Icon: FiPackage,
+    accent: 'sap',
+    blurb: 'Matières premières et objets traités échangeables sur le marché.',
+  },
+  {
+    key: 'mechanic',
+    label: 'Économie',
+    Icon: FiShoppingCart,
+    accent: 'canopy',
+    blurb: 'Marché, artisanat, lignes de production et routes commerciales.',
+  },
+  {
     key: 'chronicle',
     label: 'Chronique',
     Icon: FiBookOpen,
@@ -229,6 +256,43 @@ export const codexId = {
   event: (t: GalacticEventType) => `event:${t}`,
   spec: (t: PlanetSpecialization) => `spec:${t}`,
   achievement: (t: AchievementType) => `achievement:${t}`,
+  item: (k: ItemKey) => `item:${k}`,
+  mechanic: (id: string) => `mechanic:${id}`,
+};
+
+const RARITY_LABELS: Record<ItemRarity, string> = {
+  [ItemRarity.COMMON]: 'Commun',
+  [ItemRarity.UNCOMMON]: 'Peu commun',
+  [ItemRarity.RARE]: 'Rare',
+  [ItemRarity.EPIC]: 'Épique',
+  [ItemRarity.LEGENDARY]: 'Légendaire',
+};
+
+const CATEGORY_LABELS: Record<ItemCategory, string> = {
+  [ItemCategory.RAW_MATERIAL]: 'Matière première',
+  [ItemCategory.PROCESSED]: 'Objet traité',
+};
+
+function itemAccent(rarity: ItemRarity): CodexAccent {
+  if (rarity === ItemRarity.EPIC || rarity === ItemRarity.LEGENDARY) return 'spore';
+  if (rarity === ItemRarity.RARE) return 'sap';
+  return 'canopy';
+}
+
+/** Sources d'obtention par item — utilisé dans le codex pour guider le joueur. */
+const ITEM_SOURCES: Partial<Record<ItemKey, string>> = {
+  [ItemKey.MYCELIAL_FIBER]: 'PvE (Parasite Sporal, Nuée Mycospore), ligne de production',
+  [ItemKey.BIOLUMINESCENT_GEL]: 'PvE (Nid Mycoxine, Corruption de Biomasse), ligne de production',
+  [ItemKey.CHITIN_SHARD]: 'PvE (Gardien Cristallin, Réseau Fongique), ligne de production',
+  [ItemKey.SPORE_ESSENCE]: 'PvE (Réseau Fongique, Faille du Vide), ligne de production',
+  [ItemKey.VOID_CRYSTAL]: 'PvE (Faille du Vide, Gardien Cristallin)',
+  [ItemKey.ANCIENT_FRAGMENT]: 'PvE exclusif — Sentinelle Ancienne (boss légendaire)',
+  [ItemKey.REINFORCED_CHITIN]: 'Artisanat (5× Éclat de Chitine + Minéraux)',
+  [ItemKey.CRYSTALLIZED_SAP]: 'Artisanat (1× Cristal du Vide + Sève)',
+  [ItemKey.NEURAL_MATRIX]: 'Artisanat (Fibre Mycéliale + Essence Sporale + Spores)',
+  [ItemKey.VOID_ALLOY]: 'Artisanat (3× Cristal du Vide + Minéraux)',
+  [ItemKey.MYCOTOXIN_VIAL]: 'Artisanat (3× Gel Bioluminescent + Biomasse)',
+  [ItemKey.CONVERGENCE_SHARD]: 'Artisanat endgame (2× Fragment Ancien + 2× Cristal du Vide)',
 };
 
 /** Format d'un facteur multiplicatif en écart relatif (1.25 → « +25 % »). */
@@ -485,6 +549,122 @@ function buildEntries(): CodexEntry[] {
       stats: [],
     });
   }
+
+  // ── Objets ──
+  for (const config of Object.values(ITEMS)) {
+    const accent = itemAccent(config.rarity);
+    const lineRecipe = PRODUCTION_LINE_RECIPES.find((r) => r.outputKey === config.key);
+    const craftRecipe = CRAFTING_RECIPES.find((r) => r.outputKey === config.key);
+    const stats: CodexStat[] = [
+      { label: 'Rareté', value: RARITY_LABELS[config.rarity] },
+      { label: 'Type', value: CATEGORY_LABELS[config.category] },
+      { label: 'Valeur de base', value: `${config.baseValue.toLocaleString()} B` },
+      { label: 'Pile max', value: `${config.maxStack}` },
+    ];
+    if (lineRecipe) {
+      stats.push({
+        label: 'Ligne de production',
+        value: `${lineRecipe.outputQty} unité(s) / ${formatDuration(lineRecipe.cycleSeconds)}`,
+      });
+    }
+    if (craftRecipe) {
+      stats.push({
+        label: 'Temps artisanat',
+        value: formatDuration(craftRecipe.craftTimeSeconds),
+      });
+    }
+    entries.push({
+      id: codexId.item(config.key),
+      category: 'item',
+      categoryLabel: 'Objet',
+      name: config.name,
+      Icon: FiPackage,
+      accent,
+      summary: config.description,
+      stats,
+      requirements: ITEM_SOURCES[config.key],
+      badge: RARITY_LABELS[config.rarity],
+    });
+  }
+
+  // ── Économie ──
+  entries.push({
+    id: codexId.mechanic('market'),
+    category: 'mechanic',
+    categoryLabel: 'Mécanique',
+    name: 'Salle des Marchés',
+    Icon: FiShoppingCart,
+    accent: 'canopy',
+    summary:
+      "Bourse d'échanges entre joueurs fonctionnant par ordres d'achat (bid) et de vente (ask). Les prix sont entièrement déterminés par l'offre et la demande — aucun NPC ne fixe les cours.",
+    stats: [
+      { label: 'Accès', value: 'Marché → sélectionner un objet' },
+      { label: 'Devise', value: 'Biomasse (B)' },
+      { label: 'Mise à jour prix', value: 'Toutes les 15 s' },
+      { label: 'Volume 24h', value: 'Affiché par objet' },
+    ],
+    lore: "Autrefois, les Tisserands traquaient la valeur dans les flux de spores.\nAujourd'hui, c'est toi qui fixes le prix.",
+  });
+
+  entries.push({
+    id: codexId.mechanic('crafting'),
+    category: 'mechanic',
+    categoryLabel: 'Mécanique',
+    name: 'Artisanat',
+    Icon: FiTool,
+    accent: 'canopy',
+    summary:
+      "Atelier de transformation manuelle : combinez des objets bruts et des ressources pour créer des objets traités de rareté supérieure. Chaque recette prend du temps et consomme les ingrédients.",
+    stats: [
+      { label: 'Recettes disponibles', value: `${CRAFTING_RECIPES.length}` },
+      { label: 'Ingrédients', value: 'Objets + ressources de base' },
+      { label: 'Accès', value: 'Menu Artisanat' },
+      {
+        label: 'Durée la plus longue',
+        value: formatDuration(Math.max(...CRAFTING_RECIPES.map((r) => r.craftTimeSeconds))),
+      },
+    ],
+    lore: "La chitine brute ne vaut rien. Fondue, renforcée, pressée — elle devient armure.\nL'artisanat est la transformation de la patience en valeur.",
+  });
+
+  entries.push({
+    id: codexId.mechanic('production-lines'),
+    category: 'mechanic',
+    categoryLabel: 'Mécanique',
+    name: 'Lignes de Production',
+    Icon: FiRepeat,
+    accent: 'canopy',
+    summary:
+      "Fabriques automatiques qui convertissent des ressources de base en matières premières à intervalles réguliers. Chaque planète peut accueillir jusqu'à 3 lignes simultanées.",
+    stats: [
+      { label: 'Max par planète', value: '3 lignes' },
+      { label: 'Recettes', value: `${PRODUCTION_LINE_RECIPES.length}` },
+      { label: 'Statuts possibles', value: 'Active · Pausée · Intrants manquants' },
+      {
+        label: 'Cycle le plus rapide',
+        value: formatDuration(Math.min(...PRODUCTION_LINE_RECIPES.map((r) => r.cycleSeconds))),
+      },
+    ],
+    lore: "Une colonie qui dort produit quand même.\nConfigurez vos lignes avant de partir en campagne.",
+  });
+
+  entries.push({
+    id: codexId.mechanic('trade-routes'),
+    category: 'mechanic',
+    categoryLabel: 'Mécanique',
+    name: 'Routes Commerciales',
+    Icon: FiTruck,
+    accent: 'canopy',
+    summary:
+      "Convois automatiques qui transfèrent ressources ou objets entre vos planètes à intervalles réguliers. Utilisez les vaisseaux de transport adaptés pour maximiser la cargaison par trajet.",
+    stats: [
+      { label: 'Types de cargaison', value: "Ressources de base · Objets d'inventaire" },
+      { label: 'Vaisseaux transport', value: 'Moissonneur Symbiotique · Frégate Chitine · Nacelle' },
+      { label: 'Intervalle min / max', value: '1 h — 168 h' },
+      { label: 'Accès', value: 'Routes Commerciales → Nouvelle route' },
+    ],
+    lore: "Les Tisserands ne portaient rien à la main.\nIls tendaient des fils entre les mondes, et les fils portaient pour eux.",
+  });
 
   // ── Chronique ──
   entries.push({

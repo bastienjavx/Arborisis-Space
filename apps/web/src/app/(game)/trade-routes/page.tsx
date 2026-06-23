@@ -93,6 +93,17 @@ function RouteCard({
         </div>
       </div>
 
+      {/* Lien vers le marché si la cargaison est un objet */}
+      {route.itemKey && (
+        <a
+          href={`/market/${route.itemKey}`}
+          className="mb-2 flex items-center gap-1 text-[10px] text-canopy-100/30 hover:text-canopy-300"
+        >
+          <FiRefreshCw className="h-2.5 w-2.5" aria-hidden />
+          Voir le prix de marché
+        </a>
+      )}
+
       {/* Actions */}
       <div className="flex gap-2">
         <button
