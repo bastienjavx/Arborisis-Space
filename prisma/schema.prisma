@@ -237,6 +237,34 @@ enum ItemCategory {
   PROCESSED
 }
 
+enum ItemKey {
+  MYCELIAL_FIBER
+  BIOLUMINESCENT_GEL
+  CHITIN_SHARD
+  SPORE_ESSENCE
+  VOID_CRYSTAL
+  ANCIENT_FRAGMENT
+  REINFORCED_CHITIN
+  CRYSTALLIZED_SAP
+  NEURAL_MATRIX
+  VOID_ALLOY
+  MYCOTOXIN_VIAL
+  CONVERGENCE_SHARD
+}
+
+enum ResourceType {
+  BIOMASS
+  SAP
+  MINERALS
+  SPORES
+}
+
+enum OhlcvInterval {
+  ONE_HOUR
+  FOUR_HOURS
+  ONE_DAY
+}
+
 enum MarketOrderSide {
   BUY
   SELL
@@ -832,6 +860,7 @@ model ResourceTransferMission {
   targetPlanet   Planet        @relation("TransferTarget", fields: [targetPlanetId], references: [id], onDelete: Cascade)
   ships          Json
   resources      Json
+  itemCargo      Json          @default("{}")
   phase          TransferPhase @default(OUTBOUND)
   arrivesAt      DateTime
   completedAt    DateTime?
@@ -892,7 +921,7 @@ model PlayerInventorySlot {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   planetId  String
   planet    Planet   @relation(fields: [planetId], references: [id], onDelete: Cascade)
-  itemKey   String
+  itemKey   ItemKey
   quantity  Int      @default(0)
   updatedAt DateTime @updatedAt
 
@@ -910,7 +939,7 @@ model MarketOrder {
   userId         String
   user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Clé stable de l'objet (ItemKey).
-  itemKey        String
+  itemKey        ItemKey
   side           MarketOrderSide
   status         MarketOrderStatus @default(OPEN)
   pricePerUnit   Int
@@ -937,7 +966,7 @@ model MarketTrade {
   id          String   @id @default(uuid())
   universeId  String
   universe    Universe @relation(fields: [universeId], references: [id], onDelete: Cascade)
-  itemKey     String
+  itemKey     ItemKey
   buyOrderId  String
   buyOrder    MarketOrder @relation("OrderBuy", fields: [buyOrderId], references: [id])
   sellOrderId String
@@ -963,8 +992,8 @@ model OhlcvCandle {
   id         String   @id @default(uuid())
   universeId String
   universe   Universe @relation(fields: [universeId], references: [id], onDelete: Cascade)
-  itemKey    String
-  interval   String
+  itemKey    ItemKey
+  interval   OhlcvInterval
   openTime   DateTime
   open       Int
   high       Int
@@ -985,10 +1014,10 @@ model CraftingJob {
   planetId    String
   planet      Planet   @relation(fields: [planetId], references: [id], onDelete: Cascade)
   recipeId    String
-  outputKey   String
+  outputKey   ItemKey
   outputQty   Int
   quantity    Int      @default(1)
-  status      String   @default("PENDING")
+  status      JobStatus @default(PENDING)
   startedAt   DateTime @default(now())
   completesAt DateTime
 
@@ -1008,11 +1037,11 @@ model TradeRoute {
   toPlanetId     String
   toPlanet       Planet           @relation("TradeRouteTo", fields: [toPlanetId], references: [id], onDelete: Cascade)
   /// Clé de l'objet (null si c'est une ressource de base).
-  itemKey        String?
+  itemKey        ItemKey?
   /// Ressource de base (null si c'est un objet).
-  resource       String?
+  resource       ResourceType?
   quantityPerRun Int
-  shipType       String
+  shipType       ShipType
   shipCount      Int
   intervalHours  Int              @default(4)
   status         TradeRouteStatus @default(ACTIVE)

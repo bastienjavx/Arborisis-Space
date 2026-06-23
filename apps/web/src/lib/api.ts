@@ -322,7 +322,8 @@ export const api = {
 
   // ── Inventaire ──
   inventory: () => request<InventorySlotView[]>('/inventory'),
-  planetInventory: (planetId: string) => request<InventorySlotView[]>(`/inventory/planet/${planetId}`),
+  planetInventory: (planetId: string) =>
+    request<InventorySlotView[]>(`/inventory/planet/${planetId}`),
 
   // ── Marché ──
   marketSummaries: () => request<MarketSummaryView[]>('/market/summaries'),
@@ -334,8 +335,7 @@ export const api = {
   myMarketTrades: () => request<MarketTradeView[]>('/market/my/trades'),
   placeMarketOrder: (body: PlaceMarketOrderDto) =>
     request<MarketOrderView>('/market/orders', { method: 'POST', body }),
-  cancelMarketOrder: (id: string) =>
-    request<void>(`/market/orders/${id}`, { method: 'DELETE' }),
+  cancelMarketOrder: (id: string) => request<void>(`/market/orders/${id}`, { method: 'DELETE' }),
 
   // ── Artisanat ──
   craftingRecipes: () => request<CraftingRecipeConfig[]>('/crafting/recipes'),
@@ -351,6 +351,5 @@ export const api = {
     request<TradeRouteView>('/trade-routes', { method: 'POST', body }),
   updateTradeRouteStatus: (id: string, status: TradeRouteStatus) =>
     request<TradeRouteView>(`/trade-routes/${id}/status`, { method: 'PATCH', body: { status } }),
-  deleteTradeRoute: (id: string) =>
-    request<void>(`/trade-routes/${id}`, { method: 'DELETE' }),
+  deleteTradeRoute: (id: string) => request<void>(`/trade-routes/${id}`, { method: 'DELETE' }),
 };

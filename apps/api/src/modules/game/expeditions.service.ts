@@ -371,7 +371,8 @@ export class ExpeditionsService {
       if (dropTable) {
         for (const entry of dropTable) {
           if (Math.random() < entry.chance) {
-            const qty = Math.floor(Math.random() * (entry.maxQty - entry.minQty + 1)) + entry.minQty;
+            const qty =
+              Math.floor(Math.random() * (entry.maxQty - entry.minQty + 1)) + entry.minQty;
             await tx.playerInventorySlot.upsert({
               where: {
                 userId_planetId_itemKey: {

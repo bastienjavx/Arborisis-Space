@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TransferPhase } from '@prisma/client';
+import { ItemKey as PrismaItemKey, TransferPhase } from '@prisma/client';
 import {
   fleetCargoCapacity,
   pveTravelTimeSeconds,
@@ -126,6 +126,7 @@ export class TransferService {
 
     const resources = mission.resources as Record<string, number>;
     const ships = mission.ships as Record<string, number>;
+    const itemCargo = mission.itemCargo as Record<string, number>;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.planet.update({
@@ -142,6 +143,25 @@ export class TransferService {
           where: { planetId_type: { planetId: mission.targetPlanetId, type: type as ShipType } },
           update: { quantity: { increment: qty } },
           create: { planetId: mission.targetPlanetId, type: type as ShipType, quantity: qty },
+        });
+      }
+      for (const [itemKey, qty] of Object.entries(itemCargo)) {
+        if (qty <= 0) continue;
+        await tx.playerInventorySlot.upsert({
+          where: {
+            userId_planetId_itemKey: {
+              userId: mission.userId,
+              planetId: mission.targetPlanetId,
+              itemKey: itemKey as PrismaItemKey,
+            },
+          },
+          update: { quantity: { increment: qty } },
+          create: {
+            userId: mission.userId,
+            planetId: mission.targetPlanetId,
+            itemKey: itemKey as PrismaItemKey,
+            quantity: qty,
+          },
         });
       }
       await tx.resourceTransferMission.update({

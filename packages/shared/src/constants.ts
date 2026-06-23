@@ -1684,7 +1684,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.MYCELIAL_FIBER]: {
     key: ItemKey.MYCELIAL_FIBER,
     name: 'Fibre Mycéliale',
-    description: 'Filament organique récolté sur des parasites sporaux. Matière première polyvalente.',
+    description:
+      'Filament organique récolté sur des parasites sporaux. Matière première polyvalente.',
     rarity: ItemRarity.COMMON,
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 150,
@@ -1706,7 +1707,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.CHITIN_SHARD]: {
     key: ItemKey.CHITIN_SHARD,
     name: 'Éclat de Chitine',
-    description: 'Fragment d\'exosquelette de gardien cristallin. Matériau résistant utilisé en armurerie.',
+    description:
+      "Fragment d'exosquelette de gardien cristallin. Matériau résistant utilisé en armurerie.",
     rarity: ItemRarity.UNCOMMON,
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 500,
@@ -1717,7 +1719,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.SPORE_ESSENCE]: {
     key: ItemKey.SPORE_ESSENCE,
     name: 'Essence Sporale',
-    description: 'Concentré de spores primordiales récupéré lors d\'expéditions. Rare et précieux.',
+    description: "Concentré de spores primordiales récupéré lors d'expéditions. Rare et précieux.",
     rarity: ItemRarity.UNCOMMON,
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 800,
@@ -1728,7 +1730,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.VOID_CRYSTAL]: {
     key: ItemKey.VOID_CRYSTAL,
     name: 'Cristal du Vide',
-    description: 'Cristal né dans les failles interdimensionnelles. Extrêmement rare, propriétés énergétiques exceptionnelles.',
+    description:
+      'Cristal né dans les failles interdimensionnelles. Extrêmement rare, propriétés énergétiques exceptionnelles.',
     rarity: ItemRarity.RARE,
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 3_000,
@@ -1739,7 +1742,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.ANCIENT_FRAGMENT]: {
     key: ItemKey.ANCIENT_FRAGMENT,
     name: 'Fragment Ancien',
-    description: 'Débris d\'une civilisation disparue. Seule la Sentinelle Ancienne en possède encore.',
+    description:
+      "Débris d'une civilisation disparue. Seule la Sentinelle Ancienne en possède encore.",
     rarity: ItemRarity.LEGENDARY,
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 25_000,
@@ -1750,7 +1754,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.REINFORCED_CHITIN]: {
     key: ItemKey.REINFORCED_CHITIN,
     name: 'Chitine Renforcée',
-    description: 'Plaques d\'exosquelette traitées et consolidées. Utilisée pour les blindages avancés.',
+    description:
+      "Plaques d'exosquelette traitées et consolidées. Utilisée pour les blindages avancés.",
     rarity: ItemRarity.UNCOMMON,
     category: ItemCategory.PROCESSED,
     baseValue: 1_200,
@@ -1761,7 +1766,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.CRYSTALLIZED_SAP]: {
     key: ItemKey.CRYSTALLIZED_SAP,
     name: 'Sève Cristallisée',
-    description: 'Sève solidifiée par un cristal du vide. Conducteur énergétique de haute performance.',
+    description:
+      'Sève solidifiée par un cristal du vide. Conducteur énergétique de haute performance.',
     rarity: ItemRarity.RARE,
     category: ItemCategory.PROCESSED,
     baseValue: 5_000,
@@ -1772,7 +1778,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.NEURAL_MATRIX]: {
     key: ItemKey.NEURAL_MATRIX,
     name: 'Matrice Neurale',
-    description: 'Réseau mycélial amplifié par des spores. Accélère les processus cognitifs organiques.',
+    description:
+      'Réseau mycélial amplifié par des spores. Accélère les processus cognitifs organiques.',
     rarity: ItemRarity.RARE,
     category: ItemCategory.PROCESSED,
     baseValue: 6_000,
@@ -1783,7 +1790,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.VOID_ALLOY]: {
     key: ItemKey.VOID_ALLOY,
     name: 'Alliage du Vide',
-    description: 'Fusion de cristaux du vide et de minéraux purs. Le matériau le plus résistant connu.',
+    description:
+      'Fusion de cristaux du vide et de minéraux purs. Le matériau le plus résistant connu.',
     rarity: ItemRarity.EPIC,
     category: ItemCategory.PROCESSED,
     baseValue: 18_000,
@@ -1794,7 +1802,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.MYCOTOXIN_VIAL]: {
     key: ItemKey.MYCOTOXIN_VIAL,
     name: 'Fiole de Mycotoxine',
-    description: 'Concentration de toxines bioluminescentes. Arme chimique d\'usage militaire.',
+    description: "Concentration de toxines bioluminescentes. Arme chimique d'usage militaire.",
     rarity: ItemRarity.UNCOMMON,
     category: ItemCategory.PROCESSED,
     baseValue: 900,
@@ -1805,7 +1813,8 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
   [ItemKey.CONVERGENCE_SHARD]: {
     key: ItemKey.CONVERGENCE_SHARD,
     name: 'Éclat de Convergence',
-    description: 'Artefact ultime forgé à partir de fragments anciens. Symbole de maîtrise absolue.',
+    description:
+      'Artefact ultime forgé à partir de fragments anciens. Symbole de maîtrise absolue.',
     rarity: ItemRarity.LEGENDARY,
     category: ItemCategory.PROCESSED,
     baseValue: 80_000,

@@ -47,8 +47,12 @@ export default function InventoryPage() {
             Combattez des anomalies PvE ou lancez des expéditions pour obtenir des objets.
           </p>
           <div className="flex gap-3">
-            <Link href="/pve" className="btn btn-sm">Aller en PvE</Link>
-            <Link href="/pve" className="btn btn-sm btn-ghost">Expéditions</Link>
+            <Link href="/pve" className="btn btn-sm">
+              Aller en PvE
+            </Link>
+            <Link href="/pve" className="btn btn-sm btn-ghost">
+              Expéditions
+            </Link>
           </div>
         </div>
       )}

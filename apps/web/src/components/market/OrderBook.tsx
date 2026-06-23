@@ -41,12 +41,11 @@ export function OrderBook({ data, onPriceClick }: OrderBookProps) {
       {/* Spread / last price */}
       <div className="my-1 flex items-center gap-3 rounded-lg border border-canopy-700/20 bg-bark-800/50 px-3 py-2">
         <span className="text-base font-bold text-canopy-100">
-          {data.lastPrice != null ? data.lastPrice.toLocaleString() : '—'} <span className="text-xs text-canopy-100/40">B</span>
+          {data.lastPrice != null ? data.lastPrice.toLocaleString() : '—'}{' '}
+          <span className="text-xs text-canopy-100/40">B</span>
         </span>
         {data.change24h != null && (
-          <span
-            className={`text-xs ${data.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
-          >
+          <span className={`text-xs ${data.change24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {data.change24h >= 0 ? '+' : ''}
             {data.change24h.toFixed(2)}%
           </span>
@@ -70,7 +69,9 @@ export function OrderBook({ data, onPriceClick }: OrderBookProps) {
               className="absolute inset-0 rounded bg-emerald-500/8"
               style={{ width: `${(bid.total / maxBidTotal) * 100}%` }}
             />
-            <span className="relative text-left text-emerald-400">{bid.price.toLocaleString()}</span>
+            <span className="relative text-left text-emerald-400">
+              {bid.price.toLocaleString()}
+            </span>
             <span className="relative text-canopy-100/70">{bid.quantity.toLocaleString()}</span>
             <span className="relative text-canopy-100/40">{bid.total.toLocaleString()}</span>
           </button>

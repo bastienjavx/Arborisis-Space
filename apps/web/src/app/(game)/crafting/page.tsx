@@ -107,7 +107,9 @@ function RecipeCard({
           >
             −
           </button>
-          <span className="w-8 text-center text-sm font-mono font-semibold text-canopy-100">{qty}</span>
+          <span className="w-8 text-center text-sm font-mono font-semibold text-canopy-100">
+            {qty}
+          </span>
           <button
             onClick={() => setQty(Math.min(100, qty + 1))}
             className="h-7 w-7 rounded-md bg-bark-800/60 text-sm hover:bg-bark-700"
@@ -233,7 +235,10 @@ export default function CraftingPage() {
               inventory={inventoryMap}
               planetResources={planetResources}
               onCraft={(recipeId, qty) => {
-                if (!planetId) { setCraftError('Sélectionnez une planète.'); return; }
+                if (!planetId) {
+                  setCraftError('Sélectionnez une planète.');
+                  return;
+                }
                 craft.mutate({ recipeId, qty });
               }}
             />

@@ -12,8 +12,7 @@ function PriceChange({ change }: { change: number | null }) {
   if (change > 0)
     return (
       <span className="flex items-center gap-1 text-emerald-400">
-        <FiTrendingUp className="h-3 w-3" aria-hidden />
-        +{change.toFixed(2)}%
+        <FiTrendingUp className="h-3 w-3" aria-hidden />+{change.toFixed(2)}%
       </span>
     );
   if (change < 0)
@@ -48,7 +47,10 @@ export default function MarketPage() {
           acc[item.rarity].push({ item, summary });
           return acc;
         },
-        {} as Record<string, { item: (typeof ITEMS)[ItemKey]; summary: MarketSummaryView | undefined }[]>,
+        {} as Record<
+          string,
+          { item: (typeof ITEMS)[ItemKey]; summary: MarketSummaryView | undefined }[]
+        >,
       )
     : {};
 
@@ -103,7 +105,10 @@ export default function MarketPage() {
                         </p>
                       </div>
                     </div>
-                    <FiArrowRight className="h-4 w-4 text-canopy-100/20 transition group-hover:text-canopy-400" aria-hidden />
+                    <FiArrowRight
+                      className="h-4 w-4 text-canopy-100/20 transition group-hover:text-canopy-400"
+                      aria-hidden
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">

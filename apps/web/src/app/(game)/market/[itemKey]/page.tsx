@@ -50,7 +50,8 @@ export default function ItemMarketPage() {
     queryFn: () => api.inventory(),
   });
 
-  const itemInventory = inventory?.filter((s) => s.itemKey === itemKey && s.planetId === planetId) ?? [];
+  const itemInventory =
+    inventory?.filter((s) => s.itemKey === itemKey && s.planetId === planetId) ?? [];
   const totalInInventory = itemInventory.reduce((sum, s) => sum + s.quantity, 0);
 
   const place = useMutation({
@@ -73,25 +74,44 @@ export default function ItemMarketPage() {
     },
   });
 
-  const myItemOrders = myOrders?.filter(
-    (o) => o.itemKey === itemKey && (o.status === 'OPEN' || o.status === 'PARTIALLY_FILLED'),
-  ) ?? [];
+  const myItemOrders =
+    myOrders?.filter(
+      (o) => o.itemKey === itemKey && (o.status === 'OPEN' || o.status === 'PARTIALLY_FILLED'),
+    ) ?? [];
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!planetId) { setError('Sélectionnez une planète.'); return; }
+    if (!planetId) {
+      setError('Sélectionnez une planète.');
+      return;
+    }
     const p = parseInt(price);
     const q = parseInt(quantity);
-    if (isNaN(p) || p <= 0) { setError('Prix invalide.'); return; }
-    if (isNaN(q) || q <= 0) { setError('Quantité invalide.'); return; }
-    place.mutate({ itemKey: itemKey as ItemKey, side, pricePerUnit: p, quantity: q, sourcePlanetId: planetId });
+    if (isNaN(p) || p <= 0) {
+      setError('Prix invalide.');
+      return;
+    }
+    if (isNaN(q) || q <= 0) {
+      setError('Quantité invalide.');
+      return;
+    }
+    place.mutate({
+      itemKey: itemKey as ItemKey,
+      side,
+      pricePerUnit: p,
+      quantity: q,
+      sourcePlanetId: planetId,
+    });
   }
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/market" className="rounded-lg p-1.5 text-canopy-100/40 hover:bg-bark-800/60 hover:text-canopy-100">
+        <Link
+          href="/market"
+          className="rounded-lg p-1.5 text-canopy-100/40 hover:bg-bark-800/60 hover:text-canopy-100"
+        >
           <FiArrowLeft className="h-5 w-5" aria-hidden />
         </Link>
         <span className="text-3xl leading-none">{item.icon}</span>
@@ -101,7 +121,12 @@ export default function ItemMarketPage() {
         </div>
         <span
           className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
-          style={{ color: item.rarityColor, borderColor: item.rarityColor, border: `1px solid ${item.rarityColor}30`, background: `${item.rarityColor}10` }}
+          style={{
+            color: item.rarityColor,
+            borderColor: item.rarityColor,
+            border: `1px solid ${item.rarityColor}30`,
+            background: `${item.rarityColor}10`,
+          }}
         >
           {item.rarity}
         </span>
@@ -176,10 +201,7 @@ export default function ItemMarketPage() {
             {obLoading ? (
               <div className="h-48 animate-pulse rounded-lg bg-bark-800/50" />
             ) : orderBook ? (
-              <OrderBook
-                data={orderBook}
-                onPriceClick={(p) => setPrice(String(p))}
-              />
+              <OrderBook data={orderBook} onPriceClick={(p) => setPrice(String(p))} />
             ) : null}
           </div>
 
@@ -260,7 +282,9 @@ export default function ItemMarketPage() {
                     {(parseInt(price || '0') * parseInt(quantity || '0')).toLocaleString()} B
                   </span>
                   {side === MarketOrderSide.BUY && (
-                    <span className="ml-2 text-[10px] text-canopy-100/30">prélevé sur votre planète</span>
+                    <span className="ml-2 text-[10px] text-canopy-100/30">
+                      prélevé sur votre planète
+                    </span>
                   )}
                 </div>
               )}
@@ -281,7 +305,7 @@ export default function ItemMarketPage() {
                 {place.isPending
                   ? 'Envoi…'
                   : side === MarketOrderSide.BUY
-                    ? 'Placer ordre d\'achat'
+                    ? "Placer ordre d'achat"
                     : 'Placer ordre de vente'}
               </button>
             </form>

@@ -1,14 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ItemKey as PrismaItemKey } from '@prisma/client';
 import {
   CRAFTING_RECIPES,
   type CraftingJobView,
+  ItemKey,
   type StartCraftingDto,
   ResourceType,
 } from '@arborisis/shared';
@@ -39,12 +36,13 @@ export class CraftingService {
 
     const settled = await this.engine.settlePlanet(planet.id);
 
-    await this.prisma.serializable(async (tx) => {
+    const createdJob = await this.prisma.serializable(async (tx) => {
       // Vérifier et déduire les ressources de base
       const resourceCosts: Partial<Record<ResourceType, number>> = {};
       for (const ing of recipe.ingredients) {
         if (ing.resource) {
-          resourceCosts[ing.resource] = (resourceCosts[ing.resource] ?? 0) + ing.quantity * dto.quantity;
+          resourceCosts[ing.resource] =
+            (resourceCosts[ing.resource] ?? 0) + ing.quantity * dto.quantity;
         }
       }
 
@@ -58,14 +56,19 @@ export class CraftingService {
 
       for (const [res, cost] of Object.entries(resourceCosts)) {
         if ((resourceMap[res] ?? 0) < cost) {
-          throw new BadRequestException(`${res} insuffisant. Requis : ${cost}, disponible : ${Math.floor(resourceMap[res] ?? 0)}.`);
+          throw new BadRequestException(
+            `${res} insuffisant. Requis : ${cost}, disponible : ${Math.floor(resourceMap[res] ?? 0)}.`,
+          );
         }
       }
 
-      const itemCosts: { itemKey: string; quantity: number }[] = [];
+      const itemCosts: { itemKey: PrismaItemKey; quantity: number }[] = [];
       for (const ing of recipe.ingredients) {
         if (ing.itemKey) {
-          itemCosts.push({ itemKey: ing.itemKey, quantity: ing.quantity * dto.quantity });
+          itemCosts.push({
+            itemKey: ing.itemKey as PrismaItemKey,
+            quantity: ing.quantity * dto.quantity,
+          });
         }
       }
 
@@ -74,7 +77,9 @@ export class CraftingService {
           where: { userId_planetId_itemKey: { userId, planetId: dto.planetId, itemKey } },
         });
         if (!slot || slot.quantity < quantity) {
-          throw new BadRequestException(`Objet ${itemKey} insuffisant. Requis : ${quantity}, disponible : ${slot?.quantity ?? 0}.`);
+          throw new BadRequestException(
+            `Objet ${itemKey} insuffisant. Requis : ${quantity}, disponible : ${slot?.quantity ?? 0}.`,
+          );
         }
         await tx.playerInventorySlot.update({
           where: { userId_planetId_itemKey: { userId, planetId: dto.planetId, itemKey } },
@@ -87,10 +92,18 @@ export class CraftingService {
         await tx.planet.update({
           where: { id: dto.planetId },
           data: {
-            biomass: resourceCosts[ResourceType.BIOMASS] ? { decrement: resourceCosts[ResourceType.BIOMASS] } : undefined,
-            sap: resourceCosts[ResourceType.SAP] ? { decrement: resourceCosts[ResourceType.SAP] } : undefined,
-            minerals: resourceCosts[ResourceType.MINERALS] ? { decrement: resourceCosts[ResourceType.MINERALS] } : undefined,
-            spores: resourceCosts[ResourceType.SPORES] ? { decrement: resourceCosts[ResourceType.SPORES] } : undefined,
+            biomass: resourceCosts[ResourceType.BIOMASS]
+              ? { decrement: resourceCosts[ResourceType.BIOMASS] }
+              : undefined,
+            sap: resourceCosts[ResourceType.SAP]
+              ? { decrement: resourceCosts[ResourceType.SAP] }
+              : undefined,
+            minerals: resourceCosts[ResourceType.MINERALS]
+              ? { decrement: resourceCosts[ResourceType.MINERALS] }
+              : undefined,
+            spores: resourceCosts[ResourceType.SPORES]
+              ? { decrement: resourceCosts[ResourceType.SPORES] }
+              : undefined,
             lastResourceUpdate: settled.planet.lastResourceUpdate,
           },
         });
@@ -98,7 +111,7 @@ export class CraftingService {
 
       const completesAt = new Date(Date.now() + recipe.craftTimeSeconds * 1_000 * dto.quantity);
 
-      const job = await tx.craftingJob.create({
+      return tx.craftingJob.create({
         data: {
           userId,
           planetId: dto.planetId,
@@ -109,25 +122,26 @@ export class CraftingService {
           completesAt,
         },
       });
-
-      await this.craftingQueue.add(
-        FINALIZE_JOB,
-        { jobId: job.id, universeId: settled.planet.universeId },
-        {
-          jobId: `craft-${job.id}`,
-          delay: Math.max(0, completesAt.getTime() - Date.now()),
-          removeOnComplete: true,
-          removeOnFail: 50,
-          attempts: 3,
-          backoff: { type: 'exponential' as const, delay: 5_000 },
-        },
-      );
     });
 
-    const jobs = await this.getCraftingJobs(userId, dto.planetId);
-    const first = jobs[0];
-    if (!first) throw new Error('Crafting job not found after creation');
-    return first;
+    await this.craftingQueue.add(
+      FINALIZE_JOB,
+      { jobId: createdJob.id, universeId: settled.planet.universeId },
+      {
+        jobId: `craft-${createdJob.id}`,
+        delay: Math.max(0, createdJob.completesAt.getTime() - Date.now()),
+        removeOnComplete: true,
+        removeOnFail: 50,
+        attempts: 3,
+        backoff: { type: 'exponential' as const, delay: 5_000 },
+      },
+    );
+
+    const job = await this.prisma.craftingJob.findUniqueOrThrow({
+      where: { id: createdJob.id },
+      include: { planet: { select: { name: true } } },
+    });
+    return this.toView(job);
   }
 
   async getCraftingJobs(userId: string, planetId?: string): Promise<CraftingJobView[]> {
@@ -138,10 +152,25 @@ export class CraftingService {
       orderBy: { completesAt: 'asc' },
     });
 
-    return jobs.map((j) => ({
+    return jobs.map((j) => this.toView(j));
+  }
+
+  private toView(j: {
+    id: string;
+    recipeId: string;
+    outputKey: string;
+    outputQty: number;
+    quantity: number;
+    planetId: string;
+    planet: { name: string };
+    startedAt: Date;
+    completesAt: Date;
+    status: string;
+  }): CraftingJobView {
+    return {
       id: j.id,
       recipeId: j.recipeId,
-      outputKey: j.outputKey as any,
+      outputKey: j.outputKey as ItemKey,
       outputQty: j.outputQty,
       quantity: j.quantity,
       planetId: j.planetId,
@@ -149,7 +178,7 @@ export class CraftingService {
       startedAt: j.startedAt.toISOString(),
       completesAt: j.completesAt.toISOString(),
       status: j.status as 'PENDING',
-    }));
+    };
   }
 
   async finalizeCraftingJob(jobId: string, now = new Date()): Promise<void> {
@@ -160,10 +189,19 @@ export class CraftingService {
       const totalQty = job.outputQty * job.quantity;
       await tx.playerInventorySlot.upsert({
         where: {
-          userId_planetId_itemKey: { userId: job.userId, planetId: job.planetId, itemKey: job.outputKey },
+          userId_planetId_itemKey: {
+            userId: job.userId,
+            planetId: job.planetId,
+            itemKey: job.outputKey,
+          },
         },
         update: { quantity: { increment: totalQty } },
-        create: { userId: job.userId, planetId: job.planetId, itemKey: job.outputKey, quantity: totalQty },
+        create: {
+          userId: job.userId,
+          planetId: job.planetId,
+          itemKey: job.outputKey,
+          quantity: totalQty,
+        },
       });
 
       await tx.craftingJob.update({

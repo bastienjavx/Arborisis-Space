@@ -12,9 +12,7 @@ import {
   ExpeditionOutcome,
   ExpeditionPhase,
   GalacticEventType,
-  ItemCategory,
   ItemKey,
-  ItemRarity,
   JobKind,
   MarketOrderSide,
   MarketOrderStatus,
@@ -593,7 +591,6 @@ export interface TradeRouteView {
   lastRunAt: string | null;
   nextRunAt: string | null;
 }
-
 
 export interface MarketSummaryView {
   itemKey: ItemKey;

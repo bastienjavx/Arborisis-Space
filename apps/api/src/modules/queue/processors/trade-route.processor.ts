@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { TradeRoutesService } from '../../trade-routes/trade-routes.service';
-import { TRADE_ROUTE_QUEUE, RUN_TRADE_ROUTE_JOB } from '../queue.constants';
+import { TRADE_ROUTE_QUEUE } from '../queue.constants';
 
 interface TradeRouteJobData {
   routeId: string;

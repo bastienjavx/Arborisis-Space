@@ -23,10 +23,18 @@ const TRANSPORT_SHIPS = [
   ShipType.SEED_POD,
 ];
 
-function RouteCard({ route, onToggle, onDelete }: { route: TradeRouteView; onToggle: () => void; onDelete: () => void }) {
+function RouteCard({
+  route,
+  onToggle,
+  onDelete,
+}: {
+  route: TradeRouteView;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
   const cargo = route.itemKey
-    ? ITEMS[route.itemKey as ItemKey]?.name ?? route.itemKey
-    : route.resource ?? '—';
+    ? (ITEMS[route.itemKey as ItemKey]?.name ?? route.itemKey)
+    : (route.resource ?? '—');
   const icon = route.itemKey ? ITEMS[route.itemKey as ItemKey]?.icon : '📦';
   const shipName = SHIPS[route.shipType]?.name ?? route.shipType;
 
@@ -48,7 +56,8 @@ function RouteCard({ route, onToggle, onDelete }: { route: TradeRouteView; onTog
             <span className="truncate">{route.toPlanetName}</span>
           </div>
           <p className="text-xs text-canopy-100/40">
-            {cargo} · {route.quantityPerRun.toLocaleString()} unités · toutes les {route.intervalHours}h
+            {cargo} · {route.quantityPerRun.toLocaleString()} unités · toutes les{' '}
+            {route.intervalHours}h
           </p>
         </div>
         <span
@@ -91,9 +100,13 @@ function RouteCard({ route, onToggle, onDelete }: { route: TradeRouteView; onTog
           className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-bark-800/50 py-2 text-xs font-medium text-canopy-100/60 transition hover:bg-bark-700/60 hover:text-canopy-100"
         >
           {route.status === TradeRouteStatus.ACTIVE ? (
-            <><FiPause className="h-3.5 w-3.5" aria-hidden /> Pause</>
+            <>
+              <FiPause className="h-3.5 w-3.5" aria-hidden /> Pause
+            </>
           ) : (
-            <><FiPlay className="h-3.5 w-3.5" aria-hidden /> Reprendre</>
+            <>
+              <FiPlay className="h-3.5 w-3.5" aria-hidden /> Reprendre
+            </>
           )}
         </button>
         <button
@@ -152,7 +165,10 @@ export default function TradeRoutesPage() {
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!fromPlanetId || !toPlanetId) { setFormError('Sélectionnez les deux planètes.'); return; }
+    if (!fromPlanetId || !toPlanetId) {
+      setFormError('Sélectionnez les deux planètes.');
+      return;
+    }
     const dto: CreateTradeRouteDto = {
       fromPlanetId,
       toPlanetId,
@@ -189,19 +205,33 @@ export default function TradeRoutesPage() {
           <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label">Planète source</label>
-              <select className="input w-full" value={fromPlanetId} onChange={(e) => setFromPlanetId(e.target.value)} required>
+              <select
+                className="input w-full"
+                value={fromPlanetId}
+                onChange={(e) => setFromPlanetId(e.target.value)}
+                required
+              >
                 <option value="">— Sélectionner —</option>
                 {planets.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="label">Planète destination</label>
-              <select className="input w-full" value={toPlanetId} onChange={(e) => setToPlanetId(e.target.value)} required>
+              <select
+                className="input w-full"
+                value={toPlanetId}
+                onChange={(e) => setToPlanetId(e.target.value)}
+                required
+              >
                 <option value="">— Sélectionner —</option>
                 {planets.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -226,15 +256,27 @@ export default function TradeRoutesPage() {
                 </button>
               </div>
               {cargoType === 'resource' ? (
-                <select className="input w-full" value={resource} onChange={(e) => setResource(e.target.value as ResourceType)}>
+                <select
+                  className="input w-full"
+                  value={resource}
+                  onChange={(e) => setResource(e.target.value as ResourceType)}
+                >
                   {Object.values(ResourceType).map((r) => (
-                    <option key={r} value={r}>{r}</option>
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
                   ))}
                 </select>
               ) : (
-                <select className="input w-full" value={itemKey} onChange={(e) => setItemKey(e.target.value as ItemKey)}>
+                <select
+                  className="input w-full"
+                  value={itemKey}
+                  onChange={(e) => setItemKey(e.target.value as ItemKey)}
+                >
                   {Object.values(ITEMS).map((item) => (
-                    <option key={item.key} value={item.key}>{item.icon} {item.name}</option>
+                    <option key={item.key} value={item.key}>
+                      {item.icon} {item.name}
+                    </option>
                   ))}
                 </select>
               )}
@@ -242,24 +284,53 @@ export default function TradeRoutesPage() {
 
             <div>
               <label className="label">Quantité par trajet</label>
-              <input type="number" min={1} className="input w-full" value={qty} onChange={(e) => setQty(e.target.value)} required />
+              <input
+                type="number"
+                min={1}
+                className="input w-full"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                required
+              />
             </div>
             <div>
               <label className="label">Intervalle (heures)</label>
-              <input type="number" min={1} max={168} className="input w-full" value={intervalHours} onChange={(e) => setIntervalHours(e.target.value)} required />
+              <input
+                type="number"
+                min={1}
+                max={168}
+                className="input w-full"
+                value={intervalHours}
+                onChange={(e) => setIntervalHours(e.target.value)}
+                required
+              />
             </div>
 
             <div>
               <label className="label">Type de vaisseau</label>
-              <select className="input w-full" value={shipType} onChange={(e) => setShipType(e.target.value as ShipType)}>
+              <select
+                className="input w-full"
+                value={shipType}
+                onChange={(e) => setShipType(e.target.value as ShipType)}
+              >
                 {TRANSPORT_SHIPS.map((t) => (
-                  <option key={t} value={t}>{SHIPS[t].name} (cargaison {SHIPS[t].cargo.toLocaleString()})</option>
+                  <option key={t} value={t}>
+                    {SHIPS[t].name} (cargaison {SHIPS[t].cargo.toLocaleString()})
+                  </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="label">Nombre de vaisseaux</label>
-              <input type="number" min={1} max={1000} className="input w-full" value={shipCount} onChange={(e) => setShipCount(e.target.value)} required />
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                className="input w-full"
+                value={shipCount}
+                onChange={(e) => setShipCount(e.target.value)}
+                required
+              />
             </div>
 
             {formError && (

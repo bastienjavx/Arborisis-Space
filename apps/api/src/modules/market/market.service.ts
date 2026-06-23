@@ -1,11 +1,7 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ItemKey as PrismaItemKey, OhlcvInterval } from '@prisma/client';
 import {
   CRAFTING_RECIPES,
   ITEMS,
@@ -28,6 +24,12 @@ import { MARKET_EXPIRY_QUEUE, EXPIRE_MARKET_ORDER_JOB } from '../queue/queue.con
 export { CRAFTING_RECIPES, ITEMS };
 
 const ORDER_EXPIRY_DAYS = 7;
+const ACTIVE_ORDER_STATUSES = [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] as const;
+const CANDLE_INTERVALS = {
+  '1h': { name: OhlcvInterval.ONE_HOUR, ms: 3_600_000 },
+  '4h': { name: OhlcvInterval.FOUR_HOURS, ms: 14_400_000 },
+  '1d': { name: OhlcvInterval.ONE_DAY, ms: 86_400_000 },
+} as const;
 
 @Injectable()
 export class MarketService {
@@ -96,24 +98,28 @@ export class MarketService {
     const now = new Date();
     const dayAgo = new Date(now.getTime() - 86_400_000);
 
-    const [buyOrders, sellOrders, lastTrade, trades24h] = await Promise.all([
-      this.prisma.marketOrder.findMany({
+    const [buyLevels, sellLevels, lastTrade, trades24h] = await Promise.all([
+      this.prisma.marketOrder.groupBy({
+        by: ['pricePerUnit'],
         where: {
           universeId,
           itemKey,
           side: MarketOrderSide.BUY,
-          status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
+          status: { in: [...ACTIVE_ORDER_STATUSES] },
         },
+        _sum: { quantity: true, filledQuantity: true },
         orderBy: { pricePerUnit: 'desc' },
         take: 20,
       }),
-      this.prisma.marketOrder.findMany({
+      this.prisma.marketOrder.groupBy({
+        by: ['pricePerUnit'],
         where: {
           universeId,
           itemKey,
           side: MarketOrderSide.SELL,
-          status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
+          status: { in: [...ACTIVE_ORDER_STATUSES] },
         },
+        _sum: { quantity: true, filledQuantity: true },
         orderBy: { pricePerUnit: 'asc' },
         take: 20,
       }),
@@ -127,23 +133,29 @@ export class MarketService {
       }),
     ]);
 
-    const aggregateSide = (orders: typeof buyOrders) => {
-      const map = new Map<number, number>();
-      for (const o of orders) {
-        const remaining = o.quantity - o.filledQuantity;
-        map.set(o.pricePerUnit, (map.get(o.pricePerUnit) ?? 0) + remaining);
-      }
-      return [...map.entries()].map(([price, quantity]) => ({ price, quantity, total: 0 }));
-    };
+    const toLevels = (levels: typeof buyLevels) =>
+      levels
+        .map((level) => ({
+          price: level.pricePerUnit,
+          quantity: (level._sum.quantity ?? 0) - (level._sum.filledQuantity ?? 0),
+          total: 0,
+        }))
+        .filter((level) => level.quantity > 0);
 
-    const bids = aggregateSide(buyOrders);
-    const asks = aggregateSide(sellOrders);
+    const bids = toLevels(buyLevels);
+    const asks = toLevels(sellLevels);
 
     // Cumulative totals
     let cum = 0;
-    for (const b of bids) { cum += b.quantity; b.total = cum; }
+    for (const b of bids) {
+      cum += b.quantity;
+      b.total = cum;
+    }
     cum = 0;
-    for (const a of asks) { cum += a.quantity; a.total = cum; }
+    for (const a of asks) {
+      cum += a.quantity;
+      a.total = cum;
+    }
 
     const volume24h = trades24h.reduce((sum, t) => sum + t.quantity, 0);
     const prices24h = trades24h.map((t) => t.price);
@@ -167,11 +179,11 @@ export class MarketService {
     limit = 200,
   ): Promise<OhlcvCandleView[]> {
     const candles = await this.prisma.ohlcvCandle.findMany({
-      where: { universeId, itemKey, interval },
-      orderBy: { openTime: 'asc' },
+      where: { universeId, itemKey, interval: CANDLE_INTERVALS[interval].name },
+      orderBy: { openTime: 'desc' },
       take: limit,
     });
-    return candles.map((c) => ({
+    return candles.reverse().map((c) => ({
       openTime: c.openTime.toISOString(),
       open: c.open,
       high: c.high,
@@ -200,7 +212,7 @@ export class MarketService {
       where: {
         universeId,
         itemKey,
-        status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
+        status: { in: [...ACTIVE_ORDER_STATUSES] },
       },
       include: { user: { select: { username: true } } },
       orderBy: [{ side: 'asc' }, { pricePerUnit: 'asc' }],
@@ -233,33 +245,39 @@ export class MarketService {
   ): Promise<MarketOrderView> {
     const planet = await this.planets.assertOwnership(userId, dto.sourcePlanetId);
     const settled = await this.engine.settlePlanet(planet.id);
+    const expiresAt = new Date(Date.now() + ORDER_EXPIRY_DAYS * 86_400_000);
 
     if (dto.side === MarketOrderSide.BUY) {
       const escrow = dto.pricePerUnit * dto.quantity;
-      const biomass = settled.planet.biomass;
-      if (biomass < escrow) {
-        throw new BadRequestException(
-          `Biomasse insuffisante. Requise : ${escrow}, disponible : ${Math.floor(biomass)}.`,
-        );
-      }
-      await this.prisma.planet.update({
-        where: { id: planet.id },
-        data: { biomass: { decrement: escrow }, lastResourceUpdate: settled.planet.lastResourceUpdate },
-      });
+      const order = await this.prisma.serializable(async (tx) => {
+        const freshPlanet = await tx.planet.findUniqueOrThrow({ where: { id: planet.id } });
+        if (freshPlanet.biomass < escrow) {
+          throw new BadRequestException(
+            `Biomasse insuffisante. Requise : ${escrow}, disponible : ${Math.floor(freshPlanet.biomass)}.`,
+          );
+        }
+        await tx.planet.update({
+          where: { id: planet.id },
+          data: {
+            biomass: { decrement: escrow },
+            lastResourceUpdate: settled.planet.lastResourceUpdate,
+          },
+        });
 
-      const order = await this.prisma.marketOrder.create({
-        data: {
-          universeId,
-          userId,
-          itemKey: dto.itemKey,
-          side: MarketOrderSide.BUY,
-          pricePerUnit: dto.pricePerUnit,
-          quantity: dto.quantity,
-          escrowBiomass: escrow,
-          sourcePlanetId: dto.sourcePlanetId,
-          expiresAt: new Date(Date.now() + ORDER_EXPIRY_DAYS * 86_400_000),
-        },
-        include: { user: { select: { username: true } } },
+        return tx.marketOrder.create({
+          data: {
+            universeId,
+            userId,
+            itemKey: dto.itemKey,
+            side: MarketOrderSide.BUY,
+            pricePerUnit: dto.pricePerUnit,
+            quantity: dto.quantity,
+            escrowBiomass: escrow,
+            sourcePlanetId: dto.sourcePlanetId,
+            expiresAt,
+          },
+          include: { user: { select: { username: true } } },
+        });
       });
 
       await this.scheduleExpiry(order.id, order.expiresAt!);
@@ -271,34 +289,45 @@ export class MarketService {
       });
       return this.toOrderView(fresh, userId);
     } else {
-      // SELL — vérifier inventaire
-      const slot = await this.prisma.playerInventorySlot.findUnique({
-        where: { userId_planetId_itemKey: { userId, planetId: dto.sourcePlanetId, itemKey: dto.itemKey } },
-      });
-      if (!slot || slot.quantity < dto.quantity) {
-        throw new BadRequestException(
-          `Inventaire insuffisant. Requis : ${dto.quantity}, disponible : ${slot?.quantity ?? 0}.`,
-        );
-      }
+      const order = await this.prisma.serializable(async (tx) => {
+        const debit = await tx.playerInventorySlot.updateMany({
+          where: {
+            userId,
+            planetId: dto.sourcePlanetId,
+            itemKey: dto.itemKey,
+            quantity: { gte: dto.quantity },
+          },
+          data: { quantity: { decrement: dto.quantity } },
+        });
+        if (debit.count !== 1) {
+          const slot = await tx.playerInventorySlot.findUnique({
+            where: {
+              userId_planetId_itemKey: {
+                userId,
+                planetId: dto.sourcePlanetId,
+                itemKey: dto.itemKey,
+              },
+            },
+          });
+          throw new BadRequestException(
+            `Inventaire insuffisant. Requis : ${dto.quantity}, disponible : ${slot?.quantity ?? 0}.`,
+          );
+        }
 
-      await this.prisma.playerInventorySlot.update({
-        where: { userId_planetId_itemKey: { userId, planetId: dto.sourcePlanetId, itemKey: dto.itemKey } },
-        data: { quantity: { decrement: dto.quantity } },
-      });
-
-      const order = await this.prisma.marketOrder.create({
-        data: {
-          universeId,
-          userId,
-          itemKey: dto.itemKey,
-          side: MarketOrderSide.SELL,
-          pricePerUnit: dto.pricePerUnit,
-          quantity: dto.quantity,
-          escrowBiomass: 0,
-          sourcePlanetId: dto.sourcePlanetId,
-          expiresAt: new Date(Date.now() + ORDER_EXPIRY_DAYS * 86_400_000),
-        },
-        include: { user: { select: { username: true } } },
+        return tx.marketOrder.create({
+          data: {
+            universeId,
+            userId,
+            itemKey: dto.itemKey,
+            side: MarketOrderSide.SELL,
+            pricePerUnit: dto.pricePerUnit,
+            quantity: dto.quantity,
+            escrowBiomass: 0,
+            sourcePlanetId: dto.sourcePlanetId,
+            expiresAt,
+          },
+          include: { user: { select: { username: true } } },
+        });
       });
 
       await this.scheduleExpiry(order.id, order.expiresAt!);
@@ -313,17 +342,23 @@ export class MarketService {
   }
 
   async cancelOrder(userId: string, orderId: string): Promise<void> {
-    const order = await this.prisma.marketOrder.findUnique({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Ordre introuvable.');
-    if (order.userId !== userId) throw new BadRequestException('Cet ordre ne vous appartient pas.');
-    if (
-      order.status === MarketOrderStatus.FILLED ||
-      order.status === MarketOrderStatus.CANCELLED
-    ) {
-      throw new BadRequestException('Cet ordre ne peut plus être annulé.');
-    }
+    await this.prisma.serializable(async (tx) => {
+      const order = await tx.marketOrder.findUnique({ where: { id: orderId } });
+      if (!order) throw new NotFoundException('Ordre introuvable.');
+      if (order.userId !== userId)
+        throw new BadRequestException('Cet ordre ne vous appartient pas.');
+      if (!ACTIVE_ORDER_STATUSES.includes(order.status as (typeof ACTIVE_ORDER_STATUSES)[number])) {
+        throw new BadRequestException('Cet ordre ne peut plus être annulé.');
+      }
 
-    await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.marketOrder.updateMany({
+        where: { id: orderId, status: { in: [...ACTIVE_ORDER_STATUSES] } },
+        data: { status: MarketOrderStatus.CANCELLED },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('Cet ordre ne peut plus être annulé.');
+      }
+
       if (order.side === MarketOrderSide.BUY && order.escrowBiomass > 0) {
         const remaining = order.quantity - order.filledQuantity;
         const refund = remaining * order.pricePerUnit;
@@ -352,25 +387,24 @@ export class MarketService {
           });
         }
       }
-
-      await tx.marketOrder.update({
-        where: { id: orderId },
-        data: { status: MarketOrderStatus.CANCELLED },
-      });
     });
   }
 
   /** Moteur de matching : tente d'exécuter l'ordre contre le carnet existant. */
-  private async tryMatch(
-    universeId: string,
-    itemKey: string,
-    newOrderId: string,
-  ): Promise<void> {
+  private async tryMatch(universeId: string, itemKey: ItemKey, newOrderId: string): Promise<void> {
     const order = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
-    if (!order || order.status === MarketOrderStatus.FILLED || order.status === MarketOrderStatus.CANCELLED) return;
+    if (
+      !order ||
+      !ACTIVE_ORDER_STATUSES.includes(order.status as (typeof ACTIVE_ORDER_STATUSES)[number])
+    )
+      return;
 
     let fresh = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
-    while (fresh && fresh.quantity - fresh.filledQuantity > 0) {
+    while (
+      fresh &&
+      ACTIVE_ORDER_STATUSES.includes(fresh.status as (typeof ACTIVE_ORDER_STATUSES)[number]) &&
+      fresh.quantity - fresh.filledQuantity > 0
+    ) {
       const remaining = fresh.quantity - fresh.filledQuantity;
 
       // Chercher le meilleur ordre opposé
@@ -379,9 +413,9 @@ export class MarketService {
           ? await this.prisma.marketOrder.findFirst({
               where: {
                 universeId,
-                itemKey,
+                itemKey: itemKey as PrismaItemKey,
                 side: MarketOrderSide.SELL,
-                status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
+                status: { in: [...ACTIVE_ORDER_STATUSES] },
                 pricePerUnit: { lte: fresh.pricePerUnit },
                 userId: { not: fresh.userId },
               },
@@ -390,9 +424,9 @@ export class MarketService {
           : await this.prisma.marketOrder.findFirst({
               where: {
                 universeId,
-                itemKey,
+                itemKey: itemKey as PrismaItemKey,
                 side: MarketOrderSide.BUY,
-                status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
+                status: { in: [...ACTIVE_ORDER_STATUSES] },
                 pricePerUnit: { gte: fresh.pricePerUnit },
                 userId: { not: fresh.userId },
               },
@@ -422,9 +456,22 @@ export class MarketService {
 
   private async executeTrade(params: {
     universeId: string;
-    itemKey: string;
-    buyOrder: { id: string; userId: string; quantity: number; filledQuantity: number; pricePerUnit: number; sourcePlanetId: string };
-    sellOrder: { id: string; userId: string; quantity: number; filledQuantity: number; sourcePlanetId: string };
+    itemKey: ItemKey;
+    buyOrder: {
+      id: string;
+      userId: string;
+      quantity: number;
+      filledQuantity: number;
+      pricePerUnit: number;
+      sourcePlanetId: string;
+    };
+    sellOrder: {
+      id: string;
+      userId: string;
+      quantity: number;
+      filledQuantity: number;
+      sourcePlanetId: string;
+    };
     execQty: number;
     execPrice: number;
   }): Promise<void> {
@@ -436,6 +483,27 @@ export class MarketService {
         tx.marketOrder.findUniqueOrThrow({ where: { id: buyOrder.id } }),
         tx.marketOrder.findUniqueOrThrow({ where: { id: sellOrder.id } }),
       ]);
+
+      if (
+        freshBuy.universeId !== universeId ||
+        freshSell.universeId !== universeId ||
+        freshBuy.itemKey !== itemKey ||
+        freshSell.itemKey !== itemKey ||
+        freshBuy.side !== MarketOrderSide.BUY ||
+        freshSell.side !== MarketOrderSide.SELL ||
+        freshBuy.userId === freshSell.userId ||
+        !ACTIVE_ORDER_STATUSES.includes(
+          freshBuy.status as (typeof ACTIVE_ORDER_STATUSES)[number],
+        ) ||
+        !ACTIVE_ORDER_STATUSES.includes(
+          freshSell.status as (typeof ACTIVE_ORDER_STATUSES)[number],
+        ) ||
+        freshBuy.pricePerUnit < freshSell.pricePerUnit ||
+        freshBuy.pricePerUnit < execPrice ||
+        freshSell.pricePerUnit > execPrice
+      ) {
+        return;
+      }
 
       const buyRemaining = freshBuy.quantity - freshBuy.filledQuantity;
       const sellRemaining = freshSell.quantity - freshSell.filledQuantity;
@@ -484,14 +552,20 @@ export class MarketService {
         where: { id: buyOrder.id },
         data: {
           filledQuantity: newBuyFilled,
-          status: newBuyFilled >= freshBuy.quantity ? MarketOrderStatus.FILLED : MarketOrderStatus.PARTIALLY_FILLED,
+          status:
+            newBuyFilled >= freshBuy.quantity
+              ? MarketOrderStatus.FILLED
+              : MarketOrderStatus.PARTIALLY_FILLED,
         },
       });
       await tx.marketOrder.update({
         where: { id: sellOrder.id },
         data: {
           filledQuantity: newSellFilled,
-          status: newSellFilled >= freshSell.quantity ? MarketOrderStatus.FILLED : MarketOrderStatus.PARTIALLY_FILLED,
+          status:
+            newSellFilled >= freshSell.quantity
+              ? MarketOrderStatus.FILLED
+              : MarketOrderStatus.PARTIALLY_FILLED,
         },
       });
 
@@ -518,48 +592,60 @@ export class MarketService {
   private async updateCandles(
     tx: Parameters<Parameters<PrismaService['serializable']>[0]>[0],
     universeId: string,
-    itemKey: string,
+    itemKey: ItemKey,
     price: number,
     qty: number,
   ): Promise<void> {
     const now = new Date();
-    const intervals: { name: string; ms: number }[] = [
-      { name: '1h', ms: 3_600_000 },
-      { name: '4h', ms: 14_400_000 },
-      { name: '1d', ms: 86_400_000 },
-    ];
+    const intervals = Object.values(CANDLE_INTERVALS);
 
     for (const { name, ms } of intervals) {
       const openTime = new Date(Math.floor(now.getTime() / ms) * ms);
-      const existing = await tx.ohlcvCandle.findUnique({
-        where: { universeId_itemKey_interval_openTime: { universeId, itemKey, interval: name, openTime } },
-      });
-
-      if (existing) {
-        await tx.ohlcvCandle.update({
-          where: { universeId_itemKey_interval_openTime: { universeId, itemKey, interval: name, openTime } },
-          data: {
-            high: Math.max(existing.high, price),
-            low: Math.min(existing.low, price),
-            close: price,
-            volume: { increment: qty },
-          },
-        });
-      } else {
-        await tx.ohlcvCandle.create({
-          data: {
+      await tx.ohlcvCandle.upsert({
+        where: {
+          universeId_itemKey_interval_openTime: {
             universeId,
-            itemKey,
+            itemKey: itemKey as PrismaItemKey,
             interval: name,
             openTime,
-            open: price,
-            high: price,
-            low: price,
-            close: price,
-            volume: qty,
           },
-        });
-      }
+        },
+        create: {
+          universeId,
+          itemKey: itemKey as PrismaItemKey,
+          interval: name,
+          openTime,
+          open: price,
+          high: price,
+          low: price,
+          close: price,
+          volume: qty,
+        },
+        update: {
+          close: price,
+          volume: { increment: qty },
+        },
+      });
+      await tx.ohlcvCandle.updateMany({
+        where: {
+          universeId,
+          itemKey: itemKey as PrismaItemKey,
+          interval: name,
+          openTime,
+          high: { lt: price },
+        },
+        data: { high: price },
+      });
+      await tx.ohlcvCandle.updateMany({
+        where: {
+          universeId,
+          itemKey: itemKey as PrismaItemKey,
+          interval: name,
+          openTime,
+          low: { gt: price },
+        },
+        data: { low: price },
+      });
     }
   }
 
@@ -575,11 +661,25 @@ export class MarketService {
   async expireOrder(orderId: string): Promise<void> {
     const order = await this.prisma.marketOrder.findUnique({ where: { id: orderId } });
     if (!order) return;
-    if (
-      order.status === MarketOrderStatus.FILLED ||
-      order.status === MarketOrderStatus.CANCELLED
-    ) return;
+    if (order.status === MarketOrderStatus.FILLED || order.status === MarketOrderStatus.CANCELLED)
+      return;
     await this.cancelOrder(order.userId, orderId);
+  }
+
+  async sweepExpiredOrders(now = new Date()): Promise<void> {
+    const expired = await this.prisma.marketOrder.findMany({
+      where: {
+        status: { in: [...ACTIVE_ORDER_STATUSES] },
+        expiresAt: { lte: now },
+      },
+      select: { id: true, userId: true },
+    });
+    for (const order of expired) {
+      await this.cancelOrder(order.userId, order.id).catch((err) =>
+        this.logger.error(err, `Échec expiration ordre ${order.id}.`),
+      );
+    }
+    if (expired.length) this.logger.log(`Marché : ${expired.length} ordre(s) expiré(s).`);
   }
 
   private async compute24hChange(universeId: string, itemKey: string): Promise<number | null> {
@@ -587,26 +687,37 @@ export class MarketService {
     const dayAgo = new Date(now.getTime() - 86_400_000);
     const twoDaysAgo = new Date(now.getTime() - 2 * 86_400_000);
 
-    const [recent, older] = await Promise.all([
+    const [latest, older] = await Promise.all([
       this.prisma.marketTrade.findFirst({
-        where: { universeId, itemKey, executedAt: { gte: dayAgo } },
-        orderBy: { executedAt: 'asc' },
+        where: { universeId, itemKey: itemKey as PrismaItemKey },
+        orderBy: { executedAt: 'desc' },
       }),
       this.prisma.marketTrade.findFirst({
-        where: { universeId, itemKey, executedAt: { gte: twoDaysAgo, lt: dayAgo } },
+        where: {
+          universeId,
+          itemKey: itemKey as PrismaItemKey,
+          executedAt: { lt: dayAgo, gte: twoDaysAgo },
+        },
         orderBy: { executedAt: 'desc' },
       }),
     ]);
 
-    if (!recent || !older) return null;
-    return ((recent.price - older.price) / older.price) * 100;
+    if (!latest || !older) return null;
+    return ((latest.price - older.price) / older.price) * 100;
   }
 
   private toOrderView(
     order: {
-      id: string; itemKey: string; side: string; status: string;
-      pricePerUnit: number; quantity: number; filledQuantity: number;
-      createdAt: Date; expiresAt: Date | null; userId: string;
+      id: string;
+      itemKey: string;
+      side: string;
+      status: string;
+      pricePerUnit: number;
+      quantity: number;
+      filledQuantity: number;
+      createdAt: Date;
+      expiresAt: Date | null;
+      userId: string;
       user: { username: string };
     },
     currentUserId: string,
