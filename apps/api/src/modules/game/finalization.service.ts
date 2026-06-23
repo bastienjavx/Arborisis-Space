@@ -1,6 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ItemKey as PrismaItemKey, JobStatus, TransferPhase } from '@prisma/client';
-import { BUILDINGS, BuildingType, NotificationType, RESEARCHES, ResearchType, ShipType, SHIPS } from '@arborisis/shared';
+import {
+  BUILDINGS,
+  BuildingType,
+  NotificationType,
+  RESEARCHES,
+  ResearchType,
+  ShipType,
+  SHIPS,
+} from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -39,18 +47,28 @@ export class FinalizationService {
         where: { id: jobId },
         data: { status: JobStatus.COMPLETED },
       });
-      notifyData = { userId: job.planet.ownerId, buildingType: job.buildingType, level: job.targetLevel };
+      notifyData = {
+        userId: job.planet.ownerId,
+        buildingType: job.buildingType,
+        level: job.targetLevel,
+      };
     });
     if (notifyData) {
-      const { userId, buildingType, level } = notifyData as { userId: string; buildingType: string; level: number };
+      const { userId, buildingType, level } = notifyData as {
+        userId: string;
+        buildingType: string;
+        level: number;
+      };
       const buildingName = BUILDINGS[buildingType as BuildingType]?.name ?? buildingType;
-      await this.notifications.create(
-        userId,
-        NotificationType.CONSTRUCTION_COMPLETE,
-        'Construction terminée',
-        `${buildingName} atteint le niveau ${level}.`,
-        { buildingType, level },
-      ).catch(() => void 0);
+      await this.notifications
+        .create(
+          userId,
+          NotificationType.CONSTRUCTION_COMPLETE,
+          'Construction terminée',
+          `${buildingName} atteint le niveau ${level}.`,
+          { buildingType, level },
+        )
+        .catch(() => void 0);
     }
   }
 
@@ -71,15 +89,21 @@ export class FinalizationService {
       notifyData = { userId: job.userId, researchType: job.researchType, level: job.targetLevel };
     });
     if (notifyData) {
-      const { userId, researchType, level } = notifyData as { userId: string; researchType: string; level: number };
+      const { userId, researchType, level } = notifyData as {
+        userId: string;
+        researchType: string;
+        level: number;
+      };
       const researchName = RESEARCHES[researchType as ResearchType]?.name ?? researchType;
-      await this.notifications.create(
-        userId,
-        NotificationType.RESEARCH_COMPLETE,
-        'Recherche terminée',
-        `${researchName} atteint le niveau ${level}.`,
-        { researchType, level },
-      ).catch(() => void 0);
+      await this.notifications
+        .create(
+          userId,
+          NotificationType.RESEARCH_COMPLETE,
+          'Recherche terminée',
+          `${researchName} atteint le niveau ${level}.`,
+          { researchType, level },
+        )
+        .catch(() => void 0);
     }
   }
 
@@ -119,13 +143,15 @@ export class FinalizationService {
         where: { id: jobId },
         data: { status: JobStatus.COMPLETED },
       });
-      await this.notifications.create(
-        job.userId,
-        NotificationType.COLONIZATION_COMPLETE,
-        'Essaimage réussi',
-        `Votre colonie en ${job.targetGalaxy}:${job.targetSystem}:${job.targetPosition} est fondée.`,
-        { galaxy: job.targetGalaxy, system: job.targetSystem, position: job.targetPosition },
-      ).catch(() => void 0);
+      await this.notifications
+        .create(
+          job.userId,
+          NotificationType.COLONIZATION_COMPLETE,
+          'Essaimage réussi',
+          `Votre colonie en ${job.targetGalaxy}:${job.targetSystem}:${job.targetPosition} est fondée.`,
+          { galaxy: job.targetGalaxy, system: job.targetSystem, position: job.targetPosition },
+        )
+        .catch(() => void 0);
     });
   }
 
@@ -150,13 +176,15 @@ export class FinalizationService {
     });
     if (done?.status === JobStatus.COMPLETED) {
       const shipName = SHIPS[done.shipType as ShipType]?.name ?? done.shipType;
-      await this.notifications.create(
-        done.planet.ownerId,
-        NotificationType.SHIP_PRODUCED,
-        'Production navale terminée',
-        `${done.quantity}× ${shipName} prêt(s) au déploiement.`,
-        { shipType: done.shipType, quantity: done.quantity },
-      ).catch(() => void 0);
+      await this.notifications
+        .create(
+          done.planet.ownerId,
+          NotificationType.SHIP_PRODUCED,
+          'Production navale terminée',
+          `${done.quantity}× ${shipName} prêt(s) au déploiement.`,
+          { shipType: done.shipType, quantity: done.quantity },
+        )
+        .catch(() => void 0);
     }
   }
 

@@ -213,13 +213,15 @@ export class PvpService {
 
     await this.queue.schedulePvp(mission.id, PvpMissionPhase.OUTBOUND, mission.arrivesAt);
     // Notifier la cible d'une attaque imminente
-    await this.notifications.create(
-      mission.targetPlanet.ownerId,
-      NotificationType.ATTACK_INCOMING,
-      'Attaque imminente !',
-      `Une flotte hostile approche de ${mission.targetPlanet.name}. Arrivée dans ${Math.ceil((mission.arrivesAt.getTime() - Date.now()) / 60000)} min.`,
-      { missionId: mission.id, arrivesAt: mission.arrivesAt.toISOString() },
-    ).catch(() => void 0);
+    await this.notifications
+      .create(
+        mission.targetPlanet.ownerId,
+        NotificationType.ATTACK_INCOMING,
+        'Attaque imminente !',
+        `Une flotte hostile approche de ${mission.targetPlanet.name}. Arrivée dans ${Math.ceil((mission.arrivesAt.getTime() - Date.now()) / 60000)} min.`,
+        { missionId: mission.id, arrivesAt: mission.arrivesAt.toISOString() },
+      )
+      .catch(() => void 0);
     return this.missionView(mission);
   }
 

@@ -107,8 +107,7 @@ export class EmpireService {
       for (const s of p.ships) {
         if (s.quantity > 0) {
           planetShips[s.type as ShipType] = s.quantity;
-          shipBreakdown[s.type as ShipType] =
-            (shipBreakdown[s.type as ShipType] ?? 0) + s.quantity;
+          shipBreakdown[s.type as ShipType] = (shipBreakdown[s.type as ShipType] ?? 0) + s.quantity;
           totalShips += s.quantity;
           planetTotalShips += s.quantity;
         }

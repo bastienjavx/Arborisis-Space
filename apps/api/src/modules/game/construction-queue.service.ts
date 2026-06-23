@@ -68,7 +68,12 @@ export class ConstructionQueueService {
     if (targetLevel > BUILDINGS[dto.targetType].maxLevel) {
       throw new BadRequestException('Niveau maximum atteint pour ce bâtiment.');
     }
-    if (unmetBuildingRequirements(dto.targetType, { buildings: buildingLevels, research: researchLevels }).length > 0) {
+    if (
+      unmetBuildingRequirements(dto.targetType, {
+        buildings: buildingLevels,
+        research: researchLevels,
+      }).length > 0
+    ) {
       throw new BadRequestException('Prérequis non satisfaits.');
     }
 
@@ -79,9 +84,9 @@ export class ConstructionQueueService {
       }),
     );
     const maxFields = planetFields(researchLevels[ResearchType.TERRAFORMATION] ?? 0);
-    const newBuilding = !settled.planet.buildings.find(
-      (b) => b.type === dto.targetType && b.level > 0,
-    ) && !existing.find((q) => q.targetType === dto.targetType);
+    const newBuilding =
+      !settled.planet.buildings.find((b) => b.type === dto.targetType && b.level > 0) &&
+      !existing.find((q) => q.targetType === dto.targetType);
     if (newBuilding && usedFields >= maxFields) {
       throw new ConflictException("Plus d'emplacements disponibles.");
     }
@@ -153,7 +158,10 @@ export class ConstructionQueueService {
       const resourceState = this.engine.buildResourceState(settled);
       if (!canAfford(resourceState.amounts, cost)) return;
 
-      if (unmetBuildingRequirements(next.targetType as BuildingType, { buildings, research }).length > 0) {
+      if (
+        unmetBuildingRequirements(next.targetType as BuildingType, { buildings, research }).length >
+        0
+      ) {
         await this.prisma.constructionQueueItem.delete({ where: { id: next.id } });
         return;
       }

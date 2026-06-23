@@ -24,7 +24,17 @@ const RESOURCE_COLORS: Record<string, string> = {
   SPORES: 'text-violet-300',
 };
 
-function ResourceRow({ label, amount, rate, colorClass }: { label: string; amount: number; rate: number | undefined; colorClass: string }) {
+function ResourceRow({
+  label,
+  amount,
+  rate,
+  colorClass,
+}: {
+  label: string;
+  amount: number;
+  rate: number | undefined;
+  colorClass: string;
+}) {
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">
       <span className={`text-xs font-medium ${colorClass}`}>{label}</span>
@@ -154,7 +164,9 @@ export default function EmpirePage() {
           />
           <StatCard
             label="Jobs actifs"
-            value={Object.values(empire.activeJobs).reduce((a, b) => a + b, 0).toString()}
+            value={Object.values(empire.activeJobs)
+              .reduce((a, b) => a + b, 0)
+              .toString()}
             icon={<FiZap />}
             color="purple"
             delay={0.15}
@@ -169,17 +181,25 @@ export default function EmpirePage() {
           <h2 className="section-title">Production agrégée</h2>
         </div>
         <div className="grid grid-cols-2 gap-0 divide-x divide-canopy-700/10 sm:grid-cols-4">
-          {(Object.entries(empire.totalResources) as [string, number | undefined][]).map(([key, amount]) => (
-            <div key={key} className="px-5 py-4">
-              <p className={`text-xs font-medium ${RESOURCE_COLORS[key] ?? 'text-canopy-300'}`}>
-                {RESOURCE_LABELS[key] ?? key}
-              </p>
-              <p className="mt-1 font-display text-xl text-canopy-100">{formatNumber(amount ?? 0)}</p>
-              <p className="mt-0.5 text-[11px] text-canopy-400/60">
-                +{formatNumber((empire.totalProduction as ResourceBundle)[key as keyof ResourceBundle] ?? 0)}/h
-              </p>
-            </div>
-          ))}
+          {(Object.entries(empire.totalResources) as [string, number | undefined][]).map(
+            ([key, amount]) => (
+              <div key={key} className="px-5 py-4">
+                <p className={`text-xs font-medium ${RESOURCE_COLORS[key] ?? 'text-canopy-300'}`}>
+                  {RESOURCE_LABELS[key] ?? key}
+                </p>
+                <p className="mt-1 font-display text-xl text-canopy-100">
+                  {formatNumber(amount ?? 0)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-canopy-400/60">
+                  +
+                  {formatNumber(
+                    (empire.totalProduction as ResourceBundle)[key as keyof ResourceBundle] ?? 0,
+                  )}
+                  /h
+                </p>
+              </div>
+            ),
+          )}
         </div>
       </section>
 
@@ -200,7 +220,11 @@ export default function EmpirePage() {
                 { key: 'pveMissions', label: 'Missions PvE', icon: FiNavigation },
                 { key: 'transfers', label: 'Transferts', icon: FiNavigation },
                 { key: 'colonizations', label: 'Essaimages', icon: FiGlobe },
-              ] as { key: keyof typeof empire.activeJobs; label: string; icon: React.ComponentType<{ className?: string; 'aria-hidden'?: 'true' }> }[]
+              ] as {
+                key: keyof typeof empire.activeJobs;
+                label: string;
+                icon: React.ComponentType<{ className?: string; 'aria-hidden'?: 'true' }>;
+              }[]
             )
               .filter(({ key }) => empire.activeJobs[key] > 0)
               .map(({ key, label, icon: Icon }) => (

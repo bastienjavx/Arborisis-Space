@@ -140,18 +140,30 @@ export class GameQueueService {
     const now = new Date();
     // Sequential queries to avoid bursting the connection pool at boot
     // (13 concurrent queries × 5 replicas would exhaust PostgreSQL's connection limit).
-    const construction = await this.prisma.constructionJob.findMany({ where: { status: JobStatus.PENDING } });
-    const research = await this.prisma.researchJob.findMany({ where: { status: JobStatus.PENDING } });
-    const colonization = await this.prisma.colonizationJob.findMany({ where: { status: JobStatus.PENDING } });
-    const shipProduction = await this.prisma.shipProductionJob.findMany({ where: { status: JobStatus.PENDING } });
+    const construction = await this.prisma.constructionJob.findMany({
+      where: { status: JobStatus.PENDING },
+    });
+    const research = await this.prisma.researchJob.findMany({
+      where: { status: JobStatus.PENDING },
+    });
+    const colonization = await this.prisma.colonizationJob.findMany({
+      where: { status: JobStatus.PENDING },
+    });
+    const shipProduction = await this.prisma.shipProductionJob.findMany({
+      where: { status: JobStatus.PENDING },
+    });
     const outbound = await this.prisma.expeditionMission.findMany({ where: { phase: 'OUTBOUND' } });
-    const returning = await this.prisma.expeditionMission.findMany({ where: { phase: 'RETURNING' } });
+    const returning = await this.prisma.expeditionMission.findMany({
+      where: { phase: 'RETURNING' },
+    });
     const pveTravel = await this.prisma.pveMission.findMany({ where: { phase: 'TRAVEL' } });
     const pveCombat = await this.prisma.pveMission.findMany({ where: { phase: 'COMBAT' } });
     const pveReturning = await this.prisma.pveMission.findMany({ where: { phase: 'RETURNING' } });
     const pvpOutbound = await this.prisma.pvpMission.findMany({ where: { phase: 'OUTBOUND' } });
     const pvpReturning = await this.prisma.pvpMission.findMany({ where: { phase: 'RETURNING' } });
-    const transfers = await this.prisma.resourceTransferMission.findMany({ where: { phase: TransferPhase.OUTBOUND } });
+    const transfers = await this.prisma.resourceTransferMission.findMany({
+      where: { phase: TransferPhase.OUTBOUND },
+    });
     await this.prisma.session.deleteMany({
       where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }] },
     });

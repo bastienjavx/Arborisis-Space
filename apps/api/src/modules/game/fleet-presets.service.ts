@@ -1,9 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ShipType } from '@arborisis/shared';
-import type {
-  CreateFleetPresetDto,
-  FleetPresetView,
-} from '@arborisis/shared';
+import type { CreateFleetPresetDto, FleetPresetView } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 const MAX_PRESETS = 10;
@@ -52,7 +54,11 @@ export class FleetPresetsService {
     };
   }
 
-  async update(userId: string, id: string, dto: Partial<CreateFleetPresetDto>): Promise<FleetPresetView> {
+  async update(
+    userId: string,
+    id: string,
+    dto: Partial<CreateFleetPresetDto>,
+  ): Promise<FleetPresetView> {
     const preset = await this.prisma.fleetPreset.findUnique({ where: { id } });
     if (!preset || preset.userId !== userId) throw new NotFoundException('Preset introuvable.');
 
@@ -61,7 +67,11 @@ export class FleetPresetsService {
     if (dto.ships) {
       const validShips: Partial<Record<ShipType, number>> = {};
       for (const [key, qty] of Object.entries(dto.ships)) {
-        if (Object.values(ShipType).includes(key as ShipType) && typeof qty === 'number' && qty > 0) {
+        if (
+          Object.values(ShipType).includes(key as ShipType) &&
+          typeof qty === 'number' &&
+          qty > 0
+        ) {
           validShips[key as ShipType] = qty;
         }
       }

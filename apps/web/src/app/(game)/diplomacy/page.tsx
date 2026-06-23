@@ -112,12 +112,8 @@ export default function DiplomacyPage() {
 
   if (isLoading) return <p className="text-canopy-100/50">Chargement…</p>;
 
-  const pendingIncoming = (offers ?? []).filter(
-    (o) => o.status === DiplomaticOfferStatus.PENDING,
-  );
-  const mySentOffers = (offers ?? []).filter(
-    (o) => o.status === DiplomaticOfferStatus.PENDING,
-  );
+  const pendingIncoming = (offers ?? []).filter((o) => o.status === DiplomaticOfferStatus.PENDING);
+  const mySentOffers = (offers ?? []).filter((o) => o.status === DiplomaticOfferStatus.PENDING);
 
   return (
     <div className="space-y-6">
@@ -164,7 +160,10 @@ export default function DiplomacyPage() {
           </div>
           <ul className="divide-y divide-canopy-700/10">
             {pendingIncoming.map((offer) => (
-              <li key={offer.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+              <li
+                key={offer.id}
+                className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center"
+              >
                 <div className="flex-1">
                   <p className="text-sm text-canopy-100">
                     {OFFER_TYPE_LABELS[offer.proposedStatus]}
@@ -231,7 +230,10 @@ export default function DiplomacyPage() {
         ) : (
           <ul className="divide-y divide-canopy-700/10">
             {relations.map((rel) => (
-              <li key={rel.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+              <li
+                key={rel.id}
+                className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center"
+              >
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <span
@@ -254,16 +256,13 @@ export default function DiplomacyPage() {
                       ` · expire le ${new Date(rel.expiresAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}`}
                   </p>
                 </div>
-                {breakError && (
-                  <p className="text-xs text-red-300">{breakError}</p>
-                )}
+                {breakError && <p className="text-xs text-red-300">{breakError}</p>}
                 <AnimatedButton
                   variant="ghost"
                   onClick={() => {
                     setBreakError(undefined);
                     breakRel.mutate(rel.id, {
-                      onError: (e) =>
-                        setBreakError(e instanceof ApiError ? e.message : 'Erreur'),
+                      onError: (e) => setBreakError(e instanceof ApiError ? e.message : 'Erreur'),
                     });
                   }}
                   loading={breakRel.isPending}

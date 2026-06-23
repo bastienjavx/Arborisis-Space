@@ -81,7 +81,9 @@ export class DiplomacyService {
       },
     });
 
-    const ids = [...new Set([...offers.map((o) => o.fromAllianceId), ...offers.map((o) => o.toAllianceId)])];
+    const ids = [
+      ...new Set([...offers.map((o) => o.fromAllianceId), ...offers.map((o) => o.toAllianceId)]),
+    ];
     const alliances = await this.prisma.alliance.findMany({ where: { id: { in: ids } } });
     const allianceMap = new Map(alliances.map((a) => [a.id, a]));
 
@@ -163,11 +165,7 @@ export class DiplomacyService {
     };
   }
 
-  async decideOffer(
-    user: AuthUser,
-    offerId: string,
-    dto: DecideDiplomaticOfferDto,
-  ): Promise<void> {
+  async decideOffer(user: AuthUser, offerId: string, dto: DecideDiplomaticOfferDto): Promise<void> {
     const member = await this.getMyAlliance(user.id);
     if (member.role === 'MEMBER') {
       throw new ForbiddenException('Seuls les officiers et le chef peuvent répondre aux offres.');
@@ -231,10 +229,7 @@ export class DiplomacyService {
     }
 
     const rel = await this.prisma.diplomaticRelation.findUnique({ where: { id: relationId } });
-    if (
-      !rel ||
-      (rel.alliance1Id !== member.allianceId && rel.alliance2Id !== member.allianceId)
-    ) {
+    if (!rel || (rel.alliance1Id !== member.allianceId && rel.alliance2Id !== member.allianceId)) {
       throw new NotFoundException('Relation introuvable.');
     }
 

@@ -9,11 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import type {
-  AddToQueueDto,
-  AuthUser,
-  ConstructionQueueItemView,
-} from '@arborisis/shared';
+import type { AddToQueueDto, AuthUser, ConstructionQueueItemView } from '@arborisis/shared';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ConstructionQueueService } from './construction-queue.service';
 

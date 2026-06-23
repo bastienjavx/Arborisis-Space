@@ -40,7 +40,15 @@ import {
   useTransfers,
 } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiBookmark, FiClock, FiLock, FiNavigation, FiSend, FiTrash2, FiTruck } from 'react-icons/fi';
+import {
+  FiBookmark,
+  FiClock,
+  FiLock,
+  FiNavigation,
+  FiSend,
+  FiTrash2,
+  FiTruck,
+} from 'react-icons/fi';
 
 export default function FleetsPage() {
   const { selectedId } = usePlanetSelection();

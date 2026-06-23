@@ -122,9 +122,7 @@ export function NotificationBell() {
           </div>
           <ul className="max-h-[26rem] overflow-y-auto">
             {!notifications?.length ? (
-              <li className="px-4 py-8 text-center text-xs text-canopy-500">
-                Aucune notification
-              </li>
+              <li className="px-4 py-8 text-center text-xs text-canopy-500">Aucune notification</li>
             ) : (
               notifications.map((n) => <NotifItem key={n.id} notif={n} />)
             )}

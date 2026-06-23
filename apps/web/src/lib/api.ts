@@ -378,7 +378,8 @@ export const api = {
   // ── Notifications ──
   notifications: () => request<NotificationView[]>('/notifications'),
   notificationUnreadCount: () => request<UnreadCountView>('/notifications/unread-count'),
-  markNotificationRead: (id: string) => request<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markNotificationRead: (id: string) =>
+    request<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
   markAllNotificationsRead: () => request<void>('/notifications/read-all', { method: 'PATCH' }),
   clearOldNotifications: () => request<void>('/notifications/old', { method: 'DELETE' }),
 
