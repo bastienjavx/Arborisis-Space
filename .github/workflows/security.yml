@@ -17,15 +17,24 @@ jobs:
   secret-scan:
     name: Scan de secrets (gitleaks)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: "8.21.2"
     steps:
       - uses: actions/checkout@v4
         with:
           # Historique complet : gitleaks scanne aussi les commits passés sur les PR.
           fetch-depth: 0
-      - name: gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Binaire épinglé plutôt que l'action : pas d'appel API GitHub (évite le 403
+      # « Resource not accessible by integration ») ni de dépendance à une licence.
+      - name: Installer gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Scan
+        run: gitleaks detect --source . --redact --verbose --exit-code 1
 
   dependency-audit:
     name: Audit dépendances runtime
