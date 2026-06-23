@@ -35,11 +35,11 @@ plancher (`europe-west4 = 3`) ; le scaling réel est piloté via `railway scale`
 
 ## Environnements & mapping Git
 
-| Environnement | Branche cible | Réplicas      | Données         | Usage                |
-| ------------- | ------------- | ------------- | --------------- | -------------------- |
-| `production`  | `main`        | 16 (4 régions)| DB/Redis prod   | Live `arborisis.com` |
-| `staging`     | `staging` ⚠️  | 1 (eu-west)   | DB/Redis isolés | Pré-prod, recette    |
-| PR previews   | branche PR    | 1 (éphémère)  | éphémères       | Validation par PR    |
+| Environnement | Branche cible | Réplicas       | Données         | Usage                |
+| ------------- | ------------- | -------------- | --------------- | -------------------- |
+| `production`  | `main`        | 16 (4 régions) | DB/Redis prod   | Live `arborisis.com` |
+| `staging`     | `staging` ⚠️  | 1 (eu-west)    | DB/Redis isolés | Pré-prod, recette    |
+| PR previews   | branche PR    | 1 (éphémère)   | éphémères       | Validation par PR    |
 
 **Staging** est entièrement provisionné et isolé : services `api`, `web`, `PgBouncer`,
 `Postgres`, `Redis` dédiés (clone de prod via `railway environment create staging
@@ -66,8 +66,8 @@ Redis éphémères). Tourne sur push et PR vers `main`. Railway attend ces check
 
 - **CodeQL** (`codeql.yml`) — SAST JS/TS, sur push/PR + hebdo.
 - **gitleaks** (`security.yml`) — scan de secrets, historique complet sur PR.
-- **npm audit** (`security.yml`) — **bloque** sur faille *critique* des deps runtime
-  (`--omit=dev`) ; *high/moderate* remontées sans bloquer (remédiation via Dependabot).
+- **npm audit** (`security.yml`) — **bloque** sur faille _critique_ des deps runtime
+  (`--omit=dev`) ; _high/moderate_ remontées sans bloquer (remédiation via Dependabot).
 - **Dependabot** (`dependabot.yml`) — bumps npm/actions/docker groupés, hebdo.
 - **GitHub natif** (repo public) — Dependabot alerts + security updates, secret scanning,
   push protection : tous activés.
@@ -127,8 +127,8 @@ Trois réglages ne sont **pas pilotables par le CLI** et restent à faire dans l
 1. **Brancher staging sur `staging`** (recommandé) — services `api` puis `web` de l'env
    staging → Settings → Source → branche `staging`. Sans ça, staging suit `main` et
    redéploie en miroir de la prod au lieu de servir de pré-prod indépendante.
-2. **Activer les PR preview environments** — Project → Settings → Environments → *Enable
-   PR environments*. Un env éphémère par PR (détruit à la fermeture). Limiter à
+2. **Activer les PR preview environments** — Project → Settings → Environments → _Enable
+   PR environments_. Un env éphémère par PR (détruit à la fermeture). Limiter à
    `numReplicas = 1` et penser au coût (DB/Redis dupliqués par PR ouverte).
 3. **Activer les backups Postgres** — service Postgres (prod **et** staging) → onglet
    Backups → planification quotidienne, rétention ≥ 7 j.
@@ -138,10 +138,10 @@ Trois réglages ne sont **pas pilotables par le CLI** et restent à faire dans l
 
 ## Runbook express
 
-| Situation              | Action                                                              |
-| ---------------------- | ------------------------------------------------------------------- |
-| Smoke rouge            | Vérifier Deployments Railway ; rollback si la nouvelle version KO   |
-| Migration cassée       | Restaurer backup Postgres puis redéployer la version précédente     |
-| Pic de charge / univ.  | Auto-provisioning (`UNIVERSE_PROVISION_THRESHOLD`) ; sinon replicas |
-| Fuite de secret        | Rotation immédiate de la variable sur tous les nodes + redeploy     |
-| `DATABASE_URL` absent  | Vérifier le chemin de config (`/railway.web.toml` côté web)         |
+| Situation             | Action                                                              |
+| --------------------- | ------------------------------------------------------------------- |
+| Smoke rouge           | Vérifier Deployments Railway ; rollback si la nouvelle version KO   |
+| Migration cassée      | Restaurer backup Postgres puis redéployer la version précédente     |
+| Pic de charge / univ. | Auto-provisioning (`UNIVERSE_PROVISION_THRESHOLD`) ; sinon replicas |
+| Fuite de secret       | Rotation immédiate de la variable sur tous les nodes + redeploy     |
+| `DATABASE_URL` absent | Vérifier le chemin de config (`/railway.web.toml` côté web)         |
