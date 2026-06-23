@@ -39,8 +39,12 @@ export class FinalizationService {
   ) {}
 
   async finalizeConstruction(jobId: string, now = new Date()): Promise<void> {
-    let notifyData: { userId: string; planetId: string; buildingType: string; level: number } | null =
-      null;
+    let notifyData: {
+      userId: string;
+      planetId: string;
+      buildingType: string;
+      level: number;
+    } | null = null;
     await this.prisma.serializable(async (tx) => {
       const job = await tx.constructionJob.findUnique({
         where: { id: jobId },
@@ -108,7 +112,8 @@ export class FinalizationService {
       if (!canAfford(resourceState.amounts, cost)) return;
 
       if (
-        unmetBuildingRequirements(next.targetType as BuildingType, { buildings, research }).length > 0
+        unmetBuildingRequirements(next.targetType as BuildingType, { buildings, research }).length >
+        0
       ) {
         await this.prisma.constructionQueueItem.delete({ where: { id: next.id } });
         return;
