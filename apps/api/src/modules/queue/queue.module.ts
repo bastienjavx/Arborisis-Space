@@ -3,13 +3,16 @@ import { Module } from '@nestjs/common';
 import {
   COLONIZATION_QUEUE,
   CONSTRUCTION_QUEUE,
+  CRAFTING_QUEUE,
   EXPEDITION_QUEUE,
   GAME_EVENT_QUEUE,
+  MARKET_EXPIRY_QUEUE,
   PROVISIONING_QUEUE,
   PVE_QUEUE,
   PVP_QUEUE,
   RESEARCH_QUEUE,
   SHIP_PRODUCTION_QUEUE,
+  TRADE_ROUTE_QUEUE,
   TRANSFER_QUEUE,
 } from './queue.constants';
 import { GameQueueService } from './game-queue.service';
@@ -30,6 +33,9 @@ import { GameQueueService } from './game-queue.service';
       { name: PVP_QUEUE },
       { name: GAME_EVENT_QUEUE },
       { name: TRANSFER_QUEUE },
+      { name: CRAFTING_QUEUE },
+      { name: TRADE_ROUTE_QUEUE },
+      { name: MARKET_EXPIRY_QUEUE },
       {
         name: PROVISIONING_QUEUE,
         defaultJobOptions: {

@@ -12,7 +12,12 @@ import {
   ExpeditionOutcome,
   ExpeditionPhase,
   GalacticEventType,
+  ItemCategory,
+  ItemKey,
+  ItemRarity,
   JobKind,
+  MarketOrderSide,
+  MarketOrderStatus,
   NpcEncounterType,
   PlanetSpecialization,
   PlanetType,
@@ -27,6 +32,7 @@ import {
   SeasonRewardScope,
   ShipRole,
   ShipType,
+  TradeRouteStatus,
   UniverseStatus,
   UserRole,
   ModerationActionType,
@@ -497,4 +503,103 @@ export interface ResourceTransferMissionView {
   ships: Record<ShipType, number>;
   resources: Record<ResourceType, number>;
   arrivesAt: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Économie joueur : inventaire, marché, artisanat, routes
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ItemDropView {
+  itemKey: ItemKey;
+  quantity: number;
+}
+
+export interface InventorySlotView {
+  itemKey: ItemKey;
+  quantity: number;
+  planetId: string;
+  planetName: string;
+}
+
+export interface MarketOrderView {
+  id: string;
+  itemKey: ItemKey;
+  side: MarketOrderSide;
+  status: MarketOrderStatus;
+  pricePerUnit: number;
+  quantity: number;
+  filledQuantity: number;
+  createdAt: string;
+  expiresAt: string | null;
+  ownerUsername: string;
+  isOwn: boolean;
+}
+
+export interface MarketTradeView {
+  id: string;
+  itemKey: ItemKey;
+  price: number;
+  quantity: number;
+  executedAt: string;
+  isBuyer: boolean;
+  isSeller: boolean;
+}
+
+export interface OhlcvCandleView {
+  openTime: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface OrderBookView {
+  bids: { price: number; quantity: number; total: number }[];
+  asks: { price: number; quantity: number; total: number }[];
+  lastPrice: number | null;
+  change24h: number | null;
+  volume24h: number;
+  high24h: number | null;
+  low24h: number | null;
+}
+
+export interface CraftingJobView {
+  id: string;
+  recipeId: string;
+  outputKey: ItemKey;
+  outputQty: number;
+  quantity: number;
+  planetId: string;
+  planetName: string;
+  startedAt: string;
+  completesAt: string;
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+}
+
+export interface TradeRouteView {
+  id: string;
+  fromPlanetId: string;
+  fromPlanetName: string;
+  toPlanetId: string;
+  toPlanetName: string;
+  itemKey: ItemKey | null;
+  resource: ResourceType | null;
+  quantityPerRun: number;
+  shipType: ShipType;
+  shipCount: number;
+  intervalHours: number;
+  status: TradeRouteStatus;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+}
+
+
+export interface MarketSummaryView {
+  itemKey: ItemKey;
+  lastPrice: number | null;
+  change24h: number | null;
+  volume24h: number;
+  bestBid: number | null;
+  bestAsk: number | null;
 }

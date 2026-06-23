@@ -1,0 +1,185 @@
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import {
+  CRAFTING_RECIPES,
+  type CraftingJobView,
+  type StartCraftingDto,
+  ResourceType,
+} from '@arborisis/shared';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { GameEngineService } from '../game/game-engine.service';
+import { PlanetsService } from '../game/planets.service';
+import { CRAFTING_QUEUE, FINALIZE_JOB } from '../queue/queue.constants';
+
+@Injectable()
+export class CraftingService {
+  private readonly logger = new Logger(CraftingService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly engine: GameEngineService,
+    private readonly planets: PlanetsService,
+    @InjectQueue(CRAFTING_QUEUE) private readonly craftingQueue: Queue,
+  ) {}
+
+  getRecipes(): typeof CRAFTING_RECIPES {
+    return CRAFTING_RECIPES;
+  }
+
+  async startCrafting(userId: string, dto: StartCraftingDto): Promise<CraftingJobView> {
+    const planet = await this.planets.assertOwnership(userId, dto.planetId);
+    const recipe = CRAFTING_RECIPES.find((r) => r.id === dto.recipeId);
+    if (!recipe) throw new NotFoundException('Recette introuvable.');
+
+    const settled = await this.engine.settlePlanet(planet.id);
+
+    await this.prisma.serializable(async (tx) => {
+      // Vérifier et déduire les ressources de base
+      const resourceCosts: Partial<Record<ResourceType, number>> = {};
+      for (const ing of recipe.ingredients) {
+        if (ing.resource) {
+          resourceCosts[ing.resource] = (resourceCosts[ing.resource] ?? 0) + ing.quantity * dto.quantity;
+        }
+      }
+
+      const planetRow = await tx.planet.findUniqueOrThrow({ where: { id: dto.planetId } });
+      const resourceMap: Record<string, number> = {
+        BIOMASS: planetRow.biomass,
+        SAP: planetRow.sap,
+        MINERALS: planetRow.minerals,
+        SPORES: planetRow.spores,
+      };
+
+      for (const [res, cost] of Object.entries(resourceCosts)) {
+        if ((resourceMap[res] ?? 0) < cost) {
+          throw new BadRequestException(`${res} insuffisant. Requis : ${cost}, disponible : ${Math.floor(resourceMap[res] ?? 0)}.`);
+        }
+      }
+
+      const itemCosts: { itemKey: string; quantity: number }[] = [];
+      for (const ing of recipe.ingredients) {
+        if (ing.itemKey) {
+          itemCosts.push({ itemKey: ing.itemKey, quantity: ing.quantity * dto.quantity });
+        }
+      }
+
+      for (const { itemKey, quantity } of itemCosts) {
+        const slot = await tx.playerInventorySlot.findUnique({
+          where: { userId_planetId_itemKey: { userId, planetId: dto.planetId, itemKey } },
+        });
+        if (!slot || slot.quantity < quantity) {
+          throw new BadRequestException(`Objet ${itemKey} insuffisant. Requis : ${quantity}, disponible : ${slot?.quantity ?? 0}.`);
+        }
+        await tx.playerInventorySlot.update({
+          where: { userId_planetId_itemKey: { userId, planetId: dto.planetId, itemKey } },
+          data: { quantity: { decrement: quantity } },
+        });
+      }
+
+      // Déduire ressources de base
+      if (Object.keys(resourceCosts).length > 0) {
+        await tx.planet.update({
+          where: { id: dto.planetId },
+          data: {
+            biomass: resourceCosts[ResourceType.BIOMASS] ? { decrement: resourceCosts[ResourceType.BIOMASS] } : undefined,
+            sap: resourceCosts[ResourceType.SAP] ? { decrement: resourceCosts[ResourceType.SAP] } : undefined,
+            minerals: resourceCosts[ResourceType.MINERALS] ? { decrement: resourceCosts[ResourceType.MINERALS] } : undefined,
+            spores: resourceCosts[ResourceType.SPORES] ? { decrement: resourceCosts[ResourceType.SPORES] } : undefined,
+            lastResourceUpdate: settled.planet.lastResourceUpdate,
+          },
+        });
+      }
+
+      const completesAt = new Date(Date.now() + recipe.craftTimeSeconds * 1_000 * dto.quantity);
+
+      const job = await tx.craftingJob.create({
+        data: {
+          userId,
+          planetId: dto.planetId,
+          recipeId: recipe.id,
+          outputKey: recipe.outputKey,
+          outputQty: recipe.outputQty,
+          quantity: dto.quantity,
+          completesAt,
+        },
+      });
+
+      await this.craftingQueue.add(
+        FINALIZE_JOB,
+        { jobId: job.id, universeId: settled.planet.universeId },
+        {
+          jobId: `craft-${job.id}`,
+          delay: Math.max(0, completesAt.getTime() - Date.now()),
+          removeOnComplete: true,
+          removeOnFail: 50,
+          attempts: 3,
+          backoff: { type: 'exponential' as const, delay: 5_000 },
+        },
+      );
+    });
+
+    const jobs = await this.getCraftingJobs(userId, dto.planetId);
+    const first = jobs[0];
+    if (!first) throw new Error('Crafting job not found after creation');
+    return first;
+  }
+
+  async getCraftingJobs(userId: string, planetId?: string): Promise<CraftingJobView[]> {
+    const where = planetId ? { userId, planetId } : { userId };
+    const jobs = await this.prisma.craftingJob.findMany({
+      where: { ...where, status: 'PENDING' },
+      include: { planet: { select: { name: true } } },
+      orderBy: { completesAt: 'asc' },
+    });
+
+    return jobs.map((j) => ({
+      id: j.id,
+      recipeId: j.recipeId,
+      outputKey: j.outputKey as any,
+      outputQty: j.outputQty,
+      quantity: j.quantity,
+      planetId: j.planetId,
+      planetName: j.planet.name,
+      startedAt: j.startedAt.toISOString(),
+      completesAt: j.completesAt.toISOString(),
+      status: j.status as 'PENDING',
+    }));
+  }
+
+  async finalizeCraftingJob(jobId: string, now = new Date()): Promise<void> {
+    await this.prisma.serializable(async (tx) => {
+      const job = await tx.craftingJob.findUnique({ where: { id: jobId } });
+      if (!job || job.status !== 'PENDING' || job.completesAt > now) return;
+
+      const totalQty = job.outputQty * job.quantity;
+      await tx.playerInventorySlot.upsert({
+        where: {
+          userId_planetId_itemKey: { userId: job.userId, planetId: job.planetId, itemKey: job.outputKey },
+        },
+        update: { quantity: { increment: totalQty } },
+        create: { userId: job.userId, planetId: job.planetId, itemKey: job.outputKey, quantity: totalQty },
+      });
+
+      await tx.craftingJob.update({
+        where: { id: jobId },
+        data: { status: 'COMPLETED' },
+      });
+
+      this.logger.log(`Artisanat finalisé : ${job.outputKey} ×${totalQty} pour user ${job.userId}`);
+    });
+  }
+
+  async sweepAllDue(now = new Date()): Promise<void> {
+    const due = await this.prisma.craftingJob.findMany({
+      where: { status: 'PENDING', completesAt: { lte: now } },
+    });
+    for (const j of due) await this.finalizeCraftingJob(j.id, now);
+    if (due.length) this.logger.log(`Balayage artisanat : ${due.length} job(s) finalisé(s).`);
+  }
+}

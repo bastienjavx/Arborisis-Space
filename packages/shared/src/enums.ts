@@ -338,3 +338,64 @@ export enum PlanetSpecialization {
 }
 
 export const PLANET_SPECIALIZATIONS = Object.values(PlanetSpecialization);
+
+// ═══════════════════════════════════════════════════════════════════
+// Économie joueur : objets, marché, artisanat, routes commerciales
+// ═══════════════════════════════════════════════════════════════════
+
+/** Clés stables des objets échangeables. Ne jamais renommer sans migration. */
+export enum ItemKey {
+  // ── Matières premières (drop PvE / expéditions) ──
+  MYCELIAL_FIBER = 'MYCELIAL_FIBER',
+  BIOLUMINESCENT_GEL = 'BIOLUMINESCENT_GEL',
+  CHITIN_SHARD = 'CHITIN_SHARD',
+  SPORE_ESSENCE = 'SPORE_ESSENCE',
+  VOID_CRYSTAL = 'VOID_CRYSTAL',
+  ANCIENT_FRAGMENT = 'ANCIENT_FRAGMENT',
+
+  // ── Objets traités (artisanat) ──
+  REINFORCED_CHITIN = 'REINFORCED_CHITIN',
+  CRYSTALLIZED_SAP = 'CRYSTALLIZED_SAP',
+  NEURAL_MATRIX = 'NEURAL_MATRIX',
+  VOID_ALLOY = 'VOID_ALLOY',
+  MYCOTOXIN_VIAL = 'MYCOTOXIN_VIAL',
+  CONVERGENCE_SHARD = 'CONVERGENCE_SHARD',
+}
+
+export const ITEM_KEYS = Object.values(ItemKey);
+
+/** Rareté d'un objet — détermine sa valeur indicative et sa fréquence de drop. */
+export enum ItemRarity {
+  COMMON = 'COMMON',
+  UNCOMMON = 'UNCOMMON',
+  RARE = 'RARE',
+  EPIC = 'EPIC',
+  LEGENDARY = 'LEGENDARY',
+}
+
+/** Catégorie d'un objet. */
+export enum ItemCategory {
+  RAW_MATERIAL = 'RAW_MATERIAL',
+  PROCESSED = 'PROCESSED',
+}
+
+/** Côté d'un ordre de marché. */
+export enum MarketOrderSide {
+  BUY = 'BUY',
+  SELL = 'SELL',
+}
+
+/** Statut d'un ordre de marché. */
+export enum MarketOrderStatus {
+  OPEN = 'OPEN',
+  PARTIALLY_FILLED = 'PARTIALLY_FILLED',
+  FILLED = 'FILLED',
+  CANCELLED = 'CANCELLED',
+}
+
+/** Statut d'une route commerciale automatisée. */
+export enum TradeRouteStatus {
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  INSUFFICIENT_SHIPS = 'INSUFFICIENT_SHIPS',
+}
