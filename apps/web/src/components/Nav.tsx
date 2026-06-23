@@ -20,12 +20,13 @@ import {
   FiGrid,
   FiLayers,
   FiLogOut,
+  FiMap,
   FiMenu,
   FiMessageCircle,
   FiMoreHorizontal,
   FiNavigation,
-  FiSliders,
   FiShield,
+  FiSliders,
   FiUser,
   FiX,
 } from 'react-icons/fi';
@@ -34,7 +35,8 @@ import { useMe, useExpeditionReports } from '@/lib/queries';
 import { usePlanetSelection } from './PlanetContext';
 
 const LINKS = [
-  { href: '/play', label: 'Empire', icon: FiGrid },
+  { href: '/play', label: 'Planète', icon: FiGrid },
+  { href: '/empire', label: 'Empire', icon: FiMap },
   { href: '/buildings', label: 'Structures', icon: FiLayers },
   { href: '/production', label: 'Production', icon: FiSliders },
   { href: '/research', label: 'Recherche', icon: FiCpu },
@@ -42,6 +44,7 @@ const LINKS = [
   { href: '/fleets', label: 'Flottes', icon: FiNavigation },
   { href: '/pve', label: 'PvE', icon: FiCrosshair },
   { href: '/pvp', label: 'PvP', icon: FiCrosshair },
+  { href: '/diplomacy', label: 'Diplomatie', icon: FiUsers },
   { href: '/market', label: 'Marché', icon: FiBarChart2 },
   { href: '/inventory', label: 'Inventaire', icon: FiMoreHorizontal },
   { href: '/crafting', label: 'Artisanat', icon: FiSliders },

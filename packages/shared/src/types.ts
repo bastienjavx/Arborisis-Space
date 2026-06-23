@@ -9,6 +9,8 @@ import {
   ApplicationStatus,
   BuildingType,
   ChatScope,
+  DiplomaticOfferStatus,
+  DiplomaticStatus,
   ExpeditionOutcome,
   ExpeditionPhase,
   GalacticEventType,
@@ -16,6 +18,7 @@ import {
   JobKind,
   MarketOrderSide,
   MarketOrderStatus,
+  NotificationType,
   NpcEncounterType,
   PlanetSpecialization,
   PlanetType,
@@ -614,4 +617,124 @@ export interface MarketSummaryView {
   volume24h: number;
   bestBid: number | null;
   bestAsk: number | null;
+}
+
+// ── Notifications ──────────────────────────────────────────────────────────────
+
+export interface NotificationView {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  read: boolean;
+  data: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface UnreadCountView {
+  count: number;
+}
+
+// ── Diplomatie ─────────────────────────────────────────────────────────────────
+
+export interface DiplomaticRelationView {
+  id: string;
+  allianceId: string;
+  allianceName: string;
+  allianceTag: string;
+  allianceBannerColor: string;
+  status: DiplomaticStatus;
+  startedAt: string;
+  expiresAt: string | null;
+}
+
+export interface DiplomaticOfferView {
+  id: string;
+  fromAllianceId: string;
+  fromAllianceName: string;
+  fromAllianceTag: string;
+  fromAllianceBannerColor: string;
+  toAllianceId: string;
+  toAllianceName: string;
+  toAllianceTag: string;
+  proposedStatus: DiplomaticStatus;
+  message: string | null;
+  status: DiplomaticOfferStatus;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface CreateDiplomaticOfferDto {
+  toAllianceId: string;
+  proposedStatus: DiplomaticStatus;
+  message?: string;
+}
+
+export interface DecideDiplomaticOfferDto {
+  accept: boolean;
+}
+
+// ── File de construction ───────────────────────────────────────────────────────
+
+export interface ConstructionQueueItemView {
+  id: string;
+  targetType: BuildingType;
+  targetLevel: number;
+  queueOrder: number;
+}
+
+export interface AddToQueueDto {
+  targetType: BuildingType;
+  planetId: string;
+}
+
+// ── Presets de flotte ──────────────────────────────────────────────────────────
+
+export interface FleetPresetView {
+  id: string;
+  name: string;
+  ships: Partial<Record<ShipType, number>>;
+  createdAt: string;
+}
+
+export interface CreateFleetPresetDto {
+  name: string;
+  ships: Partial<Record<ShipType, number>>;
+}
+
+// ── Vue d'empire ───────────────────────────────────────────────────────────────
+
+export interface EmpirePlanetStats {
+  planetId: string;
+  planetName: string;
+  isHomeworld: boolean;
+  coordinates: { galaxy: number; system: number; position: number };
+  planetType: string;
+  specialization: string | null;
+  resources: ResourceBundle;
+  production: ResourceBundle;
+  ships: Partial<Record<ShipType, number>>;
+  totalShips: number;
+  buildingLevels: Partial<Record<BuildingType, number>>;
+  stability: number;
+  usedFields: number;
+  maxFields: number;
+}
+
+export interface EmpireOverview {
+  totalResources: ResourceBundle;
+  totalProduction: ResourceBundle;
+  totalShips: number;
+  shipBreakdown: Partial<Record<ShipType, number>>;
+  totalBuildingLevels: number;
+  planets: EmpirePlanetStats[];
+  activeJobs: {
+    constructions: number;
+    researches: number;
+    expeditions: number;
+    pvpMissions: number;
+    pveMissions: number;
+    transfers: number;
+    colonizations: number;
+  };
 }

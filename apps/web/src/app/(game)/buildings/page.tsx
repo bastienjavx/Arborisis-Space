@@ -13,10 +13,18 @@ import { codexId } from '@/lib/codex';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
 import { formatDuration, formatNumber } from '@/lib/format';
-import { keys, useCancelConstruction, usePlanetDetail, useUpgradeBuilding } from '@/lib/queries';
+import {
+  keys,
+  useCancelConstruction,
+  useConstructionQueue,
+  useAddToConstructionQueue,
+  useRemoveFromConstructionQueue,
+  usePlanetDetail,
+  useUpgradeBuilding,
+} from '@/lib/queries';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiClock, FiLayers, FiLock } from 'react-icons/fi';
+import { FiClock, FiLayers, FiLock, FiPlus, FiTrash2 } from 'react-icons/fi';
 
 export default function BuildingsPage() {
   const qc = useQueryClient();
@@ -24,6 +32,9 @@ export default function BuildingsPage() {
   const { data: planet, isLoading } = usePlanetDetail(selectedId);
   const upgrade = useUpgradeBuilding(selectedId ?? '');
   const cancel = useCancelConstruction(selectedId ?? '');
+  const { data: queue } = useConstructionQueue(selectedId ?? '');
+  const addToQueue = useAddToConstructionQueue(selectedId ?? '');
+  const removeFromQueue = useRemoveFromConstructionQueue(selectedId ?? '');
   const [error, setError] = useState<string>();
 
   if (isLoading || !planet) return <p className="text-canopy-100/50">Chargement…</p>;
@@ -123,6 +134,38 @@ export default function BuildingsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Construction queue */}
+      {queue && queue.length > 0 && (
+        <section className="mycelium-panel overflow-hidden">
+          <div className="border-b border-canopy-700/15 px-5 py-3">
+            <h2 className="section-title">File d&apos;attente ({queue.length}/5)</h2>
+          </div>
+          <ol className="divide-y divide-canopy-700/10">
+            {queue.map((item, idx) => (
+              <li key={item.id} className="flex items-center gap-3 px-5 py-3">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-canopy-500/10 text-[11px] font-bold text-canopy-300">
+                  {idx + 1}
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm text-canopy-100/85">
+                    {BUILDINGS[item.targetType]?.name ?? item.targetType}
+                  </p>
+                  <p className="text-xs text-canopy-400/50">Niveau {item.targetLevel}</p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Retirer de la file"
+                  onClick={() => removeFromQueue.mutate(item.id)}
+                  className="text-canopy-400/50 transition hover:text-red-300"
+                >
+                  <FiTrash2 className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <AnimatePresence>
         {error && (
@@ -230,17 +273,39 @@ export default function BuildingsPage() {
                   )}
                 </div>
 
-                <AnimatedButton
-                  variant="ghost"
-                  onClick={() => onBuild(building.type)}
-                  disabled={!canBuild}
-                  loading={upgrade.isPending && upgrade.variables?.type === building.type}
-                  className="w-full whitespace-nowrap xl:w-36"
-                  ariaLabel={`${buttonLabel} ${building.name}`}
-                >
-                  {locked && <FiLock className="h-3.5 w-3.5" aria-hidden="true" />}
-                  {buttonLabel}
-                </AnimatedButton>
+                <div className="flex items-center gap-2 xl:flex-col xl:items-stretch">
+                  <AnimatedButton
+                    variant="ghost"
+                    onClick={() => onBuild(building.type)}
+                    disabled={!canBuild}
+                    loading={upgrade.isPending && upgrade.variables?.type === building.type}
+                    className="flex-1 whitespace-nowrap xl:w-36"
+                    ariaLabel={`${buttonLabel} ${building.name}`}
+                  >
+                    {locked && <FiLock className="h-3.5 w-3.5" aria-hidden="true" />}
+                    {buttonLabel}
+                  </AnimatedButton>
+                  {!locked && (
+                    <AnimatedButton
+                      variant="ghost"
+                      onClick={() =>
+                        addToQueue.mutate(
+                          { planetId: planet!.id, targetType: building.type },
+                          {
+                            onError: (e) =>
+                              setError(e instanceof ApiError ? e.message : 'Erreur file'),
+                          },
+                        )
+                      }
+                      disabled={addToQueue.isPending || (queue?.length ?? 0) >= 5}
+                      className="flex-1 whitespace-nowrap text-canopy-400 xl:w-36"
+                      ariaLabel={`Mettre en file ${building.name}`}
+                    >
+                      <FiPlus className="h-3.5 w-3.5" />
+                      File
+                    </AnimatedButton>
+                  )}
+                </div>
               </motion.article>
             );
           })}

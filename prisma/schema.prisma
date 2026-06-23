@@ -289,6 +289,35 @@ enum ProductionLineStatus {
   INPUT_SHORTAGE
 }
 
+enum NotificationType {
+  CONSTRUCTION_COMPLETE
+  RESEARCH_COMPLETE
+  EXPEDITION_RETURNED
+  COLONIZATION_COMPLETE
+  ATTACK_INCOMING
+  ATTACK_REPORT
+  SHIP_PRODUCED
+  TRADE_ROUTE_RUN
+  ACHIEVEMENT_UNLOCKED
+  DAILY_REWARD_AVAILABLE
+  MARKET_ORDER_FILLED
+  PVE_COMPLETE
+}
+
+enum DiplomaticStatus {
+  WAR
+  NON_AGGRESSION_PACT
+  TRADE_ALLIANCE
+}
+
+enum DiplomaticOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
 model Universe {
   id             String         @id @default(uuid())
   slug           String         @unique
@@ -389,6 +418,8 @@ model User {
   craftingJobs              CraftingJob[]
   tradeRoutes               TradeRoute[]
   productionLines           ProductionLine[]
+  notifications             Notification[]
+  fleetPresets              FleetPreset[]
 
   @@map("users")
 }
@@ -458,6 +489,7 @@ model Planet {
   productionLines    ProductionLine[]
   outgoingRoutes     TradeRoute[]              @relation("TradeRouteFrom")
   incomingRoutes     TradeRoute[]              @relation("TradeRouteTo")
+  constructionQueue  ConstructionQueueItem[]
 
   @@unique([universeId, galaxy, system, position])
   @@index([ownerId])
@@ -1083,4 +1115,79 @@ model TradeRoute {
   @@index([userId])
   @@index([status, nextRunAt])
   @@map("trade_routes")
+}
+
+/// Notification en jeu (construction terminée, attaque, échanges…).
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String           @db.VarChar(120)
+  message   String           @db.VarChar(500)
+  read      Boolean          @default(false)
+  data      Json             @default("{}")
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read, createdAt])
+  @@map("notifications")
+}
+
+/// Relation diplomatique active entre deux alliances.
+model DiplomaticRelation {
+  id          String           @id @default(uuid())
+  universeId  String
+  alliance1Id String
+  alliance2Id String
+  status      DiplomaticStatus
+  startedAt   DateTime         @default(now())
+  expiresAt   DateTime?
+
+  @@unique([alliance1Id, alliance2Id])
+  @@index([universeId])
+  @@map("diplomatic_relations")
+}
+
+/// Offre diplomatique entre deux alliances (en attente de réponse).
+model DiplomaticOffer {
+  id             String                @id @default(uuid())
+  universeId     String
+  fromAllianceId String
+  toAllianceId   String
+  proposedStatus DiplomaticStatus
+  message        String?               @db.VarChar(500)
+  status         DiplomaticOfferStatus @default(PENDING)
+  createdAt      DateTime              @default(now())
+  expiresAt      DateTime
+
+  @@index([toAllianceId, status])
+  @@index([fromAllianceId, status])
+  @@map("diplomatic_offers")
+}
+
+/// File d'attente de construction sur une planète (après le job en cours).
+model ConstructionQueueItem {
+  id          String       @id @default(uuid())
+  planetId    String
+  planet      Planet       @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  targetType  BuildingType
+  targetLevel Int
+  queueOrder  Int
+  createdAt   DateTime     @default(now())
+
+  @@index([planetId, queueOrder])
+  @@map("construction_queue")
+}
+
+/// Composition de flotte pré-enregistrée par un joueur.
+model FleetPreset {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(40)
+  ships     Json
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("fleet_presets")
 }

@@ -125,37 +125,36 @@ export class GameQueueService {
   }
 
   async reconcilePending(): Promise<void> {
+    // Distributed lock: only one replica runs the boot reconcile at a time.
+    // Without this, all 5 replicas opening 13 sequential DB queries simultaneously
+    // exhausts the PostgreSQL connection pool (P2037).
+    const redis = await this.construction.client;
+    const lockKey = 'boot:reconcile:lock';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const acquired = await (redis as any).set(lockKey, '1', 'NX', 'PX', 120_000);
+    if (!acquired) {
+      this.logger.log('reconcilePending ignoré : verrou détenu par un autre réplica.');
+      return;
+    }
+
     const now = new Date();
-    const [
-      construction,
-      research,
-      colonization,
-      shipProduction,
-      outbound,
-      returning,
-      pveTravel,
-      pveCombat,
-      pveReturning,
-      pvpOutbound,
-      pvpReturning,
-      transfers,
-    ] = await Promise.all([
-      this.prisma.constructionJob.findMany({ where: { status: JobStatus.PENDING } }),
-      this.prisma.researchJob.findMany({ where: { status: JobStatus.PENDING } }),
-      this.prisma.colonizationJob.findMany({ where: { status: JobStatus.PENDING } }),
-      this.prisma.shipProductionJob.findMany({ where: { status: JobStatus.PENDING } }),
-      this.prisma.expeditionMission.findMany({ where: { phase: 'OUTBOUND' } }),
-      this.prisma.expeditionMission.findMany({ where: { phase: 'RETURNING' } }),
-      this.prisma.pveMission.findMany({ where: { phase: 'TRAVEL' } }),
-      this.prisma.pveMission.findMany({ where: { phase: 'COMBAT' } }),
-      this.prisma.pveMission.findMany({ where: { phase: 'RETURNING' } }),
-      this.prisma.pvpMission.findMany({ where: { phase: 'OUTBOUND' } }),
-      this.prisma.pvpMission.findMany({ where: { phase: 'RETURNING' } }),
-      this.prisma.resourceTransferMission.findMany({ where: { phase: TransferPhase.OUTBOUND } }),
-      this.prisma.session.deleteMany({
-        where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }] },
-      }),
-    ]);
+    // Sequential queries to avoid bursting the connection pool at boot
+    // (13 concurrent queries × 5 replicas would exhaust PostgreSQL's connection limit).
+    const construction = await this.prisma.constructionJob.findMany({ where: { status: JobStatus.PENDING } });
+    const research = await this.prisma.researchJob.findMany({ where: { status: JobStatus.PENDING } });
+    const colonization = await this.prisma.colonizationJob.findMany({ where: { status: JobStatus.PENDING } });
+    const shipProduction = await this.prisma.shipProductionJob.findMany({ where: { status: JobStatus.PENDING } });
+    const outbound = await this.prisma.expeditionMission.findMany({ where: { phase: 'OUTBOUND' } });
+    const returning = await this.prisma.expeditionMission.findMany({ where: { phase: 'RETURNING' } });
+    const pveTravel = await this.prisma.pveMission.findMany({ where: { phase: 'TRAVEL' } });
+    const pveCombat = await this.prisma.pveMission.findMany({ where: { phase: 'COMBAT' } });
+    const pveReturning = await this.prisma.pveMission.findMany({ where: { phase: 'RETURNING' } });
+    const pvpOutbound = await this.prisma.pvpMission.findMany({ where: { phase: 'OUTBOUND' } });
+    const pvpReturning = await this.prisma.pvpMission.findMany({ where: { phase: 'RETURNING' } });
+    const transfers = await this.prisma.resourceTransferMission.findMany({ where: { phase: TransferPhase.OUTBOUND } });
+    await this.prisma.session.deleteMany({
+      where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { not: null } }] },
+    });
     await Promise.all([
       ...construction.map((job) => this.safeAdd(this.construction, job.id, job.finishesAt)),
       ...research.map((job) => this.safeAdd(this.research, job.id, job.finishesAt)),
