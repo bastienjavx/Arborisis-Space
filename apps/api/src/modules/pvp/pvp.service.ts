@@ -24,8 +24,10 @@ import {
   SHIP_TYPES,
   storageCap,
   type AttackPlanetDto,
+  type IncomingAttackView,
   type PvpMissionResultView,
   type PvpMissionView,
+  type PvpReportView,
   type SpyPlanetDto,
   type SpyReportView,
 } from '@arborisis/shared';
@@ -221,6 +223,62 @@ export class PvpService {
       orderBy: { createdAt: 'desc' },
     });
     return missions.map((mission) => this.missionView(mission));
+  }
+
+  async listReports(userId: string, limit = 50): Promise<PvpReportView[]> {
+    await this.finalizeDueForUser(userId);
+    const missions = await this.prisma.pvpMission.findMany({
+      where: { userId, phase: PvpMissionPhase.COMPLETED },
+      include: { sourcePlanet: true, targetPlanet: true },
+      orderBy: { completedAt: 'desc' },
+      take: limit,
+    });
+    return missions.map((m) => ({
+      ...this.missionView(m),
+      completedAt: (m.completedAt ?? m.createdAt).toISOString(),
+      targetName: m.targetPlanet.name,
+    }));
+  }
+
+  async listIncoming(userId: string): Promise<IncomingAttackView[]> {
+    const now = new Date();
+    const userPlanets = await this.prisma.planet.findMany({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    const planetIds = userPlanets.map((p) => p.id);
+    if (planetIds.length === 0) return [];
+
+    const missions = await this.prisma.pvpMission.findMany({
+      where: {
+        targetPlanetId: { in: planetIds },
+        phase: PvpMissionPhase.OUTBOUND,
+        arrivesAt: { gt: now },
+      },
+      include: { user: true, sourcePlanet: true, targetPlanet: true },
+      orderBy: { arrivesAt: 'asc' },
+    });
+
+    return missions.map((m) => ({
+      id: m.id,
+      type: m.type as PvpMissionType,
+      attackerName: m.user.username,
+      sourcePlanet: {
+        galaxy: m.sourcePlanet.galaxy,
+        system: m.sourcePlanet.system,
+        position: m.sourcePlanet.position,
+      },
+      targetPlanet: {
+        id: m.targetPlanetId,
+        name: m.targetPlanet.name,
+        coordinates: {
+          galaxy: m.targetPlanet.galaxy,
+          system: m.targetPlanet.system,
+          position: m.targetPlanet.position,
+        },
+      },
+      arrivesAt: m.arrivesAt.toISOString(),
+    }));
   }
 
   async finalizeDueForUser(userId: string, now = new Date()): Promise<void> {

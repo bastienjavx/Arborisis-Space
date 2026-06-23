@@ -5,6 +5,7 @@ import {
   type AuthUser,
   type NpcEncounterView,
   type PveMissionView,
+  type PveReportView,
 } from '@arborisis/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -31,5 +32,10 @@ export class PveController {
   @Get('missions')
   missions(@CurrentUser() user: AuthUser): Promise<PveMissionView[]> {
     return this.pve.listMissions(user.id);
+  }
+
+  @Get('reports')
+  reports(@CurrentUser() user: AuthUser): Promise<PveReportView[]> {
+    return this.pve.listReports(user.id);
   }
 }

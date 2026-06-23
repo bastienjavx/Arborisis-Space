@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AbsenceSummaryModal } from '@/components/AbsenceSummaryModal';
+import { AttackWarningBanner } from '@/components/AttackWarningBanner';
 import { DailyRewardModal } from '@/components/DailyRewardModal';
 import { EngagementFeedback } from '@/components/EngagementFeedback';
 import { EventBanner } from '@/components/EventBanner';
@@ -48,6 +49,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
       <div className="relative z-10 min-h-screen pb-24 lg:pl-[15rem] lg:pt-[5rem] lg:pb-0">
         <main className="mx-auto max-w-[96rem] px-4 py-5 sm:px-6 sm:py-7 xl:px-9">
           <div className="mb-5">
+            <AttackWarningBanner />
             <EventBanner />
             <NearMissBanner />
           </div>
