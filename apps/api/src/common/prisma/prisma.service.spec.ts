@@ -66,7 +66,7 @@ describe('PrismaService', () => {
 
     it('retries serializable write conflicts with backoff', async () => {
       jest.spyOn(global.Math, 'random').mockReturnValue(0);
-      jest.spyOn(global, 'setTimeout').mockImplementation((callback: TimerHandler) => {
+      jest.spyOn(global, 'setTimeout').mockImplementation((callback: () => void) => {
         if (typeof callback === 'function') callback();
         return 0 as unknown as NodeJS.Timeout;
       });
