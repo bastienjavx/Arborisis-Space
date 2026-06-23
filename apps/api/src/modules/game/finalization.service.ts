@@ -3,15 +3,21 @@ import { ItemKey as PrismaItemKey, JobStatus, TransferPhase } from '@prisma/clie
 import {
   BUILDINGS,
   BuildingType,
+  buildingCost,
+  buildTimeSeconds,
+  canAfford,
   NotificationType,
   RESEARCHES,
   ResearchType,
   ShipType,
   SHIPS,
+  unmetBuildingRequirements,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 import { NotificationsService } from '../notifications/notifications.service';
+import { GameQueueService } from '../queue/game-queue.service';
+import { GameEngineService } from './game-engine.service';
 import { WorldFactoryService } from './world-factory.service';
 
 /**
@@ -28,10 +34,13 @@ export class FinalizationService {
     private readonly prisma: PrismaService,
     private readonly worldFactory: WorldFactoryService,
     private readonly notifications: NotificationsService,
+    private readonly engine: GameEngineService,
+    private readonly gameQueue: GameQueueService,
   ) {}
 
   async finalizeConstruction(jobId: string, now = new Date()): Promise<void> {
-    let notifyData: { userId: string; buildingType: string; level: number } | null = null;
+    let notifyData: { userId: string; planetId: string; buildingType: string; level: number } | null =
+      null;
     await this.prisma.serializable(async (tx) => {
       const job = await tx.constructionJob.findUnique({
         where: { id: jobId },
@@ -49,13 +58,15 @@ export class FinalizationService {
       });
       notifyData = {
         userId: job.planet.ownerId,
+        planetId: job.planetId,
         buildingType: job.buildingType,
         level: job.targetLevel,
       };
     });
     if (notifyData) {
-      const { userId, buildingType, level } = notifyData as {
+      const { userId, planetId, buildingType, level } = notifyData as {
         userId: string;
+        planetId: string;
         buildingType: string;
         level: number;
       };
@@ -69,6 +80,69 @@ export class FinalizationService {
           { buildingType, level },
         )
         .catch(() => void 0);
+      await this.processNextInQueue(planetId, userId);
+    }
+  }
+
+  async processNextInQueue(planetId: string, userId: string): Promise<void> {
+    const next = await this.prisma.constructionQueueItem.findFirst({
+      where: { planetId },
+      orderBy: { queueOrder: 'asc' },
+    });
+    if (!next) return;
+
+    const pending = await this.prisma.constructionJob.findFirst({
+      where: { planetId, status: JobStatus.PENDING },
+    });
+    if (pending) return;
+
+    try {
+      const settled = await this.engine.settlePlanet(planetId);
+      const buildings = this.engine.buildingLevelsOf(settled.planet.buildings);
+      const research = this.engine.researchLevelsOf(
+        await this.prisma.researchLevel.findMany({ where: { userId } }),
+      );
+
+      const cost = buildingCost(next.targetType as BuildingType, next.targetLevel);
+      const resourceState = this.engine.buildResourceState(settled);
+      if (!canAfford(resourceState.amounts, cost)) return;
+
+      if (
+        unmetBuildingRequirements(next.targetType as BuildingType, { buildings, research }).length > 0
+      ) {
+        await this.prisma.constructionQueueItem.delete({ where: { id: next.id } });
+        return;
+      }
+
+      const seconds = buildTimeSeconds(
+        next.targetType as BuildingType,
+        next.targetLevel,
+        buildings[BuildingType.SYMBIOTIC_CORE] ?? 0,
+      );
+      const now = new Date();
+      const finishesAt = new Date(now.getTime() + seconds * 1000);
+
+      let newJobId: string | null = null;
+      await this.prisma.$transaction(async (tx) => {
+        await this.engine.spend(planetId, cost, tx);
+        const job = await tx.constructionJob.create({
+          data: {
+            planetId,
+            buildingType: next.targetType,
+            targetLevel: next.targetLevel,
+            startedAt: now,
+            finishesAt,
+          },
+        });
+        newJobId = job.id;
+        await tx.constructionQueueItem.delete({ where: { id: next.id } });
+      });
+
+      if (newJobId) {
+        await this.gameQueue.scheduleConstruction(newJobId, finishesAt);
+      }
+    } catch {
+      // Queue processing is best-effort
     }
   }
 

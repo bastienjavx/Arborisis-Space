@@ -1,11 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
-import { JobStatus } from '@prisma/client';
 import {
   BUILDINGS,
   BuildingType,
-  buildingCost,
-  buildTimeSeconds,
-  canAfford,
   planetFields,
   ResearchType,
   unmetBuildingRequirements,
@@ -131,64 +127,6 @@ export class ConstructionQueueService {
           data: { queueOrder: i + 1 },
         });
       }
-    }
-  }
-
-  /** Appelé par le processeur de construction après finalisation — démarre le prochain job. */
-  async processNextInQueue(planetId: string, userId: string): Promise<void> {
-    const next = await this.prisma.constructionQueueItem.findFirst({
-      where: { planetId },
-      orderBy: { queueOrder: 'asc' },
-    });
-    if (!next) return;
-
-    const pending = await this.prisma.constructionJob.findFirst({
-      where: { planetId, status: JobStatus.PENDING },
-    });
-    if (pending) return;
-
-    try {
-      const settled = await this.engine.settlePlanet(planetId);
-      const buildings = this.engine.buildingLevelsOf(settled.planet.buildings);
-      const research = this.engine.researchLevelsOf(
-        await this.prisma.researchLevel.findMany({ where: { userId } }),
-      );
-
-      const cost = buildingCost(next.targetType as BuildingType, next.targetLevel);
-      const resourceState = this.engine.buildResourceState(settled);
-      if (!canAfford(resourceState.amounts, cost)) return;
-
-      if (
-        unmetBuildingRequirements(next.targetType as BuildingType, { buildings, research }).length >
-        0
-      ) {
-        await this.prisma.constructionQueueItem.delete({ where: { id: next.id } });
-        return;
-      }
-
-      const seconds = buildTimeSeconds(
-        next.targetType as BuildingType,
-        next.targetLevel,
-        buildings[BuildingType.SYMBIOTIC_CORE] ?? 0,
-      );
-      const now = new Date();
-      const finishesAt = new Date(now.getTime() + seconds * 1000);
-
-      await this.prisma.$transaction(async (tx) => {
-        await this.engine.spend(planetId, cost, tx);
-        await tx.constructionJob.create({
-          data: {
-            planetId,
-            buildingType: next.targetType,
-            targetLevel: next.targetLevel,
-            startedAt: now,
-            finishesAt,
-          },
-        });
-        await tx.constructionQueueItem.delete({ where: { id: next.id } });
-      });
-    } catch {
-      // Queue processing is best-effort
     }
   }
 }
