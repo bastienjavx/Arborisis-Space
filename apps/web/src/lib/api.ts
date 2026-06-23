@@ -41,6 +41,7 @@ import type {
   StartCraftingDto,
   StartResearchDto,
   ProduceShipsDto,
+  CreateProductionLineDto,
   SetSpecializationDto,
   SetProductionIntensitiesDto,
   SpyPlanetDto,
@@ -48,6 +49,8 @@ import type {
   ShipProductionJobView,
   CraftingJobView,
   CraftingRecipeConfig,
+  ProductionLineView,
+  UpdateProductionLineDto,
   TradeRouteView,
   TradeRouteStatus,
   LeaderboardEntry,
@@ -344,6 +347,15 @@ export const api = {
     request<CraftingJobView[]>(`/crafting/jobs/planet/${planetId}`),
   startCrafting: (body: StartCraftingDto) =>
     request<CraftingJobView>('/crafting/start', { method: 'POST', body }),
+
+  // ── Lignes de production ──
+  productionLines: () => request<ProductionLineView[]>('/production-lines'),
+  createProductionLine: (body: CreateProductionLineDto) =>
+    request<ProductionLineView>('/production-lines', { method: 'POST', body }),
+  updateProductionLine: (id: string, body: UpdateProductionLineDto) =>
+    request<ProductionLineView>(`/production-lines/${id}`, { method: 'PATCH', body }),
+  deleteProductionLine: (id: string) =>
+    request<void>(`/production-lines/${id}`, { method: 'DELETE' }),
 
   // ── Routes commerciales ──
   tradeRoutes: () => request<TradeRouteView[]>('/trade-routes'),

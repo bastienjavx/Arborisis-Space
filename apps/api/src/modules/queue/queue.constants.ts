@@ -8,6 +8,7 @@ export const PVP_QUEUE = 'pvp';
 export const GAME_EVENT_QUEUE = 'game-events';
 export const PROVISIONING_QUEUE = 'provisioning';
 export const CRAFTING_QUEUE = 'crafting';
+export const PRODUCTION_LINE_QUEUE = 'production-lines';
 export const TRADE_ROUTE_QUEUE = 'trade-routes';
 export const MARKET_EXPIRY_QUEUE = 'market-expiry';
 
@@ -17,6 +18,7 @@ export const PROVISION_UNIVERSE_JOB = 'provisioning.universe';
 export const RECONCILE_UNIVERSES_JOB = 'provisioning.reconcile';
 export const SPAWN_NPC_JOB = 'SPAWN_NPC_JOB';
 export const TRANSFER_QUEUE = 'transfer';
+export const RUN_PRODUCTION_LINE_JOB = 'run-production-line';
 export const RUN_TRADE_ROUTE_JOB = 'run-trade-route';
 export const EXPIRE_MARKET_ORDER_JOB = 'expire-market-order';
 

@@ -31,6 +31,7 @@ import {
   ShipRole,
   ShipType,
   TradeRouteStatus,
+  ProductionLineStatus,
   UniverseStatus,
   UserRole,
   ModerationActionType,
@@ -590,6 +591,20 @@ export interface TradeRouteView {
   status: TradeRouteStatus;
   lastRunAt: string | null;
   nextRunAt: string | null;
+}
+
+export interface ProductionLineView {
+  id: string;
+  planetId: string;
+  planetName: string;
+  recipeId: string;
+  outputKey: ItemKey;
+  outputQty: number;
+  cycleSeconds: number;
+  status: ProductionLineStatus;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  createdAt: string;
 }
 
 export interface MarketSummaryView {

@@ -1,0 +1,14 @@
+{
+  "id": "review-renderer-materialized",
+  "action": "write_moodboard_widget_payload",
+  "label": "Materialized Creative Production image review",
+  "createdAt": "2026-06-21T14:45:43.454310Z",
+  "timestamp": "2026-06-21T14:45:43.454310Z",
+  "title": "Ads Explorer",
+  "summary": "Image-led review wall. Captions and prompt details stay in the manifest, not under the tiles.",
+  "itemCount": 25,
+  "runDirectory": "/Users/bastienjavaux/Documents/Arborisis Space/outputs/creative/arborisis-social-ad/exploration",
+  "streamPath": "/Users/bastienjavaux/Documents/Arborisis Space/outputs/creative/arborisis-social-ad/exploration/data/stream.json",
+  "runStatePath": "/Users/bastienjavaux/Documents/Arborisis Space/outputs/creative/arborisis-social-ad/exploration/run-state.json",
+  "latestActionPath": "/Users/bastienjavaux/Documents/Arborisis Space/outputs/creative/arborisis-social-ad/exploration/latest-action.json"
+}

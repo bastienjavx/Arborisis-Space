@@ -1,0 +1,38 @@
+{
+  "scale": "family",
+  "pack": "diverse-image-ad-archetypes",
+  "packTitle": "Diverse Image Ad Archetypes",
+  "subjectKind": "product",
+  "families": 25,
+  "routes": 0,
+  "items": 25,
+  "summary": "Twenty-five reusable image-ad families for broad commercial exploration across UGC, surreal 3D, premium still life, demo, comparison, retail, ecommerce, OOH, proof, launch, editorial, and social-native formats.",
+  "whenToUse": "Use when the user wants a wide range of very different ad directions for a supplied subject before narrowing to scenes, style routes, or final production assets.",
+  "requiredInputs": [
+    "subject image or description",
+    "product, service, venue, or offer facts to preserve",
+    "target audience",
+    "approved claims and copy",
+    "brand palette or taste references",
+    "channel or aspect ratio if known",
+    "CTA or contact detail if text is requested",
+    "avoid list"
+  ],
+  "riskGates": [
+    "readable text fidelity",
+    "logo and packaging distortion",
+    "unsupported claims",
+    "invented endorsements or reviews",
+    "wrong product category",
+    "unsafe or unrealistic product use",
+    "demographic stereotyping",
+    "competitor mimicry",
+    "overcrowded layout"
+  ],
+  "review": {
+    "title": "Ads Explorer",
+    "layout": "wall",
+    "showCaptions": false,
+    "note": "Image-led review wall. Captions and prompt details stay in the manifest, not under the tiles."
+  }
+}

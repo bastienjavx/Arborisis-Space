@@ -25,6 +25,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { MarketModule } from './modules/market/market.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { CraftingModule } from './modules/crafting/crafting.module';
+import { ProductionLinesModule } from './modules/production-lines/production-lines.module';
 import { TradeRoutesModule } from './modules/trade-routes/trade-routes.module';
 
 @Module({
@@ -83,6 +84,7 @@ import { TradeRoutesModule } from './modules/trade-routes/trade-routes.module';
     MarketModule,
     InventoryModule,
     CraftingModule,
+    ProductionLinesModule,
     TradeRoutesModule,
     ProcessorsModule,
     ProvisioningModule,

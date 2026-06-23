@@ -29,6 +29,8 @@ import type {
   ModerateUserDto,
   SendChatMessageDto,
   ClaimQuestDto,
+  CreateProductionLineDto,
+  UpdateProductionLineDto,
 } from '@arborisis/shared';
 import { ChatScope } from '@arborisis/shared';
 import { api } from './api';
@@ -68,6 +70,7 @@ export const keys = {
   chatContacts: (search: string) => ['chat-contacts', search] as const,
   adminUsers: (search: string) => ['admin-users', search] as const,
   moderationActions: ['moderation-actions'] as const,
+  productionLines: ['production-lines'] as const,
 };
 
 export function useMe() {
@@ -277,6 +280,45 @@ export function useTransfers() {
     queryKey: keys.transfers,
     queryFn: () => api.transfers(),
     refetchInterval: 15_000,
+  });
+}
+
+export function useProductionLines() {
+  return useQuery({
+    queryKey: keys.productionLines,
+    queryFn: () => api.productionLines(),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useCreateProductionLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateProductionLineDto) => api.createProductionLine(body),
+    onSuccess: (line) => {
+      void qc.invalidateQueries({ queryKey: keys.productionLines });
+      void qc.invalidateQueries({ queryKey: keys.planet(line.planetId) });
+    },
+  });
+}
+
+export function useUpdateProductionLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateProductionLineDto }) =>
+      api.updateProductionLine(id, body),
+    onSuccess: (line) => {
+      void qc.invalidateQueries({ queryKey: keys.productionLines });
+      void qc.invalidateQueries({ queryKey: keys.planet(line.planetId) });
+    },
+  });
+}
+
+export function useDeleteProductionLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteProductionLine(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.productionLines }),
   });
 }
 

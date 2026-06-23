@@ -399,3 +399,10 @@ export enum TradeRouteStatus {
   PAUSED = 'PAUSED',
   INSUFFICIENT_SHIPS = 'INSUFFICIENT_SHIPS',
 }
+
+/** Statut d'une ligne de production automatique. */
+export enum ProductionLineStatus {
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  INPUT_SHORTAGE = 'INPUT_SHORTAGE',
+}

@@ -10,6 +10,7 @@ import {
   ItemKey,
   MarketOrderSide,
   PlanetSpecialization,
+  ProductionLineStatus,
   RaceType,
   ResearchType,
   ResourceType,
@@ -423,6 +424,19 @@ export const createTradeRouteSchema = z
     'Spécifiez soit un itemKey, soit une ressource (pas les deux).',
   );
 export type CreateTradeRouteDto = z.infer<typeof createTradeRouteSchema>;
+
+export const createProductionLineSchema = z.object({
+  planetId: z.string().uuid(),
+  recipeId: z.string().min(1).max(80),
+});
+export type CreateProductionLineDto = z.infer<typeof createProductionLineSchema>;
+
+export const updateProductionLineSchema = z
+  .object({
+    status: z.nativeEnum(ProductionLineStatus).optional(),
+  })
+  .refine((d) => d.status != null, 'Au moins un champ doit être fourni.');
+export type UpdateProductionLineDto = z.infer<typeof updateProductionLineSchema>;
 
 export const updateTradeRouteStatusSchema = z.object({
   status: z.nativeEnum(TradeRouteStatus),

@@ -283,6 +283,12 @@ enum TradeRouteStatus {
   INSUFFICIENT_SHIPS
 }
 
+enum ProductionLineStatus {
+  ACTIVE
+  PAUSED
+  INPUT_SHORTAGE
+}
+
 model Universe {
   id             String         @id @default(uuid())
   slug           String         @unique
@@ -327,13 +333,13 @@ model User {
   refreshTokenHash String?
 
   // Vérification email
-  emailVerified          Boolean   @default(false)
-  emailVerificationToken String?   @unique
+  emailVerified           Boolean   @default(false)
+  emailVerificationToken  String?   @unique
   emailVerificationSentAt DateTime?
 
   // Réinitialisation du mot de passe
-  passwordResetToken   String?   @unique
-  passwordResetSentAt  DateTime?
+  passwordResetToken  String?   @unique
+  passwordResetSentAt DateTime?
 
   // Double authentification TOTP
   totpSecret  String?
@@ -382,6 +388,7 @@ model User {
   sellTrades                MarketTrade[]             @relation("SellerTrades")
   craftingJobs              CraftingJob[]
   tradeRoutes               TradeRoute[]
+  productionLines           ProductionLine[]
 
   @@map("users")
 }
@@ -448,6 +455,7 @@ model Planet {
   incomingTransfers  ResourceTransferMission[] @relation("TransferTarget")
   inventorySlots     PlayerInventorySlot[]
   craftingJobs       CraftingJob[]
+  productionLines    ProductionLine[]
   outgoingRoutes     TradeRoute[]              @relation("TradeRouteFrom")
   incomingRoutes     TradeRoute[]              @relation("TradeRouteTo")
 
@@ -652,27 +660,27 @@ model LeaderboardSeason {
 }
 
 model SeasonReward {
-  id       String            @id @default(uuid())
-  seasonId String
-  season   LeaderboardSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  scope    SeasonRewardScope
-  userId   String
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String            @id @default(uuid())
+  seasonId       String
+  season         LeaderboardSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  scope          SeasonRewardScope
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Alliance concernée pour une récompense d'alliance (null pour le classement individuel).
-  allianceId String?
-  rank       Int
-  score      Int
-  title      String?
-  rewardBiomass  Float @default(0)
-  rewardSap      Float @default(0)
-  rewardMinerals Float @default(0)
-  rewardSpores   Float @default(0)
-  claimedAt  DateTime?
-  createdAt  DateTime  @default(now())
+  allianceId     String?
+  rank           Int
+  score          Int
+  title          String?
+  rewardBiomass  Float             @default(0)
+  rewardSap      Float             @default(0)
+  rewardMinerals Float             @default(0)
+  rewardSpores   Float             @default(0)
+  claimedAt      DateTime?
+  createdAt      DateTime          @default(now())
 
+  @@unique([seasonId, scope, userId])
   @@index([userId, claimedAt])
   @@index([seasonId])
-  @@unique([seasonId, scope, userId])
   @@map("season_rewards")
 }
 
@@ -963,21 +971,21 @@ model MarketOrder {
 
 /// Transaction exécutée entre deux ordres de marché (maker-taker).
 model MarketTrade {
-  id          String   @id @default(uuid())
-  universeId  String
-  universe    Universe @relation(fields: [universeId], references: [id], onDelete: Cascade)
-  itemKey     ItemKey
-  buyOrderId  String
-  buyOrder    MarketOrder @relation("OrderBuy", fields: [buyOrderId], references: [id])
-  sellOrderId String
-  sellOrder   MarketOrder @relation("OrderSell", fields: [sellOrderId], references: [id])
-  buyerId     String
-  buyer       User        @relation("BuyerTrades", fields: [buyerId], references: [id])
-  sellerId    String
-  seller      User        @relation("SellerTrades", fields: [sellerId], references: [id])
-  price       Int
-  quantity    Int
-  executedAt  DateTime    @default(now())
+  id             String      @id @default(uuid())
+  universeId     String
+  universe       Universe    @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  itemKey        ItemKey
+  buyOrderId     String
+  buyOrder       MarketOrder @relation("OrderBuy", fields: [buyOrderId], references: [id])
+  sellOrderId    String
+  sellOrder      MarketOrder @relation("OrderSell", fields: [sellOrderId], references: [id])
+  buyerId        String
+  buyer          User        @relation("BuyerTrades", fields: [buyerId], references: [id])
+  sellerId       String
+  seller         User        @relation("SellerTrades", fields: [sellerId], references: [id])
+  price          Int
+  quantity       Int
+  executedAt     DateTime    @default(now())
   buyerPlanetId  String
   sellerPlanetId String
 
@@ -989,9 +997,9 @@ model MarketTrade {
 
 /// Bougie OHLCV pour les graphiques de cours (1h / 4h / 1d).
 model OhlcvCandle {
-  id         String   @id @default(uuid())
+  id         String        @id @default(uuid())
   universeId String
-  universe   Universe @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  universe   Universe      @relation(fields: [universeId], references: [id], onDelete: Cascade)
   itemKey    ItemKey
   interval   OhlcvInterval
   openTime   DateTime
@@ -999,7 +1007,7 @@ model OhlcvCandle {
   high       Int
   low        Int
   close      Int
-  volume     Int      @default(0)
+  volume     Int           @default(0)
 
   @@unique([universeId, itemKey, interval, openTime])
   @@index([universeId, itemKey, interval, openTime])
@@ -1008,23 +1016,46 @@ model OhlcvCandle {
 
 /// Job d'artisanat : transforme des matières premières en objets.
 model CraftingJob {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   planetId    String
-  planet      Planet   @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  planet      Planet    @relation(fields: [planetId], references: [id], onDelete: Cascade)
   recipeId    String
   outputKey   ItemKey
   outputQty   Int
-  quantity    Int      @default(1)
+  quantity    Int       @default(1)
   status      JobStatus @default(PENDING)
-  startedAt   DateTime @default(now())
+  startedAt   DateTime  @default(now())
   completesAt DateTime
 
   @@index([userId, status])
   @@index([planetId, status])
   @@index([status, completesAt])
   @@map("crafting_jobs")
+}
+
+/// Ligne de production automatique : convertit des ressources planétaires en objets vendables.
+model ProductionLine {
+  id           String               @id @default(uuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planetId     String
+  planet       Planet               @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  recipeId     String
+  outputKey    ItemKey
+  outputQty    Int
+  cycleSeconds Int
+  status       ProductionLineStatus @default(ACTIVE)
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([userId, status])
+  @@index([planetId, status])
+  @@index([status, nextRunAt])
+  @@map("production_lines")
 }
 
 /// Route commerciale automatisée entre deux planètes du même joueur.

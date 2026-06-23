@@ -1840,6 +1840,15 @@ export interface CraftingRecipeConfig {
   ingredients: CraftingIngredient[];
 }
 
+/** Recette d'une ligne de production automatique. */
+export interface ProductionLineRecipeConfig {
+  id: string;
+  outputKey: ItemKey;
+  outputQty: number;
+  cycleSeconds: number;
+  inputs: ResourceBundle;
+}
+
 export const CRAFTING_RECIPES: CraftingRecipeConfig[] = [
   {
     id: 'recipe_reinforced_chitin',
@@ -1902,6 +1911,51 @@ export const CRAFTING_RECIPES: CraftingRecipeConfig[] = [
       { itemKey: ItemKey.VOID_CRYSTAL, quantity: 2 },
       { resource: ResourceType.SPORES, quantity: 500 },
     ],
+  },
+];
+
+export const MAX_PRODUCTION_LINES_PER_PLANET = 3;
+
+export const PRODUCTION_LINE_RECIPES: ProductionLineRecipeConfig[] = [
+  {
+    id: 'line_mycelial_fiber',
+    outputKey: ItemKey.MYCELIAL_FIBER,
+    outputQty: 2,
+    cycleSeconds: 900,
+    inputs: {
+      [ResourceType.BIOMASS]: 300,
+      [ResourceType.SAP]: 80,
+    },
+  },
+  {
+    id: 'line_bioluminescent_gel',
+    outputKey: ItemKey.BIOLUMINESCENT_GEL,
+    outputQty: 2,
+    cycleSeconds: 1_200,
+    inputs: {
+      [ResourceType.SAP]: 260,
+      [ResourceType.BIOMASS]: 160,
+    },
+  },
+  {
+    id: 'line_chitin_shard',
+    outputKey: ItemKey.CHITIN_SHARD,
+    outputQty: 1,
+    cycleSeconds: 1_800,
+    inputs: {
+      [ResourceType.MINERALS]: 360,
+      [ResourceType.BIOMASS]: 180,
+    },
+  },
+  {
+    id: 'line_spore_essence',
+    outputKey: ItemKey.SPORE_ESSENCE,
+    outputQty: 1,
+    cycleSeconds: 2_400,
+    inputs: {
+      [ResourceType.SPORES]: 120,
+      [ResourceType.SAP]: 240,
+    },
   },
 ];
 
