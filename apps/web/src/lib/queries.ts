@@ -2,33 +2,43 @@
 
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
 import type {
+  AddToQueueDto,
   AllianceDetailView,
   AllianceView,
   ApplyAllianceDto,
   AttackEncounterDto,
   AttackPlanetDto,
   BuildBuildingDto,
+  ChangeUserRoleDto,
+  ClaimQuestDto,
   ColonizeDto,
+  ConstructionQueueItemView,
   CreateAllianceDto,
+  CreateDiplomaticOfferDto,
+  CreateFleetPresetDto,
   DecideApplicationDto,
+  DiplomaticOfferView,
+  DiplomaticRelationView,
+  EmpireOverview,
+  FleetPresetView,
   IncomingAttackView,
+  ModerateUserDto,
+  NotificationView,
   PlanetDetail,
   ProduceShipsDto,
   PveReportView,
   PvpReportView,
   RenamePlanetDto,
   ResourceTransferMissionView,
-  SetSpecializationDto,
+  SendChatMessageDto,
   SetProductionIntensitiesDto,
+  SetSpecializationDto,
   SpyPlanetDto,
   StartExpeditionDto,
   StartResearchDto,
   TransferResourcesDto,
+  UnreadCountView,
   UpdateProfileDto,
-  ChangeUserRoleDto,
-  ModerateUserDto,
-  SendChatMessageDto,
-  ClaimQuestDto,
   CreateProductionLineDto,
   UpdateProductionLineDto,
 } from '@arborisis/shared';
@@ -38,6 +48,13 @@ import { api } from './api';
 export const keys = {
   me: ['me'] as const,
   publicProfile: (id: string) => ['public-profile', id] as const,
+  notifications: ['notifications'] as const,
+  notificationUnreadCount: ['notification-unread-count'] as const,
+  empire: ['empire'] as const,
+  constructionQueue: (planetId: string) => ['construction-queue', planetId] as const,
+  fleetPresets: ['fleet-presets'] as const,
+  diplomaticRelations: ['diplomatic-relations'] as const,
+  diplomaticOffers: ['diplomatic-offers'] as const,
   planets: ['planets'] as const,
   planet: (id: string) => ['planet', id] as const,
   research: (planetId: string) => ['research', planetId] as const,
@@ -704,6 +721,184 @@ export function useDisbandAlliance() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.me });
       void qc.invalidateQueries({ queryKey: keys.alliances('') });
+    },
+  });
+}
+
+// ── Notifications ──────────────────────────────────────────────────────────
+
+export function useNotifications() {
+  return useQuery<NotificationView[]>({
+    queryKey: keys.notifications,
+    queryFn: () => api.notifications(),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useNotificationUnreadCount() {
+  return useQuery<UnreadCountView>({
+    queryKey: keys.notificationUnreadCount,
+    queryFn: () => api.notificationUnreadCount(),
+    refetchInterval: 20_000,
+  });
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.markNotificationRead(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+      void qc.invalidateQueries({ queryKey: keys.notificationUnreadCount });
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.markAllNotificationsRead(),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+      void qc.invalidateQueries({ queryKey: keys.notificationUnreadCount });
+    },
+  });
+}
+
+// ── Empire Overview ────────────────────────────────────────────────────────
+
+export function useEmpireOverview() {
+  return useQuery<EmpireOverview>({
+    queryKey: keys.empire,
+    queryFn: () => api.empireOverview(),
+  });
+}
+
+// ── Construction Queue ─────────────────────────────────────────────────────
+
+export function useConstructionQueue(planetId: string) {
+  return useQuery<ConstructionQueueItemView[]>({
+    queryKey: keys.constructionQueue(planetId),
+    queryFn: () => api.constructionQueue(planetId),
+    enabled: !!planetId,
+  });
+}
+
+export function useAddToConstructionQueue(planetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: AddToQueueDto) => api.addToConstructionQueue(dto),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.constructionQueue(planetId) });
+      void qc.invalidateQueries({ queryKey: keys.planet(planetId) });
+    },
+  });
+}
+
+export function useRemoveFromConstructionQueue(planetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) => api.removeFromConstructionQueue(itemId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.constructionQueue(planetId) });
+    },
+  });
+}
+
+// ── Fleet Presets ──────────────────────────────────────────────────────────
+
+export function useFleetPresets() {
+  return useQuery<FleetPresetView[]>({
+    queryKey: keys.fleetPresets,
+    queryFn: () => api.fleetPresets(),
+  });
+}
+
+export function useCreateFleetPreset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateFleetPresetDto) => api.createFleetPreset(dto),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.fleetPresets });
+    },
+  });
+}
+
+export function useUpdateFleetPreset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: CreateFleetPresetDto }) =>
+      api.updateFleetPreset(id, dto),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.fleetPresets });
+    },
+  });
+}
+
+export function useDeleteFleetPreset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteFleetPreset(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.fleetPresets });
+    },
+  });
+}
+
+// ── Diplomacy ──────────────────────────────────────────────────────────────
+
+export function useDiplomaticRelations() {
+  return useQuery<DiplomaticRelationView[]>({
+    queryKey: keys.diplomaticRelations,
+    queryFn: () => api.diplomaticRelations(),
+  });
+}
+
+export function useDiplomaticOffers() {
+  return useQuery<DiplomaticOfferView[]>({
+    queryKey: keys.diplomaticOffers,
+    queryFn: () => api.diplomaticOffers(),
+  });
+}
+
+export function useCreateDiplomaticOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateDiplomaticOfferDto) => api.createDiplomaticOffer(dto),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.diplomaticOffers });
+    },
+  });
+}
+
+export function useDecideDiplomaticOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, accept }: { id: string; accept: boolean }) =>
+      api.decideDiplomaticOffer(id, accept),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.diplomaticOffers });
+      void qc.invalidateQueries({ queryKey: keys.diplomaticRelations });
+    },
+  });
+}
+
+export function useWithdrawDiplomaticOffer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.withdrawDiplomaticOffer(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.diplomaticOffers });
+    },
+  });
+}
+
+export function useBreakDiplomaticRelation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.breakDiplomaticRelation(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.diplomaticRelations });
     },
   });
 }

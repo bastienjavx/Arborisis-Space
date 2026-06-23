@@ -9,6 +9,7 @@ import { PvpMissionPhase, PvpMissionType as PrismaPvpMissionType } from '@prisma
 import {
   BuildingType,
   computeDefensePower,
+  NotificationType,
   pvpTravelTimeSeconds,
   PvpMissionPhase as SharedPvpMissionPhase,
   PvpMissionType,
@@ -33,6 +34,7 @@ import {
 } from '@arborisis/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
 import { GameQueueService } from '../queue/game-queue.service';
@@ -44,6 +46,7 @@ export class PvpService {
     private readonly planets: PlanetsService,
     private readonly engine: GameEngineService,
     private readonly queue: GameQueueService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async spy(userId: string, dto: SpyPlanetDto): Promise<PvpMissionView> {
@@ -209,6 +212,16 @@ export class PvpService {
     }
 
     await this.queue.schedulePvp(mission.id, PvpMissionPhase.OUTBOUND, mission.arrivesAt);
+    // Notifier la cible d'une attaque imminente
+    await this.notifications
+      .create(
+        mission.targetPlanet.ownerId,
+        NotificationType.ATTACK_INCOMING,
+        'Attaque imminente !',
+        `Une flotte hostile approche de ${mission.targetPlanet.name}. Arrivée dans ${Math.ceil((mission.arrivesAt.getTime() - Date.now()) / 60000)} min.`,
+        { missionId: mission.id, arrivesAt: mission.arrivesAt.toISOString() },
+      )
+      .catch(() => void 0);
     return this.missionView(mission);
   }
 

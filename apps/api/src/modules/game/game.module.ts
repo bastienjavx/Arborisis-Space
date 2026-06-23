@@ -4,7 +4,13 @@ import { BuildingsController } from './buildings.controller';
 import { BuildingsService } from './buildings.service';
 import { ColonizationController } from './colonization.controller';
 import { ColonizationService } from './colonization.service';
+import { ConstructionQueueController } from './construction-queue.controller';
+import { ConstructionQueueService } from './construction-queue.service';
+import { EmpireController } from './empire.controller';
+import { EmpireService } from './empire.service';
 import { FinalizationService } from './finalization.service';
+import { FleetPresetsController } from './fleet-presets.controller';
+import { FleetPresetsService } from './fleet-presets.service';
 import { GalaxyController } from './galaxy.controller';
 import { GalaxyService } from './galaxy.service';
 import { GameEngineService } from './game-engine.service';
@@ -39,10 +45,12 @@ import { TransferService } from './transfer.service';
   controllers: [
     PlanetsController,
     BuildingsController,
+    ConstructionQueueController,
     ResearchController,
     GalaxyController,
     ColonizationController,
     ShipsController,
+    FleetPresetsController,
     ExpeditionsController,
     LeaderboardController,
     EventsController,
@@ -52,6 +60,7 @@ import { TransferService } from './transfer.service';
     AbsenceSummaryController,
     SeasonsController,
     TransferController,
+    EmpireController,
   ],
   providers: [
     GameEngineService,
@@ -59,10 +68,12 @@ import { TransferService } from './transfer.service';
     WorldFactoryService,
     PlanetsService,
     BuildingsService,
+    ConstructionQueueService,
     ResearchService,
     GalaxyService,
     ColonizationService,
     ShipsService,
+    FleetPresetsService,
     ExpeditionsService,
     LeaderboardService,
     EventsService,
@@ -72,6 +83,7 @@ import { TransferService } from './transfer.service';
     AbsenceSummaryService,
     SeasonsService,
     TransferService,
+    EmpireService,
   ],
   exports: [
     WorldFactoryService,
@@ -82,6 +94,7 @@ import { TransferService } from './transfer.service';
     SeasonsService,
     PlanetsService,
     TransferService,
+    ConstructionQueueService,
   ],
 })
 export class GameModule {}

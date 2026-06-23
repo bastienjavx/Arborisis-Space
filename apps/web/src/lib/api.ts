@@ -1,4 +1,5 @@
 import type {
+  AddToQueueDto,
   AllianceApplicationView,
   AllianceDetailView,
   AllianceView,
@@ -9,9 +10,16 @@ import type {
   AdminUserView,
   BuildBuildingDto,
   ColonizeDto,
+  ConstructionQueueItemView,
   CreateAllianceDto,
+  CreateDiplomaticOfferDto,
+  CreateFleetPresetDto,
   CreateTradeRouteDto,
   DecideApplicationDto,
+  DiplomaticOfferView,
+  DiplomaticRelationView,
+  EmpireOverview,
+  FleetPresetView,
   GalaxySystemView,
   FleetOverview,
   ExpeditionView,
@@ -24,6 +32,7 @@ import type {
   MarketOrderView,
   MarketSummaryView,
   MarketTradeView,
+  NotificationView,
   NpcEncounterView,
   OhlcvCandleView,
   OrderBookView,
@@ -50,6 +59,7 @@ import type {
   CraftingJobView,
   CraftingRecipeConfig,
   ProductionLineView,
+  UnreadCountView,
   UpdateProductionLineDto,
   TradeRouteView,
   TradeRouteStatus,
@@ -364,4 +374,43 @@ export const api = {
   updateTradeRouteStatus: (id: string, status: TradeRouteStatus) =>
     request<TradeRouteView>(`/trade-routes/${id}/status`, { method: 'PATCH', body: { status } }),
   deleteTradeRoute: (id: string) => request<void>(`/trade-routes/${id}`, { method: 'DELETE' }),
+
+  // ── Notifications ──
+  notifications: () => request<NotificationView[]>('/notifications'),
+  notificationUnreadCount: () => request<UnreadCountView>('/notifications/unread-count'),
+  markNotificationRead: (id: string) =>
+    request<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllNotificationsRead: () => request<void>('/notifications/read-all', { method: 'PATCH' }),
+  clearOldNotifications: () => request<void>('/notifications/old', { method: 'DELETE' }),
+
+  // ── Empire ──
+  empireOverview: () => request<EmpireOverview>('/empire'),
+
+  // ── File de construction ──
+  constructionQueue: (planetId: string) =>
+    request<ConstructionQueueItemView[]>(`/construction-queue?planetId=${planetId}`),
+  addToConstructionQueue: (body: AddToQueueDto) =>
+    request<ConstructionQueueItemView>('/construction-queue', { method: 'POST', body }),
+  removeFromConstructionQueue: (id: string) =>
+    request<void>(`/construction-queue/${id}`, { method: 'DELETE' }),
+
+  // ── Presets de flotte ──
+  fleetPresets: () => request<FleetPresetView[]>('/fleet-presets'),
+  createFleetPreset: (body: CreateFleetPresetDto) =>
+    request<FleetPresetView>('/fleet-presets', { method: 'POST', body }),
+  updateFleetPreset: (id: string, body: Partial<CreateFleetPresetDto>) =>
+    request<FleetPresetView>(`/fleet-presets/${id}`, { method: 'PATCH', body }),
+  deleteFleetPreset: (id: string) => request<void>(`/fleet-presets/${id}`, { method: 'DELETE' }),
+
+  // ── Diplomatie ──
+  diplomaticRelations: () => request<DiplomaticRelationView[]>('/diplomacy/relations'),
+  diplomaticOffers: () => request<DiplomaticOfferView[]>('/diplomacy/offers'),
+  createDiplomaticOffer: (body: CreateDiplomaticOfferDto) =>
+    request<DiplomaticOfferView>('/diplomacy/offers', { method: 'POST', body }),
+  decideDiplomaticOffer: (id: string, accept: boolean) =>
+    request<void>(`/diplomacy/offers/${id}/decide`, { method: 'PATCH', body: { accept } }),
+  withdrawDiplomaticOffer: (id: string) =>
+    request<void>(`/diplomacy/offers/${id}`, { method: 'DELETE' }),
+  breakDiplomaticRelation: (id: string) =>
+    request<void>(`/diplomacy/relations/${id}`, { method: 'DELETE' }),
 };

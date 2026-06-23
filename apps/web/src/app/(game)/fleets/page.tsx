@@ -27,8 +27,11 @@ import { codexId } from '@/lib/codex';
 import { ApiError } from '@/lib/api';
 import { formatDuration, formatNumber } from '@/lib/format';
 import {
+  useCreateFleetPreset,
+  useDeleteFleetPreset,
   useExpeditions,
   useFleet,
+  useFleetPresets,
   useLaunchTransfer,
   usePlanetDetail,
   usePlanets,
@@ -37,7 +40,15 @@ import {
   useTransfers,
 } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiClock, FiLock, FiNavigation, FiSend, FiTruck } from 'react-icons/fi';
+import {
+  FiBookmark,
+  FiClock,
+  FiLock,
+  FiNavigation,
+  FiSend,
+  FiTrash2,
+  FiTruck,
+} from 'react-icons/fi';
 
 export default function FleetsPage() {
   const { selectedId } = usePlanetSelection();
@@ -46,9 +57,14 @@ export default function FleetsPage() {
   const { data: planets } = usePlanets();
   const { data: missions } = useExpeditions();
   const { data: transfers } = useTransfers();
+  const { data: presets } = useFleetPresets();
   const produce = useProduceShips(selectedId ?? '');
   const launch = useStartExpedition(selectedId ?? '');
   const launchTransfer = useLaunchTransfer();
+  const createPreset = useCreateFleetPreset();
+  const deletePreset = useDeleteFleetPreset();
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [presetName, setPresetName] = useState('');
   const [quantities, setQuantities] = useState<Record<ShipType, number>>(
     Object.fromEntries(SHIP_TYPES.map((type) => [type, 1])) as Record<ShipType, number>,
   );
@@ -118,6 +134,98 @@ export default function FleetsPage() {
       >
         <ResourceBar resources={planet.resources} className="lg:hidden" />
       </motion.div>
+
+      {/* Fleet presets */}
+      {presets && presets.length > 0 && (
+        <section className="mycelium-panel overflow-hidden">
+          <div className="flex items-center gap-2.5 border-b border-canopy-700/15 px-5 py-3.5">
+            <FiBookmark className="h-4 w-4 text-canopy-300/70" aria-hidden="true" />
+            <h2 className="section-title">Préréglages de flotte</h2>
+          </div>
+          <div className="flex flex-wrap gap-3 px-5 py-4">
+            {presets.map((preset) => (
+              <div
+                key={preset.id}
+                className="flex items-center gap-2 rounded-xl border border-canopy-700/25 bg-canopy-500/5 px-3 py-2"
+              >
+                <div>
+                  <p className="text-xs font-medium text-canopy-200">{preset.name}</p>
+                  <p className="text-[10px] text-canopy-400/50">
+                    {Object.entries(preset.ships as Record<string, number>)
+                      .filter(([, q]) => q > 0)
+                      .map(([t, q]) => `${q}× ${t}`)
+                      .join(', ')
+                      .slice(0, 40)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Supprimer ${preset.name}`}
+                  onClick={() => deletePreset.mutate(preset.id)}
+                  className="ml-1 text-canopy-500/60 transition hover:text-red-300"
+                >
+                  <FiTrash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Save current fleet as preset */}
+      <div className="flex items-center gap-2">
+        <AnimatedButton
+          variant="ghost"
+          onClick={() => setShowSavePreset((v) => !v)}
+          className="text-xs"
+        >
+          <FiBookmark className="h-3.5 w-3.5" />
+          Sauvegarder comme préréglage
+        </AnimatedButton>
+      </div>
+
+      <AnimatePresence>
+        {showSavePreset && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mycelium-panel overflow-hidden"
+          >
+            <div className="flex items-center gap-3 px-5 py-4">
+              <input
+                type="text"
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                placeholder="Nom du préréglage…"
+                className="flex-1 rounded-lg border border-canopy-700/30 bg-bark-900/60 px-3 py-2 text-sm text-canopy-100 outline-none placeholder:text-canopy-400/30 focus:border-canopy-500/50"
+              />
+              <AnimatedButton
+                variant="primary"
+                loading={createPreset.isPending}
+                disabled={!presetName.trim() || !Object.values(ships).some((q) => q > 0)}
+                onClick={() => {
+                  if (!presetName.trim()) return;
+                  const shipCounts = Object.fromEntries(
+                    Object.entries(ships).filter(([, q]) => q > 0),
+                  );
+                  createPreset.mutate(
+                    { name: presetName.trim(), ships: shipCounts },
+                    {
+                      onSuccess: () => {
+                        setPresetName('');
+                        setShowSavePreset(false);
+                      },
+                    },
+                  );
+                }}
+              >
+                Sauvegarder
+              </AnimatedButton>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {error && (

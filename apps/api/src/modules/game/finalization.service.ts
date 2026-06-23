@@ -1,8 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ItemKey as PrismaItemKey, JobStatus, TransferPhase } from '@prisma/client';
-import { ShipType } from '@arborisis/shared';
+import {
+  BUILDINGS,
+  BuildingType,
+  NotificationType,
+  RESEARCHES,
+  ResearchType,
+  ShipType,
+  SHIPS,
+} from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
+import { NotificationsService } from '../notifications/notifications.service';
 import { WorldFactoryService } from './world-factory.service';
 
 /**
@@ -18,11 +27,16 @@ export class FinalizationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly worldFactory: WorldFactoryService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async finalizeConstruction(jobId: string, now = new Date()): Promise<void> {
+    let notifyData: { userId: string; buildingType: string; level: number } | null = null;
     await this.prisma.serializable(async (tx) => {
-      const job = await tx.constructionJob.findUnique({ where: { id: jobId } });
+      const job = await tx.constructionJob.findUnique({
+        where: { id: jobId },
+        include: { planet: { select: { ownerId: true, name: true } } },
+      });
       if (!job || job.status !== JobStatus.PENDING || job.finishesAt > now) return;
 
       await tx.planetBuilding.update({
@@ -33,10 +47,33 @@ export class FinalizationService {
         where: { id: jobId },
         data: { status: JobStatus.COMPLETED },
       });
+      notifyData = {
+        userId: job.planet.ownerId,
+        buildingType: job.buildingType,
+        level: job.targetLevel,
+      };
     });
+    if (notifyData) {
+      const { userId, buildingType, level } = notifyData as {
+        userId: string;
+        buildingType: string;
+        level: number;
+      };
+      const buildingName = BUILDINGS[buildingType as BuildingType]?.name ?? buildingType;
+      await this.notifications
+        .create(
+          userId,
+          NotificationType.CONSTRUCTION_COMPLETE,
+          'Construction terminée',
+          `${buildingName} atteint le niveau ${level}.`,
+          { buildingType, level },
+        )
+        .catch(() => void 0);
+    }
   }
 
   async finalizeResearch(jobId: string, now = new Date()): Promise<void> {
+    let notifyData: { userId: string; researchType: string; level: number } | null = null;
     await this.prisma.serializable(async (tx) => {
       const job = await tx.researchJob.findUnique({ where: { id: jobId } });
       if (!job || job.status !== JobStatus.PENDING || job.finishesAt > now) return;
@@ -49,7 +86,25 @@ export class FinalizationService {
         where: { id: jobId },
         data: { status: JobStatus.COMPLETED },
       });
+      notifyData = { userId: job.userId, researchType: job.researchType, level: job.targetLevel };
     });
+    if (notifyData) {
+      const { userId, researchType, level } = notifyData as {
+        userId: string;
+        researchType: string;
+        level: number;
+      };
+      const researchName = RESEARCHES[researchType as ResearchType]?.name ?? researchType;
+      await this.notifications
+        .create(
+          userId,
+          NotificationType.RESEARCH_COMPLETE,
+          'Recherche terminée',
+          `${researchName} atteint le niveau ${level}.`,
+          { researchType, level },
+        )
+        .catch(() => void 0);
+    }
   }
 
   async finalizeColonization(jobId: string, now = new Date()): Promise<void> {
@@ -88,6 +143,15 @@ export class FinalizationService {
         where: { id: jobId },
         data: { status: JobStatus.COMPLETED },
       });
+      await this.notifications
+        .create(
+          job.userId,
+          NotificationType.COLONIZATION_COMPLETE,
+          'Essaimage réussi',
+          `Votre colonie en ${job.targetGalaxy}:${job.targetSystem}:${job.targetPosition} est fondée.`,
+          { galaxy: job.targetGalaxy, system: job.targetSystem, position: job.targetPosition },
+        )
+        .catch(() => void 0);
     });
   }
 
@@ -105,6 +169,23 @@ export class FinalizationService {
         data: { status: JobStatus.COMPLETED },
       });
     });
+
+    const done = await this.prisma.shipProductionJob.findUnique({
+      where: { id: jobId },
+      include: { planet: { select: { ownerId: true } } },
+    });
+    if (done?.status === JobStatus.COMPLETED) {
+      const shipName = SHIPS[done.shipType as ShipType]?.name ?? done.shipType;
+      await this.notifications
+        .create(
+          done.planet.ownerId,
+          NotificationType.SHIP_PRODUCED,
+          'Production navale terminée',
+          `${done.quantity}× ${shipName} prêt(s) au déploiement.`,
+          { shipType: done.shipType, quantity: done.quantity },
+        )
+        .catch(() => void 0);
+    }
   }
 
   // ── Finalisation paresseuse (défensive, lors des lectures) ──
