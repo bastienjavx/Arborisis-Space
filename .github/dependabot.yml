@@ -29,6 +29,15 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
+      # Prisma 7 supprime `url = env(...)` dans schema.prisma (migration vers
+      # prisma.config.ts + adapter). Bump majeur = migration manuelle.
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+      # TypeScript : majeurs (durcissements de types) gérés à la main.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # Actions GitHub
   - package-ecosystem: github-actions
