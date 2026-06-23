@@ -10,17 +10,26 @@ import type {
   BuildBuildingDto,
   ColonizeDto,
   CreateAllianceDto,
+  CreateTradeRouteDto,
   DecideApplicationDto,
   GalaxySystemView,
   FleetOverview,
   ExpeditionView,
   ExpeditionReportView,
   IncomingAttackView,
+  InventorySlotView,
+  ItemKey,
   JobView,
   ListUniversesView,
+  MarketOrderView,
+  MarketSummaryView,
+  MarketTradeView,
   NpcEncounterView,
+  OhlcvCandleView,
+  OrderBookView,
   PlanetDetail,
   PlanetSummary,
+  PlaceMarketOrderDto,
   PublicProfile,
   PveMissionView,
   PveReportView,
@@ -29,6 +38,7 @@ import type {
   RenamePlanetDto,
   ResearchOverview,
   ResourceTransferMissionView,
+  StartCraftingDto,
   StartResearchDto,
   ProduceShipsDto,
   SetSpecializationDto,
@@ -36,6 +46,10 @@ import type {
   SpyPlanetDto,
   StartExpeditionDto,
   ShipProductionJobView,
+  CraftingJobView,
+  CraftingRecipeConfig,
+  TradeRouteView,
+  TradeRouteStatus,
   LeaderboardEntry,
   AllianceLeaderboardEntry,
   SeasonOverview,
@@ -305,4 +319,37 @@ export const api = {
 
   // ── Résumé d'absence ──
   absenceSummary: () => request<AbsenceSummaryView>('/absence-summary', { method: 'POST' }),
+
+  // ── Inventaire ──
+  inventory: () => request<InventorySlotView[]>('/inventory'),
+  planetInventory: (planetId: string) =>
+    request<InventorySlotView[]>(`/inventory/planet/${planetId}`),
+
+  // ── Marché ──
+  marketSummaries: () => request<MarketSummaryView[]>('/market/summaries'),
+  marketOrderBook: (itemKey: ItemKey) => request<OrderBookView>(`/market/${itemKey}/orderbook`),
+  marketCandles: (itemKey: ItemKey, interval: '1h' | '4h' | '1d' = '1h', limit = 200) =>
+    request<OhlcvCandleView[]>(`/market/${itemKey}/candles?interval=${interval}&limit=${limit}`),
+  marketOrders: (itemKey: ItemKey) => request<MarketOrderView[]>(`/market/${itemKey}/orders`),
+  myMarketOrders: () => request<MarketOrderView[]>('/market/my/orders'),
+  myMarketTrades: () => request<MarketTradeView[]>('/market/my/trades'),
+  placeMarketOrder: (body: PlaceMarketOrderDto) =>
+    request<MarketOrderView>('/market/orders', { method: 'POST', body }),
+  cancelMarketOrder: (id: string) => request<void>(`/market/orders/${id}`, { method: 'DELETE' }),
+
+  // ── Artisanat ──
+  craftingRecipes: () => request<CraftingRecipeConfig[]>('/crafting/recipes'),
+  craftingJobs: () => request<CraftingJobView[]>('/crafting/jobs'),
+  craftingJobsByPlanet: (planetId: string) =>
+    request<CraftingJobView[]>(`/crafting/jobs/planet/${planetId}`),
+  startCrafting: (body: StartCraftingDto) =>
+    request<CraftingJobView>('/crafting/start', { method: 'POST', body }),
+
+  // ── Routes commerciales ──
+  tradeRoutes: () => request<TradeRouteView[]>('/trade-routes'),
+  createTradeRoute: (body: CreateTradeRouteDto) =>
+    request<TradeRouteView>('/trade-routes', { method: 'POST', body }),
+  updateTradeRouteStatus: (id: string, status: TradeRouteStatus) =>
+    request<TradeRouteView>(`/trade-routes/${id}/status`, { method: 'PATCH', body: { status } }),
+  deleteTradeRoute: (id: string) => request<void>(`/trade-routes/${id}`, { method: 'DELETE' }),
 };

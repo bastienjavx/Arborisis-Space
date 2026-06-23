@@ -16,9 +16,18 @@ import { PveProcessor } from './processors/pve.processor';
 import { PvpProcessor } from './processors/pvp.processor';
 import { EventProcessor } from './processors/event.processor';
 import { TransferProcessor } from './processors/transfer.processor';
+import { CraftingProcessor } from './processors/crafting.processor';
+import { TradeRouteProcessor } from './processors/trade-route.processor';
+import { MarketExpiryProcessor } from './processors/market-expiry.processor';
 import { GameQueueService } from './game-queue.service';
 import { ExpeditionsService } from '../game/expeditions.service';
 import { SeasonsService } from '../game/seasons.service';
+import { CraftingModule } from '../crafting/crafting.module';
+import { CraftingService } from '../crafting/crafting.service';
+import { TradeRoutesModule } from '../trade-routes/trade-routes.module';
+import { TradeRoutesService } from '../trade-routes/trade-routes.service';
+import { MarketModule } from '../market/market.module';
+import { MarketService } from '../market/market.service';
 
 /**
  * Workers BullMQ. Importe GameModule (logique de finalisation) et QueueModule
@@ -26,7 +35,15 @@ import { SeasonsService } from '../game/seasons.service';
  * finaliser tout job échu pendant une éventuelle indisponibilité.
  */
 @Module({
-  imports: [QueueModule, GameModule, PveModule, PvpModule],
+  imports: [
+    QueueModule,
+    GameModule,
+    PveModule,
+    PvpModule,
+    CraftingModule,
+    TradeRoutesModule,
+    MarketModule,
+  ],
   providers: [
     ConstructionProcessor,
     ResearchProcessor,
@@ -37,6 +54,9 @@ import { SeasonsService } from '../game/seasons.service';
     PvpProcessor,
     EventProcessor,
     TransferProcessor,
+    CraftingProcessor,
+    TradeRouteProcessor,
+    MarketExpiryProcessor,
   ],
 })
 export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -52,6 +72,9 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     private readonly pvp: PvpService,
     private readonly npcSpawner: NpcSpawnerService,
     private readonly seasons: SeasonsService,
+    private readonly crafting: CraftingService,
+    private readonly tradeRoutes: TradeRoutesService,
+    private readonly market: MarketService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -60,6 +83,9 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     await this.pve.sweepAllDue();
     await this.pvp.sweepAllDue();
     await this.seasons.sweepAllDue();
+    await this.crafting.sweepAllDue();
+    await this.tradeRoutes.sweepDueRoutes();
+    await this.market.sweepExpiredOrders();
     await this.queues.reconcilePending();
     await this.queues.scheduleNextEvent().catch(() => void 0);
     await this.npcSpawner.spawnBatch().catch(() => void 0);
@@ -85,6 +111,9 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
       await this.pve.sweepAllDue();
       await this.pvp.sweepAllDue();
       await this.seasons.sweepAllDue();
+      await this.crafting.sweepAllDue();
+      await this.tradeRoutes.sweepDueRoutes();
+      await this.market.sweepExpiredOrders();
       await this.queues.reconcilePending();
     } finally {
       this.reconciling = false;

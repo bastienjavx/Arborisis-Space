@@ -7,11 +7,14 @@ import { z } from 'zod';
 import {
   BuildingType,
   ChatScope,
+  ItemKey,
+  MarketOrderSide,
   PlanetSpecialization,
   RaceType,
   ResearchType,
   ResourceType,
   ShipType,
+  TradeRouteStatus,
   UniverseStatus,
   UserRole,
 } from './enums';
@@ -380,3 +383,48 @@ export const transferResourcesSchema = z.object({
     ),
 });
 export type TransferResourcesDto = z.infer<typeof transferResourcesSchema>;
+
+// ── Économie joueur ──
+
+export const placeMarketOrderSchema = z
+  .object({
+    itemKey: z.nativeEnum(ItemKey),
+    side: z.nativeEnum(MarketOrderSide),
+    pricePerUnit: z.number().int().min(1).max(10_000_000),
+    quantity: z.number().int().min(1).max(10_000),
+    sourcePlanetId: z.string().uuid(),
+  })
+  .refine(
+    (d) => d.pricePerUnit * d.quantity <= 2_147_483_647,
+    'Le séquestre total doit tenir dans la limite entière de la base de données.',
+  );
+export type PlaceMarketOrderDto = z.infer<typeof placeMarketOrderSchema>;
+
+export const startCraftingSchema = z.object({
+  recipeId: z.string().min(1).max(80),
+  planetId: z.string().uuid(),
+  quantity: z.number().int().min(1).max(100),
+});
+export type StartCraftingDto = z.infer<typeof startCraftingSchema>;
+
+export const createTradeRouteSchema = z
+  .object({
+    fromPlanetId: z.string().uuid(),
+    toPlanetId: z.string().uuid(),
+    itemKey: z.nativeEnum(ItemKey).optional(),
+    resource: z.nativeEnum(ResourceType).optional(),
+    quantityPerRun: z.number().int().min(1).max(50_000),
+    shipType: z.nativeEnum(ShipType),
+    shipCount: z.number().int().min(1).max(1_000),
+    intervalHours: z.number().int().min(1).max(168),
+  })
+  .refine(
+    (d) => (d.itemKey != null) !== (d.resource != null),
+    'Spécifiez soit un itemKey, soit une ressource (pas les deux).',
+  );
+export type CreateTradeRouteDto = z.infer<typeof createTradeRouteSchema>;
+
+export const updateTradeRouteStatusSchema = z.object({
+  status: z.nativeEnum(TradeRouteStatus),
+});
+export type UpdateTradeRouteStatusDto = z.infer<typeof updateTradeRouteStatusSchema>;

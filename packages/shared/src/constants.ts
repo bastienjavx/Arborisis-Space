@@ -14,6 +14,9 @@ import {
   BuildingType,
   ExpeditionOutcome,
   GalacticEventType,
+  ItemCategory,
+  ItemKey,
+  ItemRarity,
   NpcEncounterType,
   PlanetSpecialization,
   PlanetType,
@@ -1659,3 +1662,340 @@ export const DAILY_REWARDS: ResourceBundle[] = [
   { [ResourceType.BIOMASS]: 2_000, [ResourceType.MINERALS]: 1_200, [ResourceType.SAP]: 800 },
   { [ResourceType.SPORES]: 1_500, [ResourceType.BIOMASS]: 2_500 },
 ];
+
+// ═══════════════════════════════════════════════════════════════════
+// ÉCONOMIE JOUEUR
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ItemConfig {
+  key: ItemKey;
+  name: string;
+  description: string;
+  rarity: ItemRarity;
+  category: ItemCategory;
+  /** Valeur indicative en Biomasse (utilisée pour l'ordre du marché initial). */
+  baseValue: number;
+  maxStack: number;
+  icon: string;
+  rarityColor: string;
+}
+
+export const ITEMS: Record<ItemKey, ItemConfig> = {
+  [ItemKey.MYCELIAL_FIBER]: {
+    key: ItemKey.MYCELIAL_FIBER,
+    name: 'Fibre Mycéliale',
+    description:
+      'Filament organique récolté sur des parasites sporaux. Matière première polyvalente.',
+    rarity: ItemRarity.COMMON,
+    category: ItemCategory.RAW_MATERIAL,
+    baseValue: 150,
+    maxStack: 999,
+    icon: '🍄',
+    rarityColor: '#9ca3af',
+  },
+  [ItemKey.BIOLUMINESCENT_GEL]: {
+    key: ItemKey.BIOLUMINESCENT_GEL,
+    name: 'Gel Bioluminescent',
+    description: 'Substance visqueuse extraite de créatures luminescentes. Propriétés caustiques.',
+    rarity: ItemRarity.COMMON,
+    category: ItemCategory.RAW_MATERIAL,
+    baseValue: 200,
+    maxStack: 999,
+    icon: '💧',
+    rarityColor: '#9ca3af',
+  },
+  [ItemKey.CHITIN_SHARD]: {
+    key: ItemKey.CHITIN_SHARD,
+    name: 'Éclat de Chitine',
+    description:
+      "Fragment d'exosquelette de gardien cristallin. Matériau résistant utilisé en armurerie.",
+    rarity: ItemRarity.UNCOMMON,
+    category: ItemCategory.RAW_MATERIAL,
+    baseValue: 500,
+    maxStack: 500,
+    icon: '🔷',
+    rarityColor: '#4ade80',
+  },
+  [ItemKey.SPORE_ESSENCE]: {
+    key: ItemKey.SPORE_ESSENCE,
+    name: 'Essence Sporale',
+    description: "Concentré de spores primordiales récupéré lors d'expéditions. Rare et précieux.",
+    rarity: ItemRarity.UNCOMMON,
+    category: ItemCategory.RAW_MATERIAL,
+    baseValue: 800,
+    maxStack: 500,
+    icon: '✨',
+    rarityColor: '#4ade80',
+  },
+  [ItemKey.VOID_CRYSTAL]: {
+    key: ItemKey.VOID_CRYSTAL,
+    name: 'Cristal du Vide',
+    description:
+      'Cristal né dans les failles interdimensionnelles. Extrêmement rare, propriétés énergétiques exceptionnelles.',
+    rarity: ItemRarity.RARE,
+    category: ItemCategory.RAW_MATERIAL,
+    baseValue: 3_000,
+    maxStack: 100,
+    icon: '💎',
+    rarityColor: '#60a5fa',
+  },
+  [ItemKey.ANCIENT_FRAGMENT]: {
+    key: ItemKey.ANCIENT_FRAGMENT,
+    name: 'Fragment Ancien',
+    description:
+      "Débris d'une civilisation disparue. Seule la Sentinelle Ancienne en possède encore.",
+    rarity: ItemRarity.LEGENDARY,
+    category: ItemCategory.RAW_MATERIAL,
+    baseValue: 25_000,
+    maxStack: 20,
+    icon: '🌟',
+    rarityColor: '#f59e0b',
+  },
+  [ItemKey.REINFORCED_CHITIN]: {
+    key: ItemKey.REINFORCED_CHITIN,
+    name: 'Chitine Renforcée',
+    description:
+      "Plaques d'exosquelette traitées et consolidées. Utilisée pour les blindages avancés.",
+    rarity: ItemRarity.UNCOMMON,
+    category: ItemCategory.PROCESSED,
+    baseValue: 1_200,
+    maxStack: 200,
+    icon: '🛡️',
+    rarityColor: '#4ade80',
+  },
+  [ItemKey.CRYSTALLIZED_SAP]: {
+    key: ItemKey.CRYSTALLIZED_SAP,
+    name: 'Sève Cristallisée',
+    description:
+      'Sève solidifiée par un cristal du vide. Conducteur énergétique de haute performance.',
+    rarity: ItemRarity.RARE,
+    category: ItemCategory.PROCESSED,
+    baseValue: 5_000,
+    maxStack: 100,
+    icon: '🌿',
+    rarityColor: '#60a5fa',
+  },
+  [ItemKey.NEURAL_MATRIX]: {
+    key: ItemKey.NEURAL_MATRIX,
+    name: 'Matrice Neurale',
+    description:
+      'Réseau mycélial amplifié par des spores. Accélère les processus cognitifs organiques.',
+    rarity: ItemRarity.RARE,
+    category: ItemCategory.PROCESSED,
+    baseValue: 6_000,
+    maxStack: 50,
+    icon: '🧠',
+    rarityColor: '#60a5fa',
+  },
+  [ItemKey.VOID_ALLOY]: {
+    key: ItemKey.VOID_ALLOY,
+    name: 'Alliage du Vide',
+    description:
+      'Fusion de cristaux du vide et de minéraux purs. Le matériau le plus résistant connu.',
+    rarity: ItemRarity.EPIC,
+    category: ItemCategory.PROCESSED,
+    baseValue: 18_000,
+    maxStack: 30,
+    icon: '⚡',
+    rarityColor: '#a855f7',
+  },
+  [ItemKey.MYCOTOXIN_VIAL]: {
+    key: ItemKey.MYCOTOXIN_VIAL,
+    name: 'Fiole de Mycotoxine',
+    description: "Concentration de toxines bioluminescentes. Arme chimique d'usage militaire.",
+    rarity: ItemRarity.UNCOMMON,
+    category: ItemCategory.PROCESSED,
+    baseValue: 900,
+    maxStack: 200,
+    icon: '⚗️',
+    rarityColor: '#4ade80',
+  },
+  [ItemKey.CONVERGENCE_SHARD]: {
+    key: ItemKey.CONVERGENCE_SHARD,
+    name: 'Éclat de Convergence',
+    description:
+      'Artefact ultime forgé à partir de fragments anciens. Symbole de maîtrise absolue.',
+    rarity: ItemRarity.LEGENDARY,
+    category: ItemCategory.PROCESSED,
+    baseValue: 80_000,
+    maxStack: 5,
+    icon: '🔮',
+    rarityColor: '#f59e0b',
+  },
+};
+
+/** Ingrédient d'une recette d'artisanat. */
+export interface CraftingIngredient {
+  itemKey?: ItemKey;
+  resource?: ResourceType;
+  quantity: number;
+}
+
+/** Recette d'artisanat. */
+export interface CraftingRecipeConfig {
+  id: string;
+  outputKey: ItemKey;
+  outputQty: number;
+  craftTimeSeconds: number;
+  ingredients: CraftingIngredient[];
+}
+
+export const CRAFTING_RECIPES: CraftingRecipeConfig[] = [
+  {
+    id: 'recipe_reinforced_chitin',
+    outputKey: ItemKey.REINFORCED_CHITIN,
+    outputQty: 1,
+    craftTimeSeconds: 300,
+    ingredients: [
+      { itemKey: ItemKey.CHITIN_SHARD, quantity: 5 },
+      { resource: ResourceType.MINERALS, quantity: 200 },
+    ],
+  },
+  {
+    id: 'recipe_crystallized_sap',
+    outputKey: ItemKey.CRYSTALLIZED_SAP,
+    outputQty: 1,
+    craftTimeSeconds: 600,
+    ingredients: [
+      { itemKey: ItemKey.VOID_CRYSTAL, quantity: 1 },
+      { resource: ResourceType.SAP, quantity: 500 },
+    ],
+  },
+  {
+    id: 'recipe_neural_matrix',
+    outputKey: ItemKey.NEURAL_MATRIX,
+    outputQty: 1,
+    craftTimeSeconds: 900,
+    ingredients: [
+      { itemKey: ItemKey.MYCELIAL_FIBER, quantity: 10 },
+      { itemKey: ItemKey.SPORE_ESSENCE, quantity: 2 },
+      { resource: ResourceType.SPORES, quantity: 100 },
+    ],
+  },
+  {
+    id: 'recipe_void_alloy',
+    outputKey: ItemKey.VOID_ALLOY,
+    outputQty: 1,
+    craftTimeSeconds: 1_800,
+    ingredients: [
+      { itemKey: ItemKey.VOID_CRYSTAL, quantity: 3 },
+      { resource: ResourceType.MINERALS, quantity: 500 },
+    ],
+  },
+  {
+    id: 'recipe_mycotoxin_vial',
+    outputKey: ItemKey.MYCOTOXIN_VIAL,
+    outputQty: 3,
+    craftTimeSeconds: 240,
+    ingredients: [
+      { itemKey: ItemKey.BIOLUMINESCENT_GEL, quantity: 3 },
+      { resource: ResourceType.BIOMASS, quantity: 200 },
+    ],
+  },
+  {
+    id: 'recipe_convergence_shard',
+    outputKey: ItemKey.CONVERGENCE_SHARD,
+    outputQty: 1,
+    craftTimeSeconds: 7_200,
+    ingredients: [
+      { itemKey: ItemKey.ANCIENT_FRAGMENT, quantity: 2 },
+      { itemKey: ItemKey.VOID_CRYSTAL, quantity: 2 },
+      { resource: ResourceType.SPORES, quantity: 500 },
+    ],
+  },
+];
+
+/** Entrée dans une table de drop. */
+export interface DropEntry {
+  itemKey: ItemKey;
+  /** Probabilité 0–1. */
+  chance: number;
+  minQty: number;
+  maxQty: number;
+}
+
+/** Tables de drop PvE par type d'anomalie. */
+export const PVE_DROP_TABLES: Partial<Record<NpcEncounterType, DropEntry[]>> = {
+  [NpcEncounterType.SPORAL_PARASITE]: [
+    { itemKey: ItemKey.MYCELIAL_FIBER, chance: 0.7, minQty: 1, maxQty: 3 },
+    { itemKey: ItemKey.BIOLUMINESCENT_GEL, chance: 0.3, minQty: 1, maxQty: 2 },
+  ],
+  [NpcEncounterType.BIOMASS_CORRUPTED]: [
+    { itemKey: ItemKey.MYCELIAL_FIBER, chance: 0.6, minQty: 2, maxQty: 5 },
+    { itemKey: ItemKey.BIOLUMINESCENT_GEL, chance: 0.4, minQty: 1, maxQty: 3 },
+  ],
+  [NpcEncounterType.MYCOXIN_NEST]: [
+    { itemKey: ItemKey.BIOLUMINESCENT_GEL, chance: 0.8, minQty: 2, maxQty: 6 },
+    { itemKey: ItemKey.MYCELIAL_FIBER, chance: 0.4, minQty: 1, maxQty: 3 },
+  ],
+  [NpcEncounterType.MYCOSPORE_SWARM]: [
+    { itemKey: ItemKey.MYCELIAL_FIBER, chance: 0.75, minQty: 3, maxQty: 7 },
+    { itemKey: ItemKey.BIOLUMINESCENT_GEL, chance: 0.5, minQty: 2, maxQty: 4 },
+  ],
+  [NpcEncounterType.VOID_RIFT]: [
+    { itemKey: ItemKey.CHITIN_SHARD, chance: 0.5, minQty: 1, maxQty: 3 },
+    { itemKey: ItemKey.MYCELIAL_FIBER, chance: 0.6, minQty: 2, maxQty: 5 },
+  ],
+  [NpcEncounterType.FUNGAL_HIVEMIND]: [
+    { itemKey: ItemKey.CHITIN_SHARD, chance: 0.6, minQty: 2, maxQty: 4 },
+    { itemKey: ItemKey.SPORE_ESSENCE, chance: 0.3, minQty: 1, maxQty: 2 },
+  ],
+  [NpcEncounterType.CRYSTALLINE_GUARDIAN]: [
+    { itemKey: ItemKey.CHITIN_SHARD, chance: 0.8, minQty: 3, maxQty: 8 },
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.15, minQty: 1, maxQty: 1 },
+  ],
+  [NpcEncounterType.CHITIN_WARLORD]: [
+    { itemKey: ItemKey.CHITIN_SHARD, chance: 0.9, minQty: 5, maxQty: 12 },
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.25, minQty: 1, maxQty: 2 },
+    { itemKey: ItemKey.BIOLUMINESCENT_GEL, chance: 0.4, minQty: 2, maxQty: 5 },
+  ],
+  [NpcEncounterType.ABANDONED_DERELICT]: [
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.3, minQty: 1, maxQty: 2 },
+    { itemKey: ItemKey.CHITIN_SHARD, chance: 0.5, minQty: 3, maxQty: 7 },
+    { itemKey: ItemKey.SPORE_ESSENCE, chance: 0.4, minQty: 1, maxQty: 3 },
+  ],
+  [NpcEncounterType.VOID_LEVIATHAN]: [
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.6, minQty: 2, maxQty: 5 },
+    { itemKey: ItemKey.CHITIN_SHARD, chance: 0.8, minQty: 5, maxQty: 15 },
+    { itemKey: ItemKey.SPORE_ESSENCE, chance: 0.5, minQty: 2, maxQty: 4 },
+  ],
+  [NpcEncounterType.ANCIENT_SENTINEL]: [
+    { itemKey: ItemKey.ANCIENT_FRAGMENT, chance: 0.5, minQty: 1, maxQty: 2 },
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.7, minQty: 3, maxQty: 6 },
+    { itemKey: ItemKey.SPORE_ESSENCE, chance: 0.8, minQty: 3, maxQty: 6 },
+  ],
+};
+
+/** Tables de drop des expéditions par résultat. */
+export const EXPEDITION_DROP_TABLES: Partial<Record<ExpeditionOutcome, DropEntry[]>> = {
+  [ExpeditionOutcome.RARE_SPORES]: [
+    { itemKey: ItemKey.SPORE_ESSENCE, chance: 0.6, minQty: 1, maxQty: 3 },
+    { itemKey: ItemKey.MYCELIAL_FIBER, chance: 0.4, minQty: 2, maxQty: 5 },
+  ],
+  [ExpeditionOutcome.DERELICT_SHIP]: [
+    { itemKey: ItemKey.CHITIN_SHARD, chance: 0.5, minQty: 2, maxQty: 6 },
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.1, minQty: 1, maxQty: 1 },
+  ],
+  [ExpeditionOutcome.ANOMALY]: [
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.2, minQty: 1, maxQty: 2 },
+    { itemKey: ItemKey.SPORE_ESSENCE, chance: 0.5, minQty: 1, maxQty: 3 },
+  ],
+  [ExpeditionOutcome.ANCIENT_ARCHIVE]: [
+    { itemKey: ItemKey.ANCIENT_FRAGMENT, chance: 0.15, minQty: 1, maxQty: 1 },
+    { itemKey: ItemKey.SPORE_ESSENCE, chance: 0.7, minQty: 2, maxQty: 5 },
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.3, minQty: 1, maxQty: 2 },
+  ],
+  [ExpeditionOutcome.VOID_ECHO]: [
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.35, minQty: 1, maxQty: 3 },
+    { itemKey: ItemKey.BIOLUMINESCENT_GEL, chance: 0.6, minQty: 3, maxQty: 8 },
+  ],
+  [ExpeditionOutcome.CONVERGENCE_BLOOM]: [
+    { itemKey: ItemKey.ANCIENT_FRAGMENT, chance: 0.25, minQty: 1, maxQty: 1 },
+    { itemKey: ItemKey.VOID_CRYSTAL, chance: 0.5, minQty: 2, maxQty: 4 },
+    { itemKey: ItemKey.SPORE_ESSENCE, chance: 0.9, minQty: 3, maxQty: 7 },
+  ],
+  [ExpeditionOutcome.RESOURCE_CACHE]: [
+    { itemKey: ItemKey.MYCELIAL_FIBER, chance: 0.5, minQty: 3, maxQty: 8 },
+    { itemKey: ItemKey.BIOLUMINESCENT_GEL, chance: 0.3, minQty: 2, maxQty: 5 },
+  ],
+};

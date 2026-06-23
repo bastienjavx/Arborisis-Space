@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ExpeditionPhase } from '@prisma/client';
 import {
+  EXPEDITION_DROP_TABLES,
   EXPEDITION_RULESET_VERSION,
   ExpeditionOutcome,
   expeditionDistance,
@@ -364,6 +365,34 @@ export class ExpeditionsService {
           returnedAt: now,
         },
       });
+
+      // Drops d'objets selon l'issue de l'expédition
+      const dropTable = EXPEDITION_DROP_TABLES[mission.report.outcome as ExpeditionOutcome];
+      if (dropTable) {
+        for (const entry of dropTable) {
+          if (Math.random() < entry.chance) {
+            const qty =
+              Math.floor(Math.random() * (entry.maxQty - entry.minQty + 1)) + entry.minQty;
+            await tx.playerInventorySlot.upsert({
+              where: {
+                userId_planetId_itemKey: {
+                  userId: mission.userId,
+                  planetId: mission.planetId,
+                  itemKey: entry.itemKey,
+                },
+              },
+              update: { quantity: { increment: qty } },
+              create: {
+                userId: mission.userId,
+                planetId: mission.planetId,
+                itemKey: entry.itemKey,
+                quantity: qty,
+              },
+            });
+          }
+        }
+      }
+
       await tx.expeditionMission.update({
         where: { id },
         data: { phase: ExpeditionPhase.COMPLETED, completedAt: now },

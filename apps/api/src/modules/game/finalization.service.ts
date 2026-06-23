@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { JobStatus, TransferPhase } from '@prisma/client';
+import { ItemKey as PrismaItemKey, JobStatus, TransferPhase } from '@prisma/client';
 import { ShipType } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
@@ -181,6 +181,7 @@ export class FinalizationService {
 
     const resources = mission.resources as Record<string, number>;
     const ships = mission.ships as Record<string, number>;
+    const itemCargo = mission.itemCargo as Record<string, number>;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.planet.update({
@@ -197,6 +198,25 @@ export class FinalizationService {
           where: { planetId_type: { planetId: mission.targetPlanetId, type: type as ShipType } },
           update: { quantity: { increment: qty } },
           create: { planetId: mission.targetPlanetId, type: type as ShipType, quantity: qty },
+        });
+      }
+      for (const [itemKey, qty] of Object.entries(itemCargo)) {
+        if (qty <= 0) continue;
+        await tx.playerInventorySlot.upsert({
+          where: {
+            userId_planetId_itemKey: {
+              userId: mission.userId,
+              planetId: mission.targetPlanetId,
+              itemKey: itemKey as PrismaItemKey,
+            },
+          },
+          update: { quantity: { increment: qty } },
+          create: {
+            userId: mission.userId,
+            planetId: mission.targetPlanetId,
+            itemKey: itemKey as PrismaItemKey,
+            quantity: qty,
+          },
         });
       }
       await tx.resourceTransferMission.update({

@@ -22,6 +22,10 @@ import { UniverseModule } from './modules/universe/universe.module';
 import { UsersModule } from './modules/users/users.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { MarketModule } from './modules/market/market.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { CraftingModule } from './modules/crafting/crafting.module';
+import { TradeRoutesModule } from './modules/trade-routes/trade-routes.module';
 
 @Module({
   imports: [
@@ -76,6 +80,10 @@ import { AdminModule } from './modules/admin/admin.module';
     AlliancesModule,
     PveModule,
     PvpModule,
+    MarketModule,
+    InventoryModule,
+    CraftingModule,
+    TradeRoutesModule,
     ProcessorsModule,
     ProvisioningModule,
     UniverseModule,

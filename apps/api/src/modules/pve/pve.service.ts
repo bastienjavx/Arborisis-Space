@@ -10,8 +10,9 @@ import {
   fleetCombatPower,
   NpcEncounterType,
   npcCombatPower,
-  PveMissionPhase as SharedPveMissionPhase,
+  PVE_DROP_TABLES,
   PveOutcome,
+  PveMissionPhase as SharedPveMissionPhase,
   pveCombatDurationSeconds,
   pveResolve,
   pveTravelTimeSeconds,
@@ -23,6 +24,7 @@ import {
   SHIP_TYPES,
   storageCap,
   type AttackEncounterDto,
+  type ItemDropView,
   type NpcEncounterView,
   type PveMissionView,
   type PveReportView,
@@ -297,6 +299,29 @@ export class PveService {
         }
       }
 
+      // Drops d'objets selon la table de drop de l'anomalie
+      if (result.outcome === PveOutcome.VICTORY) {
+        const drops = this.rollDrops(mission.encounter.type as NpcEncounterType);
+        for (const drop of drops) {
+          await tx.playerInventorySlot.upsert({
+            where: {
+              userId_planetId_itemKey: {
+                userId: mission.userId,
+                planetId: mission.sourcePlanetId,
+                itemKey: drop.itemKey,
+              },
+            },
+            update: { quantity: { increment: drop.quantity } },
+            create: {
+              userId: mission.userId,
+              planetId: mission.sourcePlanetId,
+              itemKey: drop.itemKey,
+              quantity: drop.quantity,
+            },
+          });
+        }
+      }
+
       await tx.pveMission.update({
         where: { id },
         data: { phase: PveMissionPhase.COMPLETED, completedAt: now },
@@ -311,6 +336,19 @@ export class PveService {
     if (state === 'resolved' && scheduleNext && scheduleNext.at <= now) {
       await this.advanceMission(id, now);
     }
+  }
+
+  private rollDrops(encounterType: NpcEncounterType): ItemDropView[] {
+    const table = PVE_DROP_TABLES[encounterType];
+    if (!table) return [];
+    const drops: ItemDropView[] = [];
+    for (const entry of table) {
+      if (Math.random() < entry.chance) {
+        const qty = Math.floor(Math.random() * (entry.maxQty - entry.minQty + 1)) + entry.minQty;
+        drops.push({ itemKey: entry.itemKey, quantity: qty });
+      }
+    }
+    return drops;
   }
 
   private encounterView(encounter: {
