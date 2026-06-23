@@ -8,6 +8,7 @@ import { PlanetType } from '@arborisis/shared';
 import { planetProfile, seedFromCoords, type PlanetProfile } from '@/lib/procgen';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
 import { tier, useIsMobile } from '@/lib/device';
+import { makeGlowMaterial, specializationColor } from '@/components/three/visuals';
 
 const prefersReducedMotion =
   typeof window !== 'undefined' && window.matchMedia
@@ -79,9 +80,20 @@ interface SurfaceUniforms {
   [key: string]: THREE.IUniform;
 }
 
-function makeSurfaceMaterial(profile: PlanetProfile, octaves: number): THREE.ShaderMaterial {
+export interface PlanetActivity {
+  construction?: boolean;
+  specialization?: string | null;
+  stability?: number;
+}
+
+function makeSurfaceMaterial(
+  profile: PlanetProfile,
+  octaves: number,
+  activityColor: string,
+): THREE.ShaderMaterial {
   const uniforms: SurfaceUniforms = {
     uTime: { value: 0 },
+    uActivity: { value: 0 },
     uFreq: { value: profile.frequency },
     uRelief: { value: profile.relief },
     uOcean: { value: profile.oceanLevel },
@@ -92,6 +104,7 @@ function makeSurfaceMaterial(profile: PlanetProfile, octaves: number): THREE.Sha
     uMid: { value: new THREE.Color(profile.colorMid) },
     uHigh: { value: new THREE.Color(profile.colorHigh) },
     uOceanColor: { value: new THREE.Color(profile.colorOcean) },
+    uActivityColor: { value: new THREE.Color(activityColor) },
   };
 
   return new THREE.ShaderMaterial({
@@ -118,6 +131,9 @@ function makeSurfaceMaterial(profile: PlanetProfile, octaves: number): THREE.Sha
       }
     `,
     fragmentShader: /* glsl */ `
+      ${noiseGlsl(octaves)}
+      uniform float uTime;
+      uniform float uActivity;
       uniform float uOcean;
       uniform float uIce;
       uniform float uGlow;
@@ -126,6 +142,7 @@ function makeSurfaceMaterial(profile: PlanetProfile, octaves: number): THREE.Sha
       uniform vec3 uMid;
       uniform vec3 uHigh;
       uniform vec3 uOceanColor;
+      uniform vec3 uActivityColor;
       varying float vElev;
       varying vec3 vNormalW;
       varying vec3 vPos;
@@ -139,14 +156,21 @@ function makeSurfaceMaterial(profile: PlanetProfile, octaves: number): THREE.Sha
         land = mix(land, vec3(0.92, 0.96, 0.98), ice);
         bool isOcean = e < uOcean;
         vec3 base = isOcean ? uOceanColor : land;
-        // Éclairage diffus + terminateur doux.
+        // Éclairage diffus + terminateur doux, lisible côté nuit.
         float diff = clamp(dot(normalize(vNormalW), uLight), 0.0, 1.0);
-        float lit = 0.18 + diff * 0.95;
+        float terminator = smoothstep(-0.12, 0.72, diff);
+        float lit = 0.16 + terminator * 1.02;
         // Reflet spéculaire sur l'eau.
-        float spec = isOcean ? pow(diff, 14.0) * 0.5 : 0.0;
+        float spec = isOcean ? pow(max(diff, 0.0), 18.0) * 0.42 : 0.0;
         vec3 color = base * lit + spec;
         // Émission propre (mondes sporulés) + lueur du côté nuit.
-        color += base * uGlow * (1.0 - diff) * 1.4;
+        color += base * uGlow * (1.0 - terminator) * 1.55;
+        float vein = smoothstep(
+          0.73,
+          0.94,
+          fbm(vPos * 8.5 + vec3(uTime * 0.045, 0.0, 0.0)) * 0.5 + 0.5
+        );
+        color += uActivityColor * vein * uActivity * (0.08 + (1.0 - terminator) * 0.2);
         gl_FragColor = vec4(color, 1.0);
       }
     `,
@@ -206,14 +230,27 @@ interface Quality {
   starCount: number;
 }
 
-function ProceduralPlanet({ profile, quality }: { profile: PlanetProfile; quality: Quality }) {
+function ProceduralPlanet({
+  profile,
+  quality,
+  activity,
+}: {
+  profile: PlanetProfile;
+  quality: Quality;
+  activity?: PlanetActivity;
+}) {
   const tiltRef = useRef<THREE.Group>(null);
   const surfaceRef = useRef<THREE.Mesh>(null);
   const cloudRef = useRef<THREE.Mesh>(null);
+  const activityColor = specializationColor(activity?.specialization);
+  const activityLevel = Math.max(
+    activity?.construction ? 0.42 : 0,
+    activity?.specialization ? 0.28 : 0,
+  );
 
   const surfaceMat = useMemo(
-    () => makeSurfaceMaterial(profile, quality.octaves),
-    [profile, quality.octaves],
+    () => makeSurfaceMaterial(profile, quality.octaves, activityColor),
+    [profile, quality.octaves, activityColor],
   );
   const cloudMat = useMemo(
     () => makeCloudMaterial(new THREE.Color('#dff5ea'), profile.clouds, quality.octaves),
@@ -222,14 +259,15 @@ function ProceduralPlanet({ profile, quality }: { profile: PlanetProfile; qualit
   const atmoUniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color(profile.colorAtmosphere) },
-      uStrength: { value: profile.atmosphere },
+      uStrength: { value: profile.atmosphere * (0.85 + activityLevel * 0.35) },
     }),
-    [profile],
+    [profile, activityLevel],
   );
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
     surfaceMat.uniforms.uTime.value = t;
+    surfaceMat.uniforms.uActivity.value = activityLevel * (0.72 + Math.sin(t * 1.4) * 0.08);
     cloudMat.uniforms.uTime.value = t;
     if (surfaceRef.current) surfaceRef.current.rotation.y += delta * profile.spin;
     if (cloudRef.current) cloudRef.current.rotation.y += delta * profile.spin * 1.35;
@@ -286,22 +324,86 @@ function ProceduralPlanet({ profile, quality }: { profile: PlanetProfile; qualit
       </mesh>
 
       {/* Anneaux seedés */}
-      {profile.rings && (
-        <mesh rotation={[Math.PI / 2 + profile.rings.tilt, 0, 0]}>
-          <ringGeometry args={[profile.rings.inner, profile.rings.outer, 128]} />
+      {profile.rings && <PlanetRings rings={profile.rings} quality={quality} />}
+
+      {(activity?.construction || activity?.specialization) && (
+        <ActivityHalo color={activityColor} construction={activity.construction} />
+      )}
+
+      {/* Lunes */}
+      <Moons profile={profile} />
+    </group>
+  );
+}
+
+function PlanetRings({
+  rings,
+  quality,
+}: {
+  rings: NonNullable<PlanetProfile['rings']>;
+  quality: Quality;
+}) {
+  const ringRef = useRef<THREE.Group>(null);
+
+  useFrame((state) => {
+    if (ringRef.current) ringRef.current.rotation.z = state.clock.elapsedTime * 0.018;
+  });
+
+  return (
+    <group ref={ringRef} rotation={[Math.PI / 2 + rings.tilt, 0, 0]}>
+      {[0, 1, 2].map((band) => (
+        <mesh key={band}>
+          <ringGeometry
+            args={[
+              rings.inner + band * 0.12,
+              Math.min(rings.outer, rings.inner + band * 0.12 + 0.08),
+              quality.atmoSeg * 2,
+            ]}
+          />
           <meshBasicMaterial
-            color={profile.rings.color}
+            color={band === 1 ? '#d9f99d' : rings.color}
             transparent
-            opacity={profile.rings.opacity}
+            opacity={rings.opacity * (band === 1 ? 0.42 : 0.72)}
             side={THREE.DoubleSide}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
           />
         </mesh>
-      )}
+      ))}
+    </group>
+  );
+}
 
-      {/* Lunes */}
-      <Moons profile={profile} />
+function ActivityHalo({ color, construction }: { color: string; construction?: boolean }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const material = useMemo(
+    () => makeGlowMaterial(color, construction ? 0.3 : 0.2),
+    [color, construction],
+  );
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const t = state.clock.elapsedTime;
+    groupRef.current.rotation.y = t * 0.16;
+    groupRef.current.rotation.z = Math.sin(t * 0.5) * 0.08;
+  });
+
+  return (
+    <group ref={groupRef}>
+      <mesh rotation={[Math.PI / 2.35, 0, 0]} scale={1.12}>
+        <torusGeometry args={[1.38, construction ? 0.012 : 0.008, 8, 144]} />
+        <primitive object={material} attach="material" />
+      </mesh>
+      <mesh rotation={[Math.PI / 2.65, 0.35, 0]} scale={1.08}>
+        <torusGeometry args={[1.55, 0.006, 8, 144]} />
+        <meshBasicMaterial
+          color="#d9f99d"
+          transparent
+          opacity={construction ? 0.16 : 0.1}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }
@@ -323,17 +425,34 @@ function Moons({ profile }: { profile: PlanetProfile }) {
       {profile.moons.map((m, i) => (
         <mesh key={i} scale={m.size}>
           <sphereGeometry args={[1, 20, 20]} />
-          <meshStandardMaterial color={m.color} roughness={0.9} metalness={0.1} />
+          <meshStandardMaterial
+            color={m.color}
+            emissive={m.color}
+            emissiveIntensity={0.08}
+            roughness={0.9}
+            metalness={0.1}
+          />
         </mesh>
       ))}
     </group>
   );
 }
 
-function Scene({ profile, quality }: { profile: PlanetProfile; quality: Quality }) {
+function Scene({
+  profile,
+  quality,
+  activity,
+}: {
+  profile: PlanetProfile;
+  quality: Quality;
+  activity?: PlanetActivity;
+}) {
+  const stability = typeof activity?.stability === 'number' ? activity.stability : 100;
+  const stabilityGlow = THREE.MathUtils.clamp(stability / 100, 0.35, 1);
+
   return (
     <>
-      <ambientLight intensity={0.22} color="#9fe7c4" />
+      <ambientLight intensity={0.18 + stabilityGlow * 0.08} color="#9fe7c4" />
       <directionalLight position={[6, 2.5, 5]} intensity={1.5} color="#fff4e0" />
       <pointLight position={[-6, -2, 3]} intensity={0.4} color={profile.colorAtmosphere} />
       <Stars
@@ -345,7 +464,7 @@ function Scene({ profile, quality }: { profile: PlanetProfile; quality: Quality 
         fade
         speed={0.4}
       />
-      <ProceduralPlanet profile={profile} quality={quality} />
+      <ProceduralPlanet profile={profile} quality={quality} activity={activity} />
       <OrbitControls
         enablePan={false}
         enableZoom
@@ -366,6 +485,7 @@ export interface PlanetViewProps {
   system?: number;
   position?: number;
   planetType?: PlanetType;
+  activity?: PlanetActivity;
 }
 
 export function PlanetView({
@@ -374,6 +494,7 @@ export function PlanetView({
   system = 1,
   position = 1,
   planetType = PlanetType.VERDANT,
+  activity,
 }: PlanetViewProps) {
   const mobile = useIsMobile();
   const profile = useMemo(
@@ -395,7 +516,7 @@ export function PlanetView({
     <div className={className}>
       <AdaptiveCanvas camera={{ position: [0, 0.6, 6], fov: 48 }} gl={{ alpha: true }} maxDpr={1.8}>
         <Suspense fallback={null}>
-          <Scene profile={profile} quality={quality} />
+          <Scene profile={profile} quality={quality} activity={activity} />
         </Suspense>
       </AdaptiveCanvas>
     </div>

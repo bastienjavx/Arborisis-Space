@@ -6,6 +6,7 @@ import { MeshDistortMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
 import { tier, useIsMobile } from '@/lib/device';
+import { ORGANIC_COLORS, seededBoxPoints, seededSphericalPoints } from '@/components/three/visuals';
 
 function NoyauMonde({ segments }: { segments: number }) {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -33,23 +34,13 @@ function NoyauMonde({ segments }: { segments: number }) {
   );
 }
 
-function SporeField({ count = 300, radius = 8, color = '#16bf6c' }) {
+function SporeField({ count = 300, radius = 8, color = '#16bf6c', seed = 1 }) {
   const pointsRef = useRef<THREE.Points>(null);
 
   const [positions, sizes] = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const sz = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      const r = radius * (0.2 + Math.random() * 0.8);
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-      sz[i] = Math.random() * 2 + 0.5;
-    }
-    return [pos, sz];
-  }, [count, radius]);
+    const cloud = seededSphericalPoints(seed, count, radius * 0.2, radius);
+    return [cloud.positions, cloud.sizes];
+  }, [count, radius, seed]);
 
   useFrame((state) => {
     if (pointsRef.current) {
@@ -80,22 +71,26 @@ function SporeField({ count = 300, radius = 8, color = '#16bf6c' }) {
 function FloatingOrbs({ count }: { count: number }) {
   const groupRef = useRef<THREE.Group>(null);
 
-  const orbs = useMemo(
-    () =>
-      Array.from({ length: count }).map((_, i) => ({
-        id: i,
-        position: [
-          (Math.random() - 0.5) * 10,
-          (Math.random() - 0.5) * 6,
-          (Math.random() - 0.5) * 8,
-        ] as [number, number, number],
-        scale: 0.02 + Math.random() * 0.06,
-        speed: 0.3 + Math.random() * 0.7,
-        offset: Math.random() * Math.PI * 2,
-        color: i % 3 === 0 ? '#7b66f0' : i % 3 === 1 ? '#e0a93f' : '#16bf6c',
-      })),
-    [count],
-  );
+  const orbs = useMemo(() => {
+    const positions = seededBoxPoints(9901, count, 10, 6, 8);
+    return Array.from({ length: count }).map((_, i) => ({
+      id: i,
+      position: [positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]] as [
+        number,
+        number,
+        number,
+      ],
+      scale: 0.025 + ((i * 17) % 7) * 0.007,
+      speed: 0.32 + ((i * 11) % 9) * 0.045,
+      offset: ((i * 37) % 360) * (Math.PI / 180),
+      color:
+        i % 3 === 0
+          ? ORGANIC_COLORS.spore
+          : i % 3 === 1
+            ? ORGANIC_COLORS.sap
+            : ORGANIC_COLORS.canopy,
+    }));
+  }, [count]);
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -126,9 +121,9 @@ function Scene({ mobile }: { mobile: boolean }) {
       <pointLight position={[5, 5, 5]} intensity={0.8} color="#7b66f0" />
       <pointLight position={[-5, -3, 4]} intensity={0.5} color="#16bf6c" />
       <NoyauMonde segments={tier(mobile, 24, 64)} />
-      <SporeField count={tier(mobile, 140, 400)} radius={7} color="#16bf6c" />
-      <SporeField count={tier(mobile, 70, 200)} radius={5} color="#7b66f0" />
-      <SporeField count={tier(mobile, 50, 150)} radius={9} color="#e0a93f" />
+      <SporeField count={tier(mobile, 140, 400)} radius={7} color="#16bf6c" seed={1201} />
+      <SporeField count={tier(mobile, 70, 200)} radius={5} color="#7b66f0" seed={1202} />
+      <SporeField count={tier(mobile, 50, 150)} radius={9} color="#e0a93f" seed={1203} />
       <FloatingOrbs count={tier(mobile, 6, 12)} />
     </>
   );

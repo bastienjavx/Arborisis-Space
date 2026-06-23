@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { FiCheckCircle, FiGift, FiTarget } from 'react-icons/fi';
+import { FiArrowRight, FiCheckCircle, FiGift, FiTarget } from 'react-icons/fi';
 import type { QuestView } from '@arborisis/shared';
 import { useClaimQuest, useQuests } from '@/lib/queries';
 import { ResourceCost } from './ResourceCost';
@@ -13,6 +14,7 @@ function QuestRow({ quest }: { quest: QuestView }) {
   const pct =
     quest.target > 0 ? Math.min(100, Math.round((quest.progress / quest.target) * 100)) : 0;
   const claimable = quest.completed && !quest.claimedAt;
+  const canAct = !claimable && Boolean(quest.ctaHref && quest.ctaLabel);
 
   return (
     <div className="px-5 py-4">
@@ -46,6 +48,14 @@ function QuestRow({ quest }: { quest: QuestView }) {
             <FiGift className="h-3.5 w-3.5" aria-hidden="true" />
             Réclamer
           </button>
+        ) : canAct ? (
+          <Link
+            href={quest.ctaHref!}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-canopy-400/35 bg-canopy-500/12 px-3 py-1.5 text-xs font-medium text-canopy-100 transition hover:bg-canopy-500/22"
+          >
+            {quest.ctaLabel}
+            <FiArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
         ) : null}
       </div>
 
@@ -75,6 +85,9 @@ export function QuestTracker() {
   const { data } = useQuests();
   if (!data || !data.active) return null;
 
+  const active = data.active;
+  const progressLabel = `${Math.min(active.order, data.quests.length)} / ${data.quests.length}`;
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -82,16 +95,32 @@ export function QuestTracker() {
       transition={{ delay: 0.18 }}
       className="mycelium-panel overflow-hidden"
     >
-      <div className="flex items-center justify-between border-b border-canopy-700/15 px-5 py-4">
-        <h2 className="section-title">Objectif en cours</h2>
-        {data.claimableCount > 0 ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-canopy-500/15 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-canopy-200">
-            <FiCheckCircle className="h-3 w-3" aria-hidden="true" />
-            {data.claimableCount} à réclamer
-          </span>
-        ) : null}
+      <div className="border-b border-canopy-700/15 px-5 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <span className="section-kicker">
+              {active.chapter ? `${active.chapter} · ` : ''}
+              étape {progressLabel}
+            </span>
+            <h2 className="section-title mt-1">Guide de croissance</h2>
+          </div>
+          {data.claimableCount > 0 ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-canopy-500/15 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-canopy-200">
+              <FiCheckCircle className="h-3 w-3" aria-hidden="true" />
+              {data.claimableCount} à réclamer
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-bark-950/65">
+          <motion.div
+            className="h-full rounded-full bg-canopy-400/70"
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(100, (active.order / data.quests.length) * 100)}%` }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+          />
+        </div>
       </div>
-      <QuestRow quest={data.active} />
+      <QuestRow quest={active} />
     </motion.section>
   );
 }

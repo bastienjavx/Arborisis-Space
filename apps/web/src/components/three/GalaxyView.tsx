@@ -8,6 +8,7 @@ import type { GalaxySlot } from '@arborisis/shared';
 import { orbitProfile, starProfile, type OrbitProfile, type StarProfile } from '@/lib/procgen';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
 import { tier, useIsMobile } from '@/lib/device';
+import { ORGANIC_COLORS } from '@/components/three/visuals';
 
 const prefersReducedMotion =
   typeof window !== 'undefined' && window.matchMedia
@@ -50,6 +51,16 @@ function Star({ star }: { star: StarProfile }) {
           depthWrite={false}
         />
       </mesh>
+      <mesh>
+        <sphereGeometry args={[star.size * 2.9, 32, 32]} />
+        <meshBasicMaterial
+          color={star.light}
+          transparent
+          opacity={0.045}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
       <pointLight
         position={[0, 0, 0]}
         intensity={2.4}
@@ -71,6 +82,7 @@ interface OrbitBodyProps {
 
 function OrbitBody({ slot, orbit, selected, bodySeg, onSelect }: OrbitBodyProps) {
   const bodyRef = useRef<THREE.Group>(null);
+  const selectedRingRef = useRef<THREE.Mesh>(null);
   const tmp = useMemo(() => new THREE.Vector3(), []);
 
   // Trace de l'orbite (ligne fermée) précalculée.
@@ -89,16 +101,27 @@ function OrbitBody({ slot, orbit, selected, bodySeg, onSelect }: OrbitBodyProps)
     const angle = orbit.phase + state.clock.elapsedTime * orbit.speed;
     orbitPoint(orbit, angle, tmp);
     bodyRef.current.position.copy(tmp);
+    if (selectedRingRef.current) {
+      selectedRingRef.current.rotation.z = -state.clock.elapsedTime * 0.8;
+      selectedRingRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 2.2) * 0.06);
+    }
   });
 
   // Couleur : monde propre en canopée vive, voisin occupé en couleur de biome,
   // orbite vide en teinte ténue.
   const isOwn = slot.isOwn;
   const occupied = slot.occupied;
-  const bodyColor = isOwn ? '#3fd989' : orbit.color;
-  const emissive = isOwn ? '#16bf6c' : occupied ? orbit.glow : orbit.color;
+  const hostile = occupied && !isOwn;
+  const bodyColor = isOwn ? '#3fd989' : hostile ? '#d9a66a' : orbit.color;
+  const emissive = isOwn
+    ? ORGANIC_COLORS.canopy
+    : hostile
+      ? ORGANIC_COLORS.sap
+      : occupied
+        ? orbit.glow
+        : orbit.color;
   const size = (isOwn ? 1.35 : occupied ? 1.1 : 0.62) * orbit.size;
-  const trailOpacity = occupied ? 0.16 : 0.07;
+  const trailOpacity = selected ? 0.26 : occupied ? 0.15 : 0.055;
 
   return (
     <group>
@@ -108,7 +131,9 @@ function OrbitBody({ slot, orbit, selected, bodySeg, onSelect }: OrbitBodyProps)
           <bufferAttribute attach="attributes-position" args={[trail, 3]} />
         </bufferGeometry>
         <lineBasicMaterial
-          color={occupied ? orbit.glow : '#16bf6c'}
+          color={
+            selected ? ORGANIC_COLORS.canopySoft : occupied ? orbit.glow : ORGANIC_COLORS.canopy
+          }
           transparent
           opacity={trailOpacity}
         />
@@ -129,21 +154,32 @@ function OrbitBody({ slot, orbit, selected, bodySeg, onSelect }: OrbitBodyProps)
           />
         </mesh>
         {/* Halo */}
-        <mesh scale={selected ? size * 3.4 : size * 1.9}>
+        <mesh scale={selected ? size * 3.6 : size * 1.95}>
           <sphereGeometry args={[1, 16, 16]} />
           <meshBasicMaterial
             color={emissive}
             transparent
-            opacity={selected ? 0.32 : occupied ? 0.16 : 0.08}
+            opacity={selected ? 0.34 : occupied ? 0.15 : 0.065}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
           />
         </mesh>
         {/* Anneau de sélection */}
         {selected && (
-          <mesh rotation={[Math.PI / 2, 0, 0]} scale={size}>
+          <mesh ref={selectedRingRef} rotation={[Math.PI / 2, 0, 0]} scale={size}>
             <ringGeometry args={[2.4, 2.7, 48]} />
-            <meshBasicMaterial color="#7eecae" transparent opacity={0.7} side={THREE.DoubleSide} />
+            <meshBasicMaterial
+              color={
+                isOwn
+                  ? ORGANIC_COLORS.canopySoft
+                  : hostile
+                    ? ORGANIC_COLORS.sap
+                    : ORGANIC_COLORS.spore
+              }
+              transparent
+              opacity={0.72}
+              side={THREE.DoubleSide}
+            />
           </mesh>
         )}
       </group>
@@ -152,6 +188,7 @@ function OrbitBody({ slot, orbit, selected, bodySeg, onSelect }: OrbitBodyProps)
 }
 
 function Scene({ slots, selectedSlot, onSelect, mobile }: GalaxyViewProps & { mobile: boolean }) {
+  const groupRef = useRef<THREE.Group>(null);
   const star = useMemo(() => {
     const first = slots[0]?.coordinates;
     return starProfile(first?.galaxy ?? 1, first?.system ?? 1);
@@ -165,6 +202,16 @@ function Scene({ slots, selectedSlot, onSelect, mobile }: GalaxyViewProps & { mo
     [slots],
   );
 
+  useFrame((state, delta) => {
+    if (!groupRef.current) return;
+    groupRef.current.rotation.y = THREE.MathUtils.damp(
+      groupRef.current.rotation.y,
+      Math.sin(state.clock.elapsedTime * 0.08) * 0.04,
+      2.2,
+      delta,
+    );
+  });
+
   return (
     <>
       <ambientLight intensity={0.18} />
@@ -177,17 +224,19 @@ function Scene({ slots, selectedSlot, onSelect, mobile }: GalaxyViewProps & { mo
         fade
         speed={0.3}
       />
-      <Star star={star} />
-      {slots.map((slot, i) => (
-        <OrbitBody
-          key={`${slot.coordinates.galaxy}-${slot.coordinates.system}-${slot.coordinates.position}`}
-          slot={slot}
-          orbit={orbits[i]}
-          selected={selectedSlot?.coordinates.position === slot.coordinates.position}
-          bodySeg={tier(mobile, 16, 28)}
-          onSelect={onSelect}
-        />
-      ))}
+      <group ref={groupRef}>
+        <Star star={star} />
+        {slots.map((slot, i) => (
+          <OrbitBody
+            key={`${slot.coordinates.galaxy}-${slot.coordinates.system}-${slot.coordinates.position}`}
+            slot={slot}
+            orbit={orbits[i]}
+            selected={selectedSlot?.coordinates.position === slot.coordinates.position}
+            bodySeg={tier(mobile, 16, 28)}
+            onSelect={onSelect}
+          />
+        ))}
+      </group>
       <OrbitControls
         enablePan={false}
         enableZoom

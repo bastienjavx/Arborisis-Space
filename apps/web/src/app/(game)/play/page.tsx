@@ -384,6 +384,11 @@ export default function PlayPage() {
             system={planet.coordinates.system}
             position={planet.coordinates.position}
             planetType={planet.planetType}
+            activity={{
+              construction: Boolean(planet.constructionJob),
+              specialization: planet.specialization,
+              stability: planet.resources.ecologicalStability,
+            }}
           />
           <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_90px_rgba(0,0,0,0.55)]" />
         </motion.section>

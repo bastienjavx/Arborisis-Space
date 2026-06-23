@@ -319,6 +319,9 @@ export interface QuestView {
   name: string;
   description: string;
   order: number;
+  chapter?: string;
+  ctaHref?: string;
+  ctaLabel?: string;
   reward: ResourceBundle;
   progress: number;
   target: number;

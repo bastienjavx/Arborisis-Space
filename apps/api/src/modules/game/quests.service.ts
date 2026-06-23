@@ -21,6 +21,7 @@ interface PlayerMetrics {
   totalShips: number;
   expeditionsLaunched: number;
   colonies: number;
+  specializedPlanets: number;
 }
 
 @Injectable()
@@ -73,6 +74,9 @@ export class QuestsService {
           name: quest.name,
           description: quest.description,
           order: quest.order,
+          chapter: quest.chapter,
+          ctaHref: quest.ctaHref,
+          ctaLabel: quest.ctaLabel,
           reward: quest.reward,
           progress,
           target: quest.target,
@@ -124,6 +128,10 @@ export class QuestsService {
         return m.buildingLevelTotal;
       case 'BIOMASS_SYNTHESIZER_LEVEL':
         return m.maxBuilding[BuildingType.BIOMASS_SYNTHESIZER] ?? 0;
+      case 'SAP_WELL_LEVEL':
+        return m.maxBuilding[BuildingType.SAP_WELL] ?? 0;
+      case 'MINERAL_VEIN_LEVEL':
+        return m.maxBuilding[BuildingType.MINERAL_VEIN] ?? 0;
       case 'PHOTOSYNTHETIC_CANOPY_LEVEL':
         return m.maxBuilding[BuildingType.PHOTOSYNTHETIC_CANOPY] ?? 0;
       case 'RESEARCH_NEXUS_LEVEL':
@@ -144,6 +152,8 @@ export class QuestsService {
         return m.research[ResearchType.SPORAL_PROPULSION] ?? 0;
       case 'TERRAFORMATION_LEVEL':
         return m.research[ResearchType.TERRAFORMATION] ?? 0;
+      case 'PLANET_SPECIALIZATION_SET':
+        return m.specializedPlanets;
       case 'TOTAL_SHIPS':
         return m.totalShips;
       case 'EXPEDITIONS_LAUNCHED':
@@ -192,6 +202,7 @@ export class QuestsService {
       totalShips,
       expeditionsLaunched,
       colonies: planets.length,
+      specializedPlanets: planets.filter((planet) => Boolean(planet.specialization)).length,
     };
   }
 

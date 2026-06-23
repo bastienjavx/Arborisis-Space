@@ -14,6 +14,17 @@ describe('récompenses de succès', () => {
 });
 
 describe('chaîne de quêtes', () => {
+  const gameRoutes = new Set([
+    '/play',
+    '/buildings',
+    '/research',
+    '/fleets',
+    '/galaxy',
+    '/production',
+    '/pve',
+    '/pvp',
+  ]);
+
   it('a des identifiants uniques', () => {
     const ids = QUESTS.map((q) => q.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -30,6 +41,14 @@ describe('chaîne de quêtes', () => {
     for (const quest of QUESTS) {
       expect(quest.target).toBeGreaterThan(0);
       expect(bundleTotal(quest.reward)).toBeGreaterThan(0);
+    }
+  });
+
+  it('déclare des actions vers des routes de jeu connues', () => {
+    for (const quest of QUESTS) {
+      if (!quest.ctaHref) continue;
+      expect(quest.ctaLabel).toBeTruthy();
+      expect(gameRoutes.has(quest.ctaHref)).toBe(true);
     }
   });
 });

@@ -6,6 +6,7 @@ import { MeshDistortMaterial, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
 import { tier, useIsMobile } from '@/lib/device';
+import { ORGANIC_COLORS, seededSphericalPoints } from '@/components/three/visuals';
 
 function HeroPlanet({ segments }: { segments: number }) {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -68,23 +69,13 @@ function HeroPlanet({ segments }: { segments: number }) {
   );
 }
 
-function FloatingSpores({ count = 100 }) {
+function FloatingSpores({ count = 100, seed = 3031 }) {
   const pointsRef = useRef<THREE.Points>(null);
 
   const [positions, sizes] = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const sz = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      const r = 5 + Math.random() * 8;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-      sz[i] = Math.random() * 2 + 0.5;
-    }
-    return [pos, sz];
-  }, [count]);
+    const cloud = seededSphericalPoints(seed, count, 4.6, 13);
+    return [cloud.positions, cloud.sizes];
+  }, [count, seed]);
 
   useFrame((state) => {
     if (pointsRef.current) {
@@ -100,10 +91,10 @@ function FloatingSpores({ count = 100 }) {
         <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.06}
-        color="#16bf6c"
+        size={0.055}
+        color={ORGANIC_COLORS.canopy}
         transparent
-        opacity={0.5}
+        opacity={0.48}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
         depthWrite={false}
@@ -117,7 +108,7 @@ function Scene({ mobile }: { mobile: boolean }) {
     <>
       <ambientLight intensity={0.25} color="#7eecae" />
       <pointLight position={[6, 4, 6]} intensity={1} color="#7b66f0" />
-      <pointLight position={[-5, -3, 4]} intensity={0.6} color="#16bf6c" />
+      <pointLight position={[-5, -3, 4]} intensity={0.6} color={ORGANIC_COLORS.canopy} />
       <Stars
         radius={90}
         depth={60}

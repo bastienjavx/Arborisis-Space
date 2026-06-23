@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { SHIP_TYPES, ShipType, type ShipCounts } from '@arborisis/shared';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
 import { tier, useIsMobile } from '@/lib/device';
+import { seedFromString, seededBoxPoints } from '@/components/three/visuals';
 
 const SHIP_COLORS: Record<ShipType, string> = {
   [ShipType.SPORAL_SCOUT]: '#16bf6c',
@@ -31,19 +32,23 @@ interface BioShipProps {
   type: ShipType;
   index: number;
   total: number;
+  activeMission?: boolean;
 }
 
-function BioShip({ type, index, total }: BioShipProps) {
+function BioShip({ type, index, total, activeMission }: BioShipProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const offset = useMemo(
-    () => ({
+  const offset = useMemo(() => {
+    const seed = seedFromString(`${type}:${index}:${total}`);
+    const yJitter = (((seed >>> 8) % 1000) / 1000 - 0.5) * 1.2;
+    return {
       angle: (index / Math.max(1, total)) * Math.PI * 2,
       radius: 0.8 + (index % 3) * 0.5,
-      speed: 0.4 + (index % 4) * 0.15,
-      yOffset: (Math.random() - 0.5) * 1.2,
-    }),
-    [index, total],
-  );
+      speed: (activeMission ? 0.58 : 0.38) + (index % 4) * 0.12,
+      yOffset: yJitter,
+      phase: ((seed >>> 16) % 628) / 100,
+      scale: 0.86 + ((seed >>> 20) % 26) / 100,
+    };
+  }, [activeMission, index, total, type]);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
@@ -54,6 +59,9 @@ function BioShip({ type, index, total }: BioShipProps) {
       groupRef.current.position.y = offset.yOffset + Math.sin(t * 0.8 + index) * 0.15;
       groupRef.current.rotation.y = -angle;
       groupRef.current.rotation.z = Math.sin(t * 1.5 + index) * 0.1;
+      groupRef.current.scale.setScalar(
+        offset.scale * (1 + Math.sin(t * 1.2 + offset.phase) * 0.025),
+      );
     }
   });
 
@@ -61,45 +69,40 @@ function BioShip({ type, index, total }: BioShipProps) {
 
   return (
     <group ref={groupRef}>
-      {/* Main body */}
-      <mesh scale={type === ShipType.SPORAL_SCOUT ? 0.12 : 0.18}>
-        <sphereGeometry args={[1, 16, 16]} />
-        <meshBasicMaterial color={color} />
+      <mesh scale={[0.16, 0.1, type === ShipType.SPORAL_SCOUT ? 0.28 : 0.42]}>
+        <sphereGeometry args={[1, 20, 20]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.22}
+          roughness={0.62}
+          metalness={0.08}
+        />
       </mesh>
-      {/* Glow */}
-      <mesh scale={type === ShipType.SPORAL_SCOUT ? 0.25 : 0.32}>
+      <mesh scale={type === ShipType.SPORAL_SCOUT ? 0.25 : 0.36}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
           color={color}
           transparent
-          opacity={0.25}
+          opacity={activeMission ? 0.34 : 0.22}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
       </mesh>
-      {/* Tail tendrils */}
-      {Array.from({ length: 3 }).map((_, i) => (
-        <mesh key={i} position={[-0.15, 0, 0]} rotation={[0, 0, (i - 1) * 0.4]}>
-          <capsuleGeometry args={[0.015, 0.25, 4, 8]} />
-          <meshBasicMaterial color={color} transparent opacity={0.5} />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <mesh key={i} position={[0, 0, 0.24 + i * 0.055]} rotation={[0.35, 0, (i - 1.5) * 0.36]}>
+          <capsuleGeometry args={[0.012, 0.25 + i * 0.025, 4, 8]} />
+          <meshBasicMaterial color={color} transparent opacity={activeMission ? 0.62 : 0.42} />
         </mesh>
       ))}
     </group>
   );
 }
 
-function TrailParticles({ count = 60 }) {
+function TrailParticles({ count = 60, activeMission = false }) {
   const pointsRef = useRef<THREE.Points>(null);
 
-  const positions = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 5;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 2;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 5;
-    }
-    return pos;
-  }, [count]);
+  const positions = useMemo(() => seededBoxPoints(4407, count, 5.2, 2.4, 5.2), [count]);
 
   useFrame((state) => {
     if (pointsRef.current) {
@@ -113,10 +116,10 @@ function TrailParticles({ count = 60 }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.04}
+        size={activeMission ? 0.055 : 0.04}
         color="#16bf6c"
         transparent
-        opacity={0.35}
+        opacity={activeMission ? 0.48 : 0.32}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
         depthWrite={false}
@@ -127,10 +130,11 @@ function TrailParticles({ count = 60 }) {
 
 export interface FleetViewProps {
   ships: ShipCounts;
+  activeMission?: boolean;
   className?: string;
 }
 
-function Scene({ ships, mobile }: FleetViewProps & { mobile: boolean }) {
+function Scene({ ships, activeMission, mobile }: FleetViewProps & { mobile: boolean }) {
   const cap = tier(mobile, 12, 24);
   const shipList = useMemo(() => {
     const list: ShipType[] = [];
@@ -158,7 +162,7 @@ function Scene({ ships, mobile }: FleetViewProps & { mobile: boolean }) {
           fade
           speed={0.4}
         />
-        <TrailParticles count={tier(mobile, 40, 80)} />
+        <TrailParticles count={tier(mobile, 40, 80)} activeMission={activeMission} />
       </>
     );
   }
@@ -176,21 +180,27 @@ function Scene({ ships, mobile }: FleetViewProps & { mobile: boolean }) {
         speed={0.4}
       />
       {shipList.map((type, i) => (
-        <BioShip key={i} type={type} index={i} total={shipList.length} />
+        <BioShip
+          key={`${type}-${i}`}
+          type={type}
+          index={i}
+          total={shipList.length}
+          activeMission={activeMission}
+        />
       ))}
-      <TrailParticles count={tier(mobile, 30, 60)} />
+      <TrailParticles count={tier(mobile, 30, 60)} activeMission={activeMission} />
     </>
   );
 }
 
-export function FleetView({ ships, className = '' }: FleetViewProps) {
+export function FleetView({ ships, activeMission, className = '' }: FleetViewProps) {
   const mobile = useIsMobile();
 
   return (
     <div className={className}>
       <AdaptiveCanvas camera={{ position: [0, 3, 5], fov: 55 }} gl={{ alpha: true }} maxDpr={1.5}>
         <Suspense fallback={null}>
-          <Scene ships={ships} mobile={mobile} />
+          <Scene ships={ships} activeMission={activeMission} mobile={mobile} />
         </Suspense>
       </AdaptiveCanvas>
     </div>

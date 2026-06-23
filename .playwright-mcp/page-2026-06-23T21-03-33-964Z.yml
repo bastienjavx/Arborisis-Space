@@ -1,0 +1,106 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Arborisis — accueil" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - text: Arborisis
+      - navigation "Navigation principale" [ref=e6]:
+        - link "Univers" [ref=e7] [cursor=pointer]:
+          - /url: "#univers"
+        - link "Systèmes" [ref=e8] [cursor=pointer]:
+          - /url: "#systemes"
+        - link "Expérience" [ref=e9] [cursor=pointer]:
+          - /url: "#experience"
+        - link "Rejoindre" [ref=e10] [cursor=pointer]:
+          - /url: "#rejoindre"
+      - generic [ref=e11]:
+        - link "Se connecter" [ref=e12] [cursor=pointer]:
+          - /url: /login
+        - link "Créer un compte" [ref=e13] [cursor=pointer]:
+          - /url: /register
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - img "Monde organique parcouru de réseaux bioluminescents dans l’espace" [ref=e17]
+      - generic [ref=e20]:
+        - paragraph [ref=e21]: Stratégie spatiale organique
+        - heading "Cultivez un empire vivant." [level=1] [ref=e22]
+        - paragraph [ref=e23]: Faites germer votre empire sur des mondes vivants, développez des technologies biologiques et étendez vos racines à travers la galaxie.
+        - generic [ref=e24]:
+          - link "Créer un compte" [ref=e25] [cursor=pointer]:
+            - /url: /register
+          - link "Se connecter" [ref=e26] [cursor=pointer]:
+            - /url: /login
+        - generic [ref=e27]: Une galaxie vivante vous attend
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - paragraph [ref=e34]: Les piliers du vivant
+          - heading "Votre empire est un écosystème." [level=2] [ref=e35]
+        - paragraph [ref=e36]: Chaque décision façonne un réseau interdépendant de ressources, d'organismes et de mondes à conquérir.
+      - generic [ref=e37]:
+        - article [ref=e38]:
+          - img "Illustration du système Empire d’Arborisis" [ref=e40]
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: "01"
+              - generic [ref=e46]: Cultiver
+            - heading "Empire" [level=3] [ref=e47]
+            - paragraph [ref=e48]: Développez des cités vivantes, reliées par des réseaux racinaires. Chaque structure transforme durablement votre monde.
+        - article [ref=e49]:
+          - img "Illustration du système Recherche d’Arborisis" [ref=e51]
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - generic [ref=e55]: "02"
+              - generic [ref=e57]: Évoluer
+            - heading "Recherche" [level=3] [ref=e58]
+            - paragraph [ref=e59]: Explorez des symbioses, débloquez de nouvelles voies d'évolution et adaptez votre civilisation aux merveilles de la galaxie.
+        - article [ref=e60]:
+          - img "Illustration du système Galaxie d’Arborisis" [ref=e62]
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - generic [ref=e66]: "03"
+              - generic [ref=e68]: Étendre
+            - heading "Galaxie" [level=3] [ref=e69]
+            - paragraph [ref=e70]: Déployez vos essaims à travers une galaxie vivante, découvrez des anomalies et étendez l'influence de vos colonies.
+    - region "Bâtissez, évoluez, survivez." [ref=e71]:
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - paragraph [ref=e74]: Jeu de stratégie multijoueur
+          - heading "Bâtissez, évoluez, survivez." [level=2] [ref=e75]
+          - paragraph [ref=e76]: Dans Arborisis, chaque monde est un organisme à faire grandir. Équilibrez votre économie, spécialisez vos colonies et coordonnez vos flottes pour inscrire votre civilisation dans un univers qui ne s'arrête jamais.
+        - generic [ref=e77]:
+          - article [ref=e78]:
+            - heading "Un univers persistant" [level=3] [ref=e80]
+            - paragraph [ref=e81]: Votre civilisation continue d'exister entre vos sessions. Planifiez vos constructions, vos recherches et vos expéditions pour progresser à votre rythme.
+          - article [ref=e82]:
+            - heading "Une stratégie multijoueur" [level=3] [ref=e84]
+            - paragraph [ref=e85]: Rejoignez une alliance, mesurez-vous aux autres empires et choisissez entre coopération, exploration et conquête dans une galaxie partagée.
+          - article [ref=e86]:
+            - heading "Aucune installation" [level=3] [ref=e88]
+            - paragraph [ref=e89]: Arborisis se joue directement dans un navigateur moderne, sur ordinateur comme sur mobile. Créez un compte et faites germer votre premier monde.
+        - generic "Découvrir Arborisis" [ref=e90]:
+          - paragraph [ref=e91]: Questions fréquentes
+          - heading "Découvrir Arborisis" [level=2] [ref=e92]
+          - generic [ref=e93]:
+            - generic [ref=e94]:
+              - term [ref=e95]: Quel type de jeu est Arborisis ?
+              - definition [ref=e96]: Arborisis est un jeu de stratégie spatiale multijoueur et persistant sur navigateur. Vous développez des planètes organiques, débloquez des recherches et déployez des flottes dans une galaxie vivante.
+            - generic [ref=e97]:
+              - term [ref=e98]: Faut-il télécharger le jeu ?
+              - definition [ref=e99]: Non. Le jeu fonctionne directement dans un navigateur web moderne, sans téléchargement ni installation d'un client dédié.
+            - generic [ref=e100]:
+              - term [ref=e101]: Peut-on jouer avec d’autres personnes ?
+              - definition [ref=e102]: Oui. Chaque univers accueille plusieurs joueurs. Les alliances, les classements, les missions JcJ et les échanges de messages structurent l'expérience multijoueur.
+            - generic [ref=e103]:
+              - term [ref=e104]: Que peut-on développer dans son empire ?
+              - definition [ref=e105]: Vous gérez vos ressources, améliorez des bâtiments vivants, recherchez de nouvelles symbioses, produisez des vaisseaux et explorez de nouveaux systèmes.
+    - generic [ref=e107]:
+      - paragraph [ref=e109]: Commencer l'expansion
+      - heading "Plantez la première graine." [level=2] [ref=e110]
+      - paragraph [ref=e111]: Créez votre monde-noyau et prenez part à l'éveil d'une civilisation qui ne ressemble à aucune autre.
+      - link "Faire germer mon empire" [ref=e112] [cursor=pointer]:
+        - /url: /register
+  - contentinfo [ref=e113]:
+    - generic [ref=e114]:
+      - generic [ref=e115]: Arborisis
+      - generic [ref=e116]: © 2026 · Civilisation organique en développement

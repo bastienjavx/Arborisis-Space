@@ -269,6 +269,7 @@ export default function FleetsPage() {
               </div>
               <FleetView
                 ships={dockedShips}
+                activeMission={Boolean(active)}
                 className="hidden h-40 border-l border-canopy-700/15 lg:block"
               />
             </div>
