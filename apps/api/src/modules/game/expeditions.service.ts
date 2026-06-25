@@ -32,6 +32,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { GameQueueService } from '../queue/game-queue.service';
 import { GameEngineService } from './game-engine.service';
 import { PlanetsService } from './planets.service';
+import { EngagementHookService } from './engagement-hook.service';
 
 @Injectable()
 export class ExpeditionsService {
@@ -40,6 +41,7 @@ export class ExpeditionsService {
     private readonly engine: GameEngineService,
     private readonly planets: PlanetsService,
     private readonly queue: GameQueueService,
+    private readonly dailyQuests: EngagementHookService,
   ) {}
 
   async start(userId: string, dto: StartExpeditionDto): Promise<ExpeditionView> {
@@ -112,6 +114,7 @@ export class ExpeditionsService {
       throw error;
     }
     await this.queue.scheduleExpedition(mission.id, mission.phase, mission.arrivesAt);
+    await this.dailyQuests.onExpeditionLaunched(userId).catch(() => void 0);
     return this.missionView(mission);
   }
 

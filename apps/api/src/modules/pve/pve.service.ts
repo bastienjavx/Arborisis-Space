@@ -36,6 +36,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
 import { GameQueueService } from '../queue/game-queue.service';
+import { EngagementHookService } from '../game/engagement-hook.service';
 
 @Injectable()
 export class PveService {
@@ -44,6 +45,7 @@ export class PveService {
     private readonly planets: PlanetsService,
     private readonly engine: GameEngineService,
     private readonly queue: GameQueueService,
+    private readonly engagementHook: EngagementHookService,
   ) {}
 
   async listEncounters(): Promise<NpcEncounterView[]> {
@@ -301,6 +303,7 @@ export class PveService {
 
       // Drops d'objets selon la table de drop de l'anomalie
       if (result.outcome === PveOutcome.VICTORY) {
+        await this.engagementHook.onPveWon(mission.userId).catch(() => void 0);
         const drops = this.rollDrops(mission.encounter.type as NpcEncounterType);
         for (const drop of drops) {
           await tx.playerInventorySlot.upsert({

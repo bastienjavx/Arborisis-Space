@@ -420,6 +420,10 @@ model User {
   productionLines           ProductionLine[]
   notifications             Notification[]
   fleetPresets              FleetPreset[]
+  dailyQuests               DailyQuest[]
+  engagementToken           EngagementToken?
+  loginStreak               LoginStreak?
+  sessionBonus              SessionBonus?
 
   @@map("users")
 }
@@ -1177,6 +1181,75 @@ model ConstructionQueueItem {
 
   @@index([planetId, queueOrder])
   @@map("construction_queue")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Système d'engagement : quêtes journalières, streaks, bonus session
+// ═══════════════════════════════════════════════════════════════════
+
+enum DailyQuestType {
+  PRODUCE_SHIPS
+  LAUNCH_EXPEDITIONS
+  COLLECT_RESOURCES
+  BUILD_BUILDINGS
+  COMPLETE_RESEARCH
+  WIN_PVE
+}
+
+model DailyQuest {
+  id        String        @id @default(cuid())
+  userId    String
+  type      DailyQuestType
+  target    Int
+  progress  Int           @default(0)
+  completed Boolean       @default(false)
+  claimed   Boolean       @default(false)
+  reward    Json          // { resources: {...}, engagementTokens: number }
+  expiresAt DateTime
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("daily_quests")
+}
+
+model EngagementToken {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  count       Int      @default(0) // 0-7
+  lastResetAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("engagement_tokens")
+}
+
+model LoginStreak {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  streakDays  Int      @default(0)
+  lastLoginAt DateTime @default(now())
+  multiplier  Float    @default(1.0) // 1.0 - 2.0
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_streaks")
+}
+
+model SessionBonus {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  sessionMinutes Int      @default(0)
+  multiplier     Float    @default(1.0) // 1.0 - 2.0
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session_bonuses")
 }
 
 /// Composition de flotte pré-enregistrée par un joueur.

@@ -17,6 +17,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GameQueueService } from '../queue/game-queue.service';
+import { EngagementHookService } from './engagement-hook.service';
 import { GameEngineService } from './game-engine.service';
 import { WorldFactoryService } from './world-factory.service';
 
@@ -36,6 +37,7 @@ export class FinalizationService {
     private readonly notifications: NotificationsService,
     private readonly engine: GameEngineService,
     private readonly gameQueue: GameQueueService,
+    private readonly engagementHook: EngagementHookService,
   ) {}
 
   async finalizeConstruction(jobId: string, now = new Date()): Promise<void> {
@@ -85,6 +87,7 @@ export class FinalizationService {
         )
         .catch(() => void 0);
       await this.processNextInQueue(planetId, userId);
+      await this.engagementHook.onBuildingCompleted(userId).catch(() => void 0);
     }
   }
 
@@ -183,6 +186,7 @@ export class FinalizationService {
           { researchType, level },
         )
         .catch(() => void 0);
+      await this.engagementHook.onResearchCompleted(userId).catch(() => void 0);
     }
   }
 

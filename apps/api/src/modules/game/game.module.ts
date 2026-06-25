@@ -6,6 +6,11 @@ import { ColonizationController } from './colonization.controller';
 import { ColonizationService } from './colonization.service';
 import { ConstructionQueueController } from './construction-queue.controller';
 import { ConstructionQueueService } from './construction-queue.service';
+import { DailyQuestsController } from './daily-quests.controller';
+import { DailyQuestsService } from './daily-quests.service';
+import { EngagementController } from './engagement.controller';
+import { EngagementService } from './engagement.service';
+import { EngagementHookService } from './engagement-hook.service';
 import { EmpireController } from './empire.controller';
 import { EmpireService } from './empire.service';
 import { FinalizationService } from './finalization.service';
@@ -61,6 +66,8 @@ import { TransferService } from './transfer.service';
     SeasonsController,
     TransferController,
     EmpireController,
+    DailyQuestsController,
+    EngagementController,
   ],
   providers: [
     GameEngineService,
@@ -84,6 +91,9 @@ import { TransferService } from './transfer.service';
     SeasonsService,
     TransferService,
     EmpireService,
+    DailyQuestsService,
+    EngagementService,
+    EngagementHookService,
   ],
   exports: [
     WorldFactoryService,
@@ -95,6 +105,9 @@ import { TransferService } from './transfer.service';
     PlanetsService,
     TransferService,
     ConstructionQueueService,
+    DailyQuestsService,
+    EngagementService,
+    EngagementHookService,
   ],
 })
 export class GameModule {}

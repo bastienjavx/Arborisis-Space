@@ -741,3 +741,49 @@ export interface EmpireOverview {
     colonizations: number;
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Engagement : quêtes journalières, streaks, bonus session
+// ═══════════════════════════════════════════════════════════════════
+
+export interface DailyQuestRewardView {
+  biomass: number;
+  sap: number;
+  minerals: number;
+  spores: number;
+  engagementTokens: number;
+}
+
+export interface DailyQuestView {
+  id: string;
+  type: string;
+  target: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+  reward: DailyQuestRewardView;
+  expiresAt: string;
+}
+
+export interface DailyQuestsOverview {
+  quests: DailyQuestView[];
+  engagementTokens: number;
+  weeklyBonusAvailable: boolean;
+}
+
+export interface LoginStreakView {
+  streakDays: number;
+  multiplier: number;
+  lastLoginAt: string;
+}
+
+export interface SessionBonusView {
+  sessionMinutes: number;
+  multiplier: number;
+}
+
+export interface EngagementOverview {
+  loginStreak: LoginStreakView;
+  sessionBonus: SessionBonusView;
+  totalMultiplier: number;
+}
