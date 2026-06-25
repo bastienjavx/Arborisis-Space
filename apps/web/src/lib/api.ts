@@ -19,6 +19,7 @@ import type {
   DiplomaticOfferView,
   DiplomaticRelationView,
   EmpireOverview,
+  EngagementOverview,
   FleetPresetView,
   GalaxySystemView,
   FleetOverview,
@@ -71,6 +72,7 @@ import type {
   QuestsOverview,
   ClaimQuestDto,
   DailyRewardView,
+  DailyQuestsOverview,
   AbsenceSummaryView,
   TransferResourcesDto,
   UpdateProfileDto,
@@ -320,6 +322,16 @@ export const api = {
   claimSeasonRewards: () => request<SeasonOverview>('/seasons/claim', { method: 'POST' }),
   activeEvent: () => request<ActiveEventView | null>('/events/active'),
   achievements: () => request<AchievementView[]>('/achievements'),
+
+  // ── Quêtes journalières et engagement ──
+  dailyQuests: () => request<DailyQuestsOverview>('/daily-quests'),
+  claimDailyQuest: (questId: string) =>
+    request<DailyQuestsOverview>(`/daily-quests/${questId}/claim`, { method: 'POST' }),
+  claimWeeklyBonus: () =>
+    request<DailyQuestsOverview>('/daily-quests/weekly-bonus/claim', { method: 'POST' }),
+  engagement: () => request<EngagementOverview>('/engagement'),
+  engagementHeartbeat: () =>
+    request<EngagementOverview>('/engagement/heartbeat', { method: 'POST' }),
 
   // ── Quêtes ──
   quests: () => request<QuestsOverview>('/quests'),
