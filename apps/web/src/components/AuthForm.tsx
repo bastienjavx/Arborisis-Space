@@ -273,7 +273,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   disabled={resendCooldown}
                   className="mt-5 text-xs text-canopy-500 hover:text-canopy-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  {resendCooldown ? <span className="inline-flex items-center gap-1">Email renvoyé <FiCheck className="h-3 w-3 text-emerald-400" /></span> : "Renvoyer l'email"}
+                  {resendCooldown ? (
+                    <span className="inline-flex items-center gap-1">
+                      Email renvoyé <FiCheck className="h-3 w-3 text-emerald-400" />
+                    </span>
+                  ) : (
+                    "Renvoyer l'email"
+                  )}
                 </button>
               </motion.div>
             ) : success ? (

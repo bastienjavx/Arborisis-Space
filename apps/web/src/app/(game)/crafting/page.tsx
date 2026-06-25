@@ -55,7 +55,9 @@ function RecipeCard({
     <div className="rounded-xl border border-canopy-700/20 bg-bark-900/60 p-4">
       {/* Output */}
       <div className="mb-4 flex items-center gap-3">
-        <span className="text-3xl leading-none"><GameIcon name={output?.icon} className="h-8 w-8" /></span>
+        <span className="text-3xl leading-none">
+          <GameIcon name={output?.icon} className="h-8 w-8" />
+        </span>
         <div>
           <p className="font-semibold text-canopy-100" style={{ color: output?.rarityColor }}>
             {output?.name}
@@ -205,7 +207,9 @@ export default function CraftingPage() {
                   key={j.id}
                   className="flex items-center gap-3 rounded-xl border border-canopy-700/15 bg-bark-900/60 px-4 py-3"
                 >
-                  <span className="text-xl"><GameIcon name={item?.icon} className="h-5 w-5" /></span>
+                  <span className="text-xl">
+                    <GameIcon name={item?.icon} className="h-5 w-5" />
+                  </span>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-canopy-100">
                       {item?.name} ×{j.outputQty * j.quantity}

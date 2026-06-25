@@ -132,7 +132,15 @@ export function DailyRewardModal() {
               onClick={onClaim}
               className="mt-5 w-full rounded-xl border border-canopy-400/40 bg-canopy-500/15 py-2.5 text-sm font-medium text-canopy-50 transition hover:bg-canopy-500/25 disabled:cursor-default disabled:opacity-60"
             >
-              {claimed ? <span className="inline-flex items-center gap-1">Récolte effectuée <FiCheck className="h-4 w-4 text-emerald-400" /></span> : claim.isPending ? 'Récolte…' : 'Récolter'}
+              {claimed ? (
+                <span className="inline-flex items-center gap-1">
+                  Récolte effectuée <FiCheck className="h-4 w-4 text-emerald-400" />
+                </span>
+              ) : claim.isPending ? (
+                'Récolte…'
+              ) : (
+                'Récolter'
+              )}
             </button>
           </motion.div>
         </motion.div>

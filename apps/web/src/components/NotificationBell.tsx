@@ -32,7 +32,9 @@ function NotifItem({ notif }: { notif: NotificationView }) {
     <li
       className={`flex gap-3 border-b border-canopy-700/15 px-4 py-3 transition-colors ${notif.read ? 'opacity-60' : 'bg-canopy-500/5'}`}
     >
-      <span className="mt-0.5 text-lg leading-none"><GameIcon name={NOTIF_ICONS[notif.type] ?? 'bell'} className="h-5 w-5" /></span>
+      <span className="mt-0.5 text-lg leading-none">
+        <GameIcon name={NOTIF_ICONS[notif.type] ?? 'bell'} className="h-5 w-5" />
+      </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-semibold text-canopy-100">{notif.title}</p>
         <p className="mt-0.5 text-[11px] leading-snug text-canopy-300/80">{notif.message}</p>

@@ -49,7 +49,9 @@ function RouteCard({
     >
       {/* Route header */}
       <div className="mb-3 flex items-center gap-2">
-        <span className="text-lg"><GameIcon name={icon} className="h-5 w-5" /></span>
+        <span className="text-lg">
+          <GameIcon name={icon} className="h-5 w-5" />
+        </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-canopy-100">
             <span className="truncate">{route.fromPlanetName}</span>
