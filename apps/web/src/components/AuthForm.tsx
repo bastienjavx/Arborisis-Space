@@ -10,7 +10,7 @@ import { api, ApiError } from '@/lib/api';
 import { keys } from '@/lib/queries';
 import { setUniverseCookieAction } from '@/app/universes/actions';
 import { RaceType, RACES, UniverseStatus, type UniverseSummaryView } from '@arborisis/shared';
-import { FiCheckCircle, FiMail, FiShield } from 'react-icons/fi';
+import { FiCheck, FiCheckCircle, FiMail, FiShield } from 'react-icons/fi';
 
 type Mode = 'login' | 'register';
 
@@ -273,7 +273,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   disabled={resendCooldown}
                   className="mt-5 text-xs text-canopy-500 hover:text-canopy-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  {resendCooldown ? 'Email renvoyé ✓' : "Renvoyer l'email"}
+                  {resendCooldown ? (
+                    <span className="inline-flex items-center gap-1">
+                      Email renvoyé <FiCheck className="h-3 w-3 text-emerald-400" />
+                    </span>
+                  ) : (
+                    "Renvoyer l'email"
+                  )}
                 </button>
               </motion.div>
             ) : success ? (
