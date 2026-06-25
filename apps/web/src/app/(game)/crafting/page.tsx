@@ -10,16 +10,17 @@ import {
   ResourceType,
 } from '@arborisis/shared';
 import { api } from '@/lib/api';
+import { GameIcon } from '@/components/GameIcon';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { FiClock, FiZap } from 'react-icons/fi';
 
 const RESOURCE_ICONS: Record<string, string> = {
-  [ResourceType.BIOMASS]: '🌿',
-  [ResourceType.SAP]: '💧',
-  [ResourceType.MINERALS]: '⛏️',
-  [ResourceType.SPORES]: '✨',
+  [ResourceType.BIOMASS]: 'leaf',
+  [ResourceType.SAP]: 'droplets',
+  [ResourceType.MINERALS]: 'pickaxe',
+  [ResourceType.SPORES]: 'sparkles',
 };
 
 function RecipeCard({
@@ -54,7 +55,7 @@ function RecipeCard({
     <div className="rounded-xl border border-canopy-700/20 bg-bark-900/60 p-4">
       {/* Output */}
       <div className="mb-4 flex items-center gap-3">
-        <span className="text-3xl leading-none">{output?.icon}</span>
+        <span className="text-3xl leading-none"><GameIcon name={output?.icon} className="h-8 w-8" /></span>
         <div>
           <p className="font-semibold text-canopy-100" style={{ color: output?.rarityColor }}>
             {output?.name}
@@ -77,16 +78,16 @@ function RecipeCard({
             have = inventory[ing.itemKey] ?? 0;
             const item = ITEMS[ing.itemKey as ItemKey];
             label = item?.name ?? ing.itemKey;
-            icon = item?.icon ?? '📦';
+            icon = item?.icon ?? 'package';
           } else if (ing.resource) {
             have = planetResources[ing.resource] ?? 0;
             label = ing.resource;
-            icon = RESOURCE_ICONS[ing.resource] ?? '📦';
+            icon = RESOURCE_ICONS[ing.resource] ?? 'package';
           }
           const ok = have >= need;
           return (
             <div key={i} className="flex items-center gap-2 text-xs">
-              <span>{icon}</span>
+              <GameIcon name={icon} className="h-4 w-4" />
               <span className="flex-1 text-canopy-100/70">{label}</span>
               <span className={`font-mono ${ok ? 'text-emerald-400' : 'text-red-400'}`}>
                 {have.toLocaleString()} / {need.toLocaleString()}
@@ -204,7 +205,7 @@ export default function CraftingPage() {
                   key={j.id}
                   className="flex items-center gap-3 rounded-xl border border-canopy-700/15 bg-bark-900/60 px-4 py-3"
                 >
-                  <span className="text-xl">{item?.icon}</span>
+                  <span className="text-xl"><GameIcon name={item?.icon} className="h-5 w-5" /></span>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-canopy-100">
                       {item?.name} ×{j.outputQty * j.quantity}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { FiBell, FiCheck, FiCheckCircle, FiX } from 'react-icons/fi';
+import { GameIcon } from '@/components/GameIcon';
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -11,18 +12,18 @@ import {
 import type { NotificationView } from '@arborisis/shared';
 
 const NOTIF_ICONS: Record<string, string> = {
-  CONSTRUCTION_COMPLETE: '🏗️',
-  RESEARCH_COMPLETE: '🔬',
-  EXPEDITION_RETURNED: '🚀',
-  COLONIZATION_COMPLETE: '🌱',
-  ATTACK_INCOMING: '⚠️',
-  ATTACK_REPORT: '⚔️',
-  SHIP_PRODUCED: '🛸',
-  TRADE_ROUTE_RUN: '💱',
-  ACHIEVEMENT_UNLOCKED: '🏆',
-  DAILY_REWARD_AVAILABLE: '🎁',
-  MARKET_ORDER_FILLED: '📈',
-  PVE_COMPLETE: '👾',
+  CONSTRUCTION_COMPLETE: 'wrench',
+  RESEARCH_COMPLETE: 'flask',
+  EXPEDITION_RETURNED: 'rocket',
+  COLONIZATION_COMPLETE: 'sprout',
+  ATTACK_INCOMING: 'alertTriangle',
+  ATTACK_REPORT: 'swords',
+  SHIP_PRODUCED: 'rocket',
+  TRADE_ROUTE_RUN: 'arrowLeftRight',
+  ACHIEVEMENT_UNLOCKED: 'trophy',
+  DAILY_REWARD_AVAILABLE: 'gift',
+  MARKET_ORDER_FILLED: 'trendingUp',
+  PVE_COMPLETE: 'gamepad2',
 };
 
 function NotifItem({ notif }: { notif: NotificationView }) {
@@ -31,7 +32,7 @@ function NotifItem({ notif }: { notif: NotificationView }) {
     <li
       className={`flex gap-3 border-b border-canopy-700/15 px-4 py-3 transition-colors ${notif.read ? 'opacity-60' : 'bg-canopy-500/5'}`}
     >
-      <span className="mt-0.5 text-lg leading-none">{NOTIF_ICONS[notif.type] ?? '🔔'}</span>
+      <span className="mt-0.5 text-lg leading-none"><GameIcon name={NOTIF_ICONS[notif.type] ?? 'bell'} className="h-5 w-5" /></span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-semibold text-canopy-100">{notif.title}</p>
         <p className="mt-0.5 text-[11px] leading-snug text-canopy-300/80">{notif.message}</p>

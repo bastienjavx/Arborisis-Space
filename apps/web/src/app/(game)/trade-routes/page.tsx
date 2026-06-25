@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { GameIcon } from '@/components/GameIcon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ITEMS,
@@ -35,7 +36,7 @@ function RouteCard({
   const cargo = route.itemKey
     ? (ITEMS[route.itemKey as ItemKey]?.name ?? route.itemKey)
     : (route.resource ?? '—');
-  const icon = route.itemKey ? ITEMS[route.itemKey as ItemKey]?.icon : '📦';
+  const icon = route.itemKey ? ITEMS[route.itemKey as ItemKey]?.icon : 'package';
   const shipName = SHIPS[route.shipType]?.name ?? route.shipType;
 
   return (
@@ -48,7 +49,7 @@ function RouteCard({
     >
       {/* Route header */}
       <div className="mb-3 flex items-center gap-2">
-        <span className="text-lg">{icon}</span>
+        <span className="text-lg"><GameIcon name={icon} className="h-5 w-5" /></span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-canopy-100">
             <span className="truncate">{route.fromPlanetName}</span>

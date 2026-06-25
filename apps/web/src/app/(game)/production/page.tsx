@@ -10,6 +10,7 @@ import {
   effectiveStability,
   type SetProductionIntensitiesDto,
 } from '@arborisis/shared';
+import { GameIcon } from '@/components/GameIcon';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -50,10 +51,10 @@ const RESOURCE_LABELS: Record<ResourceType, string> = {
 };
 
 const RESOURCE_ICONS: Record<ResourceType, string> = {
-  [ResourceType.BIOMASS]: '🌿',
-  [ResourceType.SAP]: '💧',
-  [ResourceType.MINERALS]: '⛏️',
-  [ResourceType.SPORES]: '✨',
+  [ResourceType.BIOMASS]: 'leaf',
+  [ResourceType.SAP]: 'droplets',
+  [ResourceType.MINERALS]: 'pickaxe',
+  [ResourceType.SPORES]: 'sparkles',
 };
 
 function formatDuration(seconds: number) {
@@ -479,7 +480,7 @@ export default function ProductionPage() {
                       const ok = have >= (quantity ?? 0);
                       return (
                         <div key={resource} className="flex items-center gap-2 text-xs">
-                          <span aria-hidden="true">{RESOURCE_ICONS[key]}</span>
+                          <span aria-hidden="true"><GameIcon name={RESOURCE_ICONS[key]} className="h-4 w-4" /></span>
                           <span className="flex-1 text-canopy-100/58">{RESOURCE_LABELS[key]}</span>
                           <span className={ok ? 'text-canopy-300' : 'text-red-300'}>
                             {formatNumber(have)} / {formatNumber(quantity ?? 0)}

@@ -1789,7 +1789,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 150,
     maxStack: 999,
-    icon: '🍄',
+    icon: 'circleDot',
     rarityColor: '#9ca3af',
   },
   [ItemKey.BIOLUMINESCENT_GEL]: {
@@ -1800,7 +1800,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 200,
     maxStack: 999,
-    icon: '💧',
+    icon: 'droplets',
     rarityColor: '#9ca3af',
   },
   [ItemKey.CHITIN_SHARD]: {
@@ -1812,7 +1812,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 500,
     maxStack: 500,
-    icon: '🔷',
+    icon: 'diamond',
     rarityColor: '#4ade80',
   },
   [ItemKey.SPORE_ESSENCE]: {
@@ -1823,7 +1823,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 800,
     maxStack: 500,
-    icon: '✨',
+    icon: 'sparkles',
     rarityColor: '#4ade80',
   },
   [ItemKey.VOID_CRYSTAL]: {
@@ -1835,7 +1835,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 3_000,
     maxStack: 100,
-    icon: '💎',
+    icon: 'gem',
     rarityColor: '#60a5fa',
   },
   [ItemKey.ANCIENT_FRAGMENT]: {
@@ -1847,7 +1847,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.RAW_MATERIAL,
     baseValue: 25_000,
     maxStack: 20,
-    icon: '🌟',
+    icon: 'star',
     rarityColor: '#f59e0b',
   },
   [ItemKey.REINFORCED_CHITIN]: {
@@ -1859,7 +1859,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.PROCESSED,
     baseValue: 1_200,
     maxStack: 200,
-    icon: '🛡️',
+    icon: 'shield',
     rarityColor: '#4ade80',
   },
   [ItemKey.CRYSTALLIZED_SAP]: {
@@ -1871,7 +1871,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.PROCESSED,
     baseValue: 5_000,
     maxStack: 100,
-    icon: '🌿',
+    icon: 'leaf',
     rarityColor: '#60a5fa',
   },
   [ItemKey.NEURAL_MATRIX]: {
@@ -1883,7 +1883,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.PROCESSED,
     baseValue: 6_000,
     maxStack: 50,
-    icon: '🧠',
+    icon: 'brain',
     rarityColor: '#60a5fa',
   },
   [ItemKey.VOID_ALLOY]: {
@@ -1895,7 +1895,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.PROCESSED,
     baseValue: 18_000,
     maxStack: 30,
-    icon: '⚡',
+    icon: 'zap',
     rarityColor: '#a855f7',
   },
   [ItemKey.MYCOTOXIN_VIAL]: {
@@ -1906,7 +1906,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.PROCESSED,
     baseValue: 900,
     maxStack: 200,
-    icon: '⚗️',
+    icon: 'flask',
     rarityColor: '#4ade80',
   },
   [ItemKey.CONVERGENCE_SHARD]: {
@@ -1918,7 +1918,7 @@ export const ITEMS: Record<ItemKey, ItemConfig> = {
     category: ItemCategory.PROCESSED,
     baseValue: 80_000,
     maxStack: 5,
-    icon: '🔮',
+    icon: 'circle',
     rarityColor: '#f59e0b',
   },
 };
