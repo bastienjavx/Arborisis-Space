@@ -53,7 +53,7 @@ Checks sécurité attendus sur PR :
 - `Security / Scan de secrets (gitleaks)`
 - `Security / Audit dépendances runtime`
 - `Security / Scan Trivy (repo/config)`
-- `CodeQL / Analyse CodeQL (javascript-typescript)`
+- `CodeQL / Analyse CodeQL`
 - `Dependency Review / Dependency Review (HIGH + CRITICAL bloquant)`
 
 ## Style

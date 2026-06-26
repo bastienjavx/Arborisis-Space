@@ -190,7 +190,7 @@ auto-deploy sur `main`. La CI GitHub Actions (`.github/workflows/ci.yml`) sert d
 protéger `main` (Settings → Branches) en exigeant au minimum ces checks :
 `CI / build-and-test`, `Security / Scan de secrets (gitleaks)`,
 `Security / Audit dépendances runtime`, `Security / Scan Trivy (repo/config)`,
-`CodeQL / Analyse CodeQL (javascript-typescript)`,
+`CodeQL / Analyse CodeQL`,
 `Dependency Review / Dependency Review (HIGH + CRITICAL bloquant)`.
 Aucun token Railway n'est stocké dans GitHub. Rollback : dashboard Railway → service →
 déploiement précédent → _Redeploy_.
