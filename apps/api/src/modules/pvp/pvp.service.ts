@@ -599,7 +599,9 @@ export class PvpService {
   ): Promise<void> {
     const entries = Object.entries(ships).filter(([, qty]) => qty > 0);
     if (entries.length === 0) return;
-    const values = entries.map(([type, qty]) => Prisma.sql`(${planetId}, ${type}, ${qty})`);
+    const values = entries.map(
+      ([type, qty]) => Prisma.sql`(${planetId}, ${type}::text::"ShipType", ${qty})`,
+    );
     await tx.$executeRaw`
       INSERT INTO "planet_ships" ("planetId", "type", "quantity")
       VALUES ${Prisma.join(values)}
