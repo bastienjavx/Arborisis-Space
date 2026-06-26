@@ -6,7 +6,7 @@ import { CRAFTING_RECIPES, ITEMS, ItemCategory, type ItemKey } from '@arborisis/
 import { api } from '@/lib/api';
 import { GameIcon } from '@/components/GameIcon';
 import { PageHeader } from '@/components/PageHeader';
-import { FiPackage, FiArrowRight, FiRepeat, FiTool } from 'react-icons/fi';
+import { FiPackage, FiArrowRight, FiTool } from 'react-icons/fi';
 
 export default function InventoryPage() {
   const { data: slots, isLoading } = useQuery({

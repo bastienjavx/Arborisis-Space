@@ -1,7 +1,7 @@
 # Dockerfile multi-stage de l'API Arborisis (NestJS + Prisma).
 # Construit depuis la RACINE du monorepo :  docker build -f docker/api.Dockerfile .
 
-FROM node:22-bookworm-slim AS base
+FROM node:22-bookworm-slim@sha256:813a7480f28fdadac1f7f5c824bcdad435b5bc1322a5968bbbdef8d058f9dff4 AS base
 WORKDIR /app
 ENV CI=true
 # Prisma détecte OpenSSL lors de la génération et à l'exécution.

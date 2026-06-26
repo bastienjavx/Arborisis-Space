@@ -19,7 +19,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16-alpine@sha256:e013e867e712fec275706a6c51c966f0bb0c93cfa8f51000f85a15f9865a28cb
         env:
           POSTGRES_USER: arborisis
           POSTGRES_PASSWORD: arborisis
@@ -29,7 +29,7 @@ jobs:
           --health-cmd "pg_isready -U arborisis -d arborisis_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
         ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping"
@@ -43,9 +43,9 @@ jobs:
       JWT_REFRESH_SECRET: ci-refresh-secret-0123456789-abcdefghijklmnop
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
           cache: npm
