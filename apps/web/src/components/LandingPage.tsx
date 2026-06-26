@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
 import { LANDING_FAQ } from '@/lib/landing-content';
 
@@ -62,13 +62,44 @@ const EXPERIENCE = [
   },
 ] as const;
 
+const ARCHIVE_FRAMES = [
+  {
+    title: 'Monde-noyau',
+    label: 'Biosphère active',
+    image: '/images/arborisis/hero-living-planet.webp',
+    alt: 'Planète organique d’Arborisis observée depuis l’espace',
+  },
+  {
+    title: 'Chambre symbiotique',
+    label: 'Recherche évolutive',
+    image: '/images/arborisis/feature-research.webp',
+    alt: 'Laboratoire organique consacré aux recherches biologiques',
+  },
+  {
+    title: 'Carte mycélienne',
+    label: 'Expansion galactique',
+    image: '/images/arborisis/feature-galaxy.webp',
+    alt: 'Carte galactique traversée par des routes vivantes',
+  },
+] as const;
+
 const FAQ = LANDING_FAQ;
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const archiveRef = useRef<HTMLElement>(null);
   const { scrollY } = useScroll();
+  const { scrollYProgress: archiveProgress } = useScroll({
+    target: archiveRef,
+    offset: ['start end', 'end start'],
+  });
   const heroY = useTransform(scrollY, [0, 800], [0, 90]);
   const heroOpacity = useTransform(scrollY, [0, 650], [1, 0.35]);
+  const archiveDriftMain = useTransform(archiveProgress, [0, 1], [52, -42]);
+  const archiveDriftLeft = useTransform(archiveProgress, [0, 1], [24, -64]);
+  const archiveDriftRight = useTransform(archiveProgress, [0, 1], [58, -26]);
+  const archiveScale = useTransform(archiveProgress, [0, 0.5, 1], [0.96, 1.03, 0.98]);
+  const archiveGlow = useTransform(archiveProgress, [0, 0.5, 1], [0.25, 0.55, 0.3]);
 
   return (
     <div className="min-h-screen bg-bark-950 text-canopy-50">
@@ -263,6 +294,121 @@ export default function LandingPage() {
                   </div>
                 </motion.article>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section
+          ref={archiveRef}
+          aria-labelledby="archive-title"
+          className="relative isolate overflow-hidden border-y border-canopy-700/15 bg-bark-950 px-5 py-28 lg:px-8 lg:py-36"
+        >
+          <motion.div
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[48rem] w-[48rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-sap-400/10"
+            style={{ opacity: archiveGlow, scale: archiveScale }}
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(245,201,107,0.12),transparent_34%),linear-gradient(180deg,rgba(6,11,9,0),rgba(6,11,9,0.88))]" />
+
+          <div className="relative mx-auto grid max-w-7xl gap-14 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <div className="max-w-xl">
+              <motion.p
+                className="text-xs font-semibold uppercase tracking-[0.24em] text-sap-400/80"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.6 }}
+              >
+                Archive orbitale
+              </motion.p>
+              <motion.h2
+                id="archive-title"
+                className="mt-5 text-4xl tracking-[-0.045em] text-white sm:text-6xl"
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.45 }}
+                transition={{ delay: 0.08, duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+              >
+                Observez votre empire comme un organisme en mouvement.
+              </motion.h2>
+              <motion.p
+                className="mt-7 text-base leading-7 text-canopy-100/55"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.45 }}
+                transition={{ delay: 0.16, duration: 0.6 }}
+              >
+                Les mondes, routes, recherches et flottes ne sont pas de simples tableaux : ce sont
+                des couches vivantes à lire, surveiller et faire évoluer au fil de vos décisions.
+              </motion.p>
+
+              <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-canopy-700/20 bg-canopy-700/20 sm:grid-cols-3 lg:grid-cols-1">
+                {ARCHIVE_FRAMES.map((frame, index) => (
+                  <motion.div
+                    key={frame.title}
+                    className="bg-bark-950/86 p-5"
+                    initial={{ opacity: 0, x: -18 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, amount: 0.4 }}
+                    transition={{ delay: 0.12 + index * 0.08, duration: 0.55 }}
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-canopy-100/35">
+                      {frame.label}
+                    </p>
+                    <p className="mt-2 font-display text-xl text-canopy-100">{frame.title}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative min-h-[480px] sm:min-h-[640px]" aria-hidden="true">
+              <motion.div
+                className="absolute left-1/2 top-6 z-20 aspect-[4/5] w-[72%] max-w-[420px] -translate-x-1/2 overflow-hidden rounded-xl border border-sap-400/25 bg-bark-900 shadow-2xl shadow-black/60"
+                style={{ y: archiveDriftMain, scale: archiveScale }}
+              >
+                <Image
+                  src={ARCHIVE_FRAMES[0].image}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 38vw, 82vw"
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-bark-950/65 via-transparent to-bark-950/10" />
+                <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4 text-[10px] uppercase tracking-[0.2em] text-canopy-50/55">
+                  <span>Core planet</span>
+                  <span>01</span>
+                </div>
+              </motion.div>
+
+              <motion.div
+                className="absolute left-0 top-24 z-10 aspect-[5/4] w-[48%] overflow-hidden rounded-xl border border-canopy-300/20 bg-bark-900 shadow-2xl shadow-black/50"
+                style={{ y: archiveDriftLeft }}
+              >
+                <Image
+                  src={ARCHIVE_FRAMES[1].image}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 24vw, 48vw"
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-bark-950/25" />
+              </motion.div>
+
+              <motion.div
+                className="absolute bottom-8 right-0 z-30 aspect-[5/4] w-[54%] overflow-hidden rounded-xl border border-spore-400/25 bg-bark-900 shadow-2xl shadow-black/60"
+                style={{ y: archiveDriftRight }}
+              >
+                <Image
+                  src={ARCHIVE_FRAMES[2].image}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 28vw, 56vw"
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-bark-950/30 via-transparent to-spore-500/10" />
+              </motion.div>
+
+              <div className="absolute left-8 right-8 top-1/2 h-px bg-sap-400/25" />
+              <div className="absolute bottom-20 left-1/2 h-40 w-px bg-canopy-300/15" />
             </div>
           </div>
         </section>
