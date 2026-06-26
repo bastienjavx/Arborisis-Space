@@ -36,7 +36,10 @@ COPY --from=builder --chown=node:node /app/apps/api/node_modules apps/api/node_m
 COPY --from=builder --chown=node:node /app/prisma prisma
 
 COPY --chown=node:node docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+  && touch /app/.env \
+  && chown node:node /app/.env \
+  && chmod 600 /app/.env
 
 EXPOSE 4000
 USER node

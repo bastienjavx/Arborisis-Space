@@ -16,6 +16,9 @@ jobs:
     name: Dependency Review (HIGH + CRITICAL bloquant)
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Analyze dependency changes
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48
         with:

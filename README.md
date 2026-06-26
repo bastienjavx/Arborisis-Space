@@ -188,8 +188,10 @@ public ; définir `API_INTERNAL_URL` sur le web avec l'adresse privée Railway d
 **CD (intégration GitHub native)** : connecter les services `api` et `web` au dépôt avec
 auto-deploy sur `main`. La CI GitHub Actions (`.github/workflows/ci.yml`) sert de **garde** :
 protéger `main` (Settings → Branches) en exigeant au minimum ces checks :
-`build-and-test`, `Scan de secrets (gitleaks)`, `Audit dépendances runtime`,
-`Scan Trivy (repo/config)`, `Analyse CodeQL`, `Dependency Review (HIGH + CRITICAL bloquant)`.
+`CI / build-and-test`, `Security / Scan de secrets (gitleaks)`,
+`Security / Audit dépendances runtime`, `Security / Scan Trivy (repo/config)`,
+`CodeQL / Analyse CodeQL (javascript-typescript)`,
+`Dependency Review / Dependency Review (HIGH + CRITICAL bloquant)`.
 Aucun token Railway n'est stocké dans GitHub. Rollback : dashboard Railway → service →
 déploiement précédent → _Redeploy_.
 
