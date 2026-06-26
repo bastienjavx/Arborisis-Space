@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { AbsenceSummaryModal } from '@/components/AbsenceSummaryModal';
 import { AttackWarningBanner } from '@/components/AttackWarningBanner';
@@ -14,15 +14,41 @@ import { NearMissBanner } from '@/components/NearMissBanner';
 import { OrganicBackgroundInner } from '@/components/OrganicBackgroundInner';
 import { PlanetProvider } from '@/components/PlanetContext';
 import { useMe } from '@/lib/queries';
+import { ApiError } from '@/lib/api';
+import { onSessionEvent } from '@/lib/session';
 import { fadeUp, organicEase } from '@/lib/motion';
 
 export function GameShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { data: user, isLoading, isError } = useMe();
+  const { data: user, isLoading, isError, error } = useMe();
+  const [networkError, setNetworkError] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && (isError || !user)) router.replace('/login');
-  }, [isLoading, isError, user, router]);
+    const unsubscribe = onSessionEvent((event) => {
+      if (event === 'logout') router.replace('/login');
+      if (event === 'login') setNetworkError(false);
+    });
+    return unsubscribe;
+  }, [router]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (user) {
+      setNetworkError(false);
+      return;
+    }
+    // Une erreur 401/403 signifie une déconnexion réelle ; les autres erreurs
+    // (réseau, 502, 503) doivent être tolérées pour éviter d'expulser l'utilisateur
+    // lors d'une micro-coupure ou d'un ralentissement serveur.
+    const isAuthError = error instanceof ApiError && (error.status === 401 || error.status === 403);
+    if (isError && !isAuthError) {
+      setNetworkError(true);
+      return;
+    }
+    if (isAuthError) {
+      router.replace('/login');
+    }
+  }, [isLoading, isError, user, error, router]);
 
   if (isLoading) {
     return (
@@ -36,7 +62,22 @@ export function GameShell({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="grid min-h-screen place-items-center px-4 text-center text-canopy-100/70">
+        <div className="max-w-md space-y-3">
+          <p className="text-lg font-medium">
+            {networkError ? 'Connexion au serveur interrompue.' : 'Session invalide.'}
+          </p>
+          <p className="text-sm text-canopy-100/50">
+            {networkError
+              ? 'Vérifiez votre connexion réseau. La session sera restaurée automatiquement.'
+              : 'Veuillez vous reconnecter.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <PlanetProvider>

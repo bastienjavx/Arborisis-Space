@@ -439,17 +439,20 @@ model User {
 }
 
 model Session {
-  id               String    @id @default(uuid())
-  userId           String
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  refreshTokenHash String
-  expiresAt        DateTime
-  revokedAt        DateTime?
-  lastUsedAt       DateTime  @default(now())
-  createdAt        DateTime  @default(now())
+  id                        String    @id @default(uuid())
+  userId                    String
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash          String
+  previousRefreshTokenHash  String?
+  previousRefreshTokenExpiresAt DateTime?
+  expiresAt                 DateTime
+  revokedAt                 DateTime?
+  lastUsedAt                DateTime  @default(now())
+  createdAt                 DateTime  @default(now())
 
   @@index([userId, revokedAt])
   @@index([expiresAt])
+  @@index([previousRefreshTokenHash])
   @@map("sessions")
 }
 

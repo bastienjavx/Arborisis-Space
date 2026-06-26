@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import argon2 from 'argon2';
+import { createHash } from 'node:crypto';
 import { RaceType, UserRole } from '@arborisis/shared';
 import { AuthService } from './auth.service';
 
@@ -277,7 +278,7 @@ describe('AuthService', () => {
         universeId: 'univ1',
       },
     });
-    prisma.session.update.mockResolvedValue({});
+    prisma.session.updateMany.mockResolvedValue({ count: 1 });
 
     await expect(service.refresh('session-id.secret')).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -315,5 +316,45 @@ describe('AuthService', () => {
     });
     expect(prisma.session.create).toHaveBeenCalled();
     expect(result.tokens.refreshToken).toMatch(/^[^.]+\.[A-Za-z0-9_-]+$/);
+  });
+
+  it('accepte le previous refresh token pendant la période de grâce', async () => {
+    const currentHash = '0'.repeat(64);
+    const previousToken = 'session-id.previoussecret';
+    const previousHash = createHash('sha256').update(previousToken).digest('hex');
+    prisma.session.findUnique.mockResolvedValue({
+      id: 'session-id',
+      userId: 'u1',
+      refreshTokenHash: currentHash,
+      previousRefreshTokenHash: previousHash,
+      previousRefreshTokenExpiresAt: new Date(Date.now() + 60_000),
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: null,
+      user: {
+        id: 'u1',
+        email: 'a@b.co',
+        username: 'sylv',
+        role: UserRole.PLAYER,
+        race: RaceType.MYCELIANS,
+        displayName: null,
+        bannerColor: null,
+        avatarSeed: null,
+        totpEnabled: false,
+        universeId: 'univ1',
+      },
+    });
+    prisma.session.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.refresh(previousToken);
+
+    expect(result.tokens.accessToken).toBe('signed-access-token');
+    expect(result.tokens.refreshToken).toMatch(/^[^.]+\.[A-Za-z0-9_-]+$/);
+    expect(prisma.session.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          previousRefreshTokenHash: currentHash,
+        }),
+      }),
+    );
   });
 });
