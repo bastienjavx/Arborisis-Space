@@ -29,7 +29,7 @@ npm run dev                               # Starts API (port 4000) + web (port 3
 ```bash
 # Full verification suite (matches CI order)
 npm run build                # Turbo builds all workspaces
-npm run lint                 # Root ESLint (shared + api only; web has separate config)
+npm run lint                 # Turbo runs each workspace's lint (including web's next lint)
 npm run format:check         # Prettier check
 npm run typecheck            # Full TypeScript strict check
 npm run test                 # Unit tests: shared + api + web
@@ -39,7 +39,7 @@ npm run test:e2e -w @arborisis/api   # E2E tests (requires DB + Redis)
 npm run build               # Fastest overall build
 npm run lint -w @arborisis/web  # Lint web workspace (uses next/core-web-vitals config)
 npm run format              # Auto-fix formatting with Prettier
-npm run test -- --testNamePattern="SpecificTest"  # Run one test
+npm run test -w @arborisis/api -- --testNamePattern="SpecificTest"  # Run one test in api workspace
 ```
 
 **Note:** Turbo requires build dependencies to be in place. If `npm run build` fails with "turbo: command not found", run `npm install` first.
@@ -90,7 +90,7 @@ npm run test -- --testNamePattern="SpecificTest"  # Run one test
 ### Next.js API Proxy
 
 - **`/api` routes in Next.js proxy to NestJS** via `API_INTERNAL_URL` (server-to-server).
-- **`NEXT_PUBLIC_API_URL` is inlined at BUILD TIME**, not runtime. If you change `.env`, you must rebuild the web app.
+- **`NEXT_PUBLIC_*` variables used by client code are inlined at BUILD TIME**, not runtime. If you use a `NEXT_PUBLIC_*` variable in client code and change it in `.env`, you must rebuild the web app.
 - During development (`npm run dev`), Next.js automatically proxies to the running NestJS API.
 
 ### React Three Fiber Scenes
@@ -114,8 +114,8 @@ npm run test -- --testNamePattern="SpecificTest"  # Run one test
 
 ### ESLint & Formatting Configuration
 
-- **Root ESLint** (`.eslintrc.cjs`) covers only `packages/shared` and `apps/api`.
-- **`apps/web` has its own ESLint config** (`.eslintrc.json`) extending `next/core-web-vitals`. Do not run root lint against web.
+- **Root ESLint config** (`.eslintrc.cjs`) explicitly ignores `apps/web/**` and only lints `packages/shared` and `apps/api`.
+- **`apps/web` has its own ESLint config** (`.eslintrc.json`) extending `next/core-web-vitals`. However, `npm run lint` is a Turbo command that runs each workspace's lint script, so web IS linted as part of the full `npm run lint`.
 - **Prettier** (`.prettierrc.json`): single quotes, trailing commas, printWidth 100. Always run `npm run format` before committing.
 - **TypeScript strict everywhere**, plus `noUncheckedIndexedAccess` and `noImplicitOverride`.
 
@@ -204,7 +204,7 @@ npm run test:e2e -w @arborisis/api
 ## Common Pitfalls
 
 1. **Forgetting `docker compose up`** — Tests and dev server will fail silently without PostgreSQL and Redis.
-2. **Modifying `.env` after building web** — `NEXT_PUBLIC_API_URL` is baked in at build time; changes require `npm run build` in web.
+2. **Modifying `.env` after building web** — `NEXT_PUBLIC_*` variables used by client code are baked in at build time; changes require `npm run build` in web.
 3. **Changing enums without migrations** — Mismatched Prisma and shared enums cause type errors.
 4. **Hardcoding balance values** — Always use `packages/shared/src/constants.ts`.
 5. **Trusting client values** — Always recalculate server-side before mutations.
