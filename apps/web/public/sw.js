@@ -49,9 +49,7 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          event.waitUntil(
-            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)),
-          );
+          event.waitUntil(caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)));
           return response;
         })
         .catch(async () => {
