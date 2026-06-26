@@ -5,7 +5,6 @@ const RUNTIME_CACHE = `arborisis-runtime-${CACHE_VERSION}`;
 const APP_SHELL = [
   '/',
   '/play',
-  '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-512-maskable.png',
@@ -41,44 +40,51 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/api/')) return;
+  // Skip caching for /api/ calls to keep auth/gameplay data fresh
+  // Also skip manifest (fetched dynamically and updated frequently)
+  if (url.pathname.startsWith('/api/') || url.pathname === '/manifest.webmanifest') return;
 
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+          event.waitUntil(
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)),
+          );
           return response;
         })
         .catch(async () => {
           const cached = await caches.match(request);
           if (cached) return cached;
-          return (
-            (await caches.match('/play')) ??
-            new Response('Offline', {
-              status: 503,
-              statusText: 'Service Unavailable',
-              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-            })
-          );
+          const fallback = await caches.match('/play');
+          if (fallback) return fallback;
+          return new Response('Offline', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          });
         }),
     );
     return;
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => {
+    caches.match(request).then(async (cached) => {
       if (cached) return cached;
-      return fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => {
-          throw new Error('Network request failed and no cached response is available.');
+      try {
+        const response = await fetch(request);
+        const copy = response.clone();
+        const cacheInstance = await caches.open(RUNTIME_CACHE);
+        await cacheInstance.put(request, copy);
+        return response;
+      } catch {
+        return new Response('Network request failed and no cached response is available.', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
         });
+      }
     }),
   );
 });

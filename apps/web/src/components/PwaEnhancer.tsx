@@ -18,8 +18,10 @@ export function PwaEnhancer() {
 
   useEffect(() => {
     try {
-      setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
+      const isDismissed = localStorage.getItem(DISMISS_KEY) === '1';
+      setDismissed(isDismissed);
     } catch {
+      // localStorage may not be available (blocked storage, privacy mode)
       setDismissed(false);
     }
     setStandalone(
@@ -29,7 +31,8 @@ export function PwaEnhancer() {
   }, []);
 
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
+    // Only register service worker in production to avoid stale caches in local dev/staging
+    if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) return;
 
     let active = true;
     navigator.serviceWorker
@@ -83,16 +86,28 @@ export function PwaEnhancer() {
 
   async function installApp() {
     if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      // Only clear if the user completed the gesture (not just dismissed browser prompt)
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+      // In both cases, reset the deferred prompt reference to prevent re-use
+      // (beforeinstallprompt events can only be used once per lifecycle)
+    } catch {
+      // Prompt already dismissed or other error; clear it
+      setDeferredPrompt(null);
+    }
   }
 
   function dismiss() {
     setDismissed(true);
     try {
       localStorage.setItem(DISMISS_KEY, '1');
-    } catch {}
+    } catch {
+      // localStorage may not be available; dismissed state is kept in memory
+    }
   }
 
   function applyUpdate() {
@@ -100,7 +115,8 @@ export function PwaEnhancer() {
   }
 
   const showInstall = !standalone && !!deferredPrompt && !dismissed;
-  const showUpdate = updateReady;
+  // Only show update if not dismissed (when dismissed, both prompts should be hidden)
+  const showUpdate = updateReady && !dismissed;
 
   if (!showInstall && !showUpdate) return null;
 
