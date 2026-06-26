@@ -7,7 +7,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: "23 5 * * 1" # lundi 05:23 UTC
+    - cron: '23 5 * * 1' # lundi 05:23 UTC
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ jobs:
       contents: read
       security-events: write
     env:
-      GITLEAKS_VERSION: "8.21.2"
+      GITLEAKS_VERSION: '8.21.2'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,7 +43,7 @@ jobs:
           --report-format sarif --report-path gitleaks.sarif
       - name: Upload SARIF (gitleaks)
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb
         with:
           sarif_file: gitleaks.sarif
           category: gitleaks
@@ -92,10 +92,10 @@ jobs:
           ignore-unfixed: true
           format: sarif
           output: trivy-results.sarif
-          exit-code: "1"
+          exit-code: '1'
       - name: Upload SARIF (trivy)
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb
         with:
           sarif_file: trivy-results.sarif
           category: trivy
