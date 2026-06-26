@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DEFENSES, DefenseType } from '@arborisis/shared';
+import { DefenseType } from '@arborisis/shared';
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
@@ -83,7 +83,6 @@ export default function DefensesPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(data?.defenses ?? []).map((defense) => {
-              const config = DEFENSES[defense.type];
               const qty = quantities[defense.type] ?? 1;
               return (
                 <div

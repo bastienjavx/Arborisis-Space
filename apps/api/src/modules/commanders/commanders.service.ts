@@ -59,8 +59,6 @@ export class CommandersService {
       orderBy: { createdAt: 'asc' },
     });
 
-    const activeCount = commanders.filter((c) => c.status !== CommanderStatus.IDLE).length;
-
     return {
       commanders: commanders.map((c) => this.toView(c as unknown as PrismaCommander)),
       maxActive,
@@ -122,7 +120,7 @@ export class CommandersService {
     commanderId: string,
     planetId: string | null,
   ): Promise<CommanderView> {
-    const commander = await this.assertOwnership(userId, commanderId);
+    await this.assertOwnership(userId, commanderId);
     if (planetId) {
       await this.planets.assertOwnership(userId, planetId);
     }

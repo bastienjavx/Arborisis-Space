@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { COMMANDERS, CommanderType, CommanderRarity, type CommanderView } from '@arborisis/shared';
+import { COMMANDERS, CommanderType, type CommanderView } from '@arborisis/shared';
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
@@ -84,7 +84,6 @@ function CommanderCard({
   onInvest: (branch: string, nodeId: string) => void;
   currentPlanetId?: string;
 }) {
-  const config = COMMANDERS[commander.type as CommanderType];
   const xpPct = Math.min(100, (commander.xp / commander.xpToNextLevel) * 100);
   const rarityClasses = RARITY_COLORS[commander.rarity] ?? RARITY_COLORS.COMMON;
 
