@@ -547,14 +547,24 @@ export class ExpeditionsService {
       entries.map(([, qty]) => Prisma.sql`${qty}::int`),
       ', ',
     )}]`;
-    await tx.$executeRaw`
-      UPDATE "planet_ships" ps
-      SET quantity = ps.quantity - d.qty
-      FROM unnest(${typeArray}::text[], ${qtyArray}::int[]) AS d(type, qty)
-      WHERE ps."planetId" = ${planetId}
-        AND ps."type"::text = d.type
-        AND ps.quantity >= d.qty
-    `;
+    try {
+      await tx.$executeRaw`
+        UPDATE "planet_ships" ps
+        SET quantity = ps.quantity - d.qty
+        FROM unnest(${typeArray}::text[], ${qtyArray}::int[]) AS d(type, qty)
+        WHERE ps."planetId" = ${planetId}
+          AND ps."type"::text = d.type
+          AND ps.quantity >= d.qty
+      `;
+    } catch (error) {
+      // En isolation SERIALIZABLE, deux requêtes concurrentes peuvent échouer
+      // avec une erreur de sérialisation avant que le guard quantity >= d.qty
+      // ne les transforme en no-op. On normalise ce cas en 409.
+      if (this.isSerializationFailure(error)) {
+        throw new ConflictException('Flotte indisponible ou déjà engagée.');
+      }
+      throw error;
+    }
   }
 
   private async upsertShips(
@@ -575,5 +585,14 @@ export class ExpeditionsService {
 
   private isUniqueViolation(error: unknown): boolean {
     return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
+  }
+
+  private isSerializationFailure(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error.code === 'P2010' || error.code === 'P2034')
+    );
   }
 }
