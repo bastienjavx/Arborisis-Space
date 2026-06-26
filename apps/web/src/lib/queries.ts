@@ -44,7 +44,7 @@ import type {
   UpdateProductionLineDto,
 } from '@arborisis/shared';
 import { ChatScope } from '@arborisis/shared';
-import { api } from './api';
+import { api, ApiError } from './api';
 
 export const keys = {
   me: ['me'] as const,
@@ -101,8 +101,17 @@ export function useMe() {
   return useQuery({
     queryKey: keys.me,
     queryFn: () => api.me().then((r) => r.user),
-    retry: false,
+    retry: (failureCount, error) => {
+      // Réessaye sur les erreurs réseau (status 0) ou 502/503 transitoires,
+      // mais pas sur les 401 définitifs.
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 5_000),
     staleTime: 60_000,
+    refetchInterval: 300_000, // Vérifie l'état de session toutes les 5 min en arrière-plan.
+    refetchOnReconnect: true,
+    networkMode: 'always',
   });
 }
 

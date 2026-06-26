@@ -3,15 +3,11 @@
 import { Suspense } from 'react';
 import { AuthForm } from '@/components/AuthForm';
 import { motion } from 'framer-motion';
+import { pageShell } from '@/lib/motion';
 
 export default function RegisterPage() {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.4 }}
-    >
+    <motion.div initial="hidden" animate="visible" exit="exit" variants={pageShell}>
       <Suspense fallback={null}>
         <AuthForm mode="register" />
       </Suspense>

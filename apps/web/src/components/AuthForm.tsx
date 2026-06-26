@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api, ApiError } from '@/lib/api';
 import { keys } from '@/lib/queries';
+import { fadeUp, organicEase, softScale, staggerChildren } from '@/lib/motion';
 import { setUniverseCookieAction } from '@/app/universes/actions';
 import { RaceType, RACES, UniverseStatus, type UniverseSummaryView } from '@arborisis/shared';
 import { FiCheck, FiCheckCircle, FiMail, FiShield } from 'react-icons/fi';
@@ -125,7 +126,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   return (
     <div className="relative grid min-h-screen bg-bark-950 lg:grid-cols-2">
-      <div className="relative hidden min-h-screen overflow-hidden border-r border-canopy-700/20 lg:block">
+      <motion.div
+        className="relative hidden min-h-screen overflow-hidden border-r border-canopy-700/20 lg:block"
+        initial={{ opacity: 0, x: -24 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.65, ease: organicEase }}
+      >
         <Image
           src="/images/arborisis/hero-living-planet.webp"
           alt="Planète arborisienne parcourue par un réseau vivant"
@@ -135,7 +141,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
           className="object-cover object-center opacity-75"
         />
         <div className="absolute inset-0 bg-bark-950/30" />
-        <div className="absolute inset-x-12 bottom-14 mycelium-panel p-8 backdrop-blur-xl">
+        <motion.div
+          className="absolute inset-x-12 bottom-14 mycelium-panel p-8 backdrop-blur-xl"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.55, ease: organicEase }}
+        >
           <div className="mycelium-rule mb-6 w-24" aria-hidden="true" />
           <p className="section-kicker">Civilisation organique persistante</p>
           <h2 className="display mt-3 text-5xl text-canopy-50">Arborisis</h2>
@@ -143,22 +154,17 @@ export function AuthForm({ mode }: { mode: Mode }) {
             Reliez vos mondes, cultivez leurs ressources et faites évoluer un empire{' '}
             <span className="italic text-canopy-300">vivant</span> à travers la Convergence.
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       <motion.div
         className="relative z-10 mx-auto flex w-full max-w-xl flex-col justify-center px-5 py-12 sm:px-12 lg:px-16"
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        initial="hidden"
+        animate="visible"
+        variants={staggerChildren(0.08)}
       >
         {/* Title */}
-        <motion.div
-          className="mb-8 text-left"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
+        <motion.div className="mb-8 text-left" variants={fadeUp}>
           <Link href="/" className="section-kicker">
             Arborisis
           </Link>
@@ -179,12 +185,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         </motion.div>
 
         {/* Glass card form */}
-        <motion.div
-          className="mycelium-panel space-y-5 p-6 sm:p-8"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        >
+        <motion.div className="mycelium-panel space-y-5 p-6 sm:p-8" variants={softScale}>
           <AnimatePresence mode="wait">
             {totpPending ? (
               <motion.form
@@ -194,6 +195,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.28, ease: organicEase }}
               >
                 <div className="flex flex-col items-center gap-3 pb-2">
                   <FiShield className="h-12 w-12 text-canopy-400" aria-hidden="true" />
@@ -259,6 +261,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.32, ease: organicEase }}
               >
                 <FiMail className="h-16 w-16 text-canopy-400" aria-hidden="true" />
                 <p className="mt-4 text-lg font-medium text-canopy-300">Vérifiez votre email</p>
@@ -289,6 +292,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.32, ease: organicEase }}
               >
                 <FiCheckCircle className="h-16 w-16 text-canopy-400" aria-hidden="true" />
                 <p className="mt-4 text-lg font-medium text-canopy-300">Connexion réussie !</p>
@@ -302,12 +306,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
               >
                 {/* Email field */}
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 }}
+                  transition={{ delay: 0.12, ease: organicEase }}
                 >
                   <label className="label" htmlFor="email">
                     Email
@@ -417,7 +422,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 }}
+                  transition={{ delay: 0.18, ease: organicEase }}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <label className="label mb-0" htmlFor="password">
@@ -471,7 +476,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   whileTap={{ scale: 0.98 }}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
+                  transition={{ delay: 0.24, ease: organicEase }}
                 >
                   {loading ? (
                     <motion.div
@@ -496,12 +501,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         </motion.div>
 
         {/* Link to other mode */}
-        <motion.p
-          className="mt-6 text-center text-sm text-canopy-100/50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
-        >
+        <motion.p className="mt-6 text-center text-sm text-canopy-100/50" variants={fadeUp}>
           {isRegister ? (
             <>
               Déjà une colonie ?{' '}

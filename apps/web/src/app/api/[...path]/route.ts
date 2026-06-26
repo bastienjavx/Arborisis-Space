@@ -41,7 +41,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const timeout = setTimeout(() => controller.abort('proxy-timeout'), 30_000);
 
   try {
     const upstream = await fetch(target, {
@@ -68,8 +68,12 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       status: upstream.status,
       headers: responseHeaders,
     });
-  } catch {
-    return new Response(JSON.stringify({ message: 'Service indisponible.' }), {
+  } catch (err) {
+    const message =
+      err === 'proxy-timeout' || (err instanceof Error && err.name === 'AbortError')
+        ? 'Le serveur a mis trop de temps à répondre.'
+        : 'Service indisponible.';
+    return new Response(JSON.stringify({ message }), {
       status: 502,
       headers: { 'Content-Type': 'application/json' },
     });

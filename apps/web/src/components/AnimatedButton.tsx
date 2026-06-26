@@ -1,8 +1,8 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import { organicEase } from '@/lib/motion';
 
 interface AnimatedButtonProps {
   children: ReactNode;
@@ -46,8 +46,8 @@ function AnimatedButtonInner({
       aria-label={ariaLabel}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={isDisabled ? {} : { scale: 1.015 }}
+      transition={{ duration: 0.4, ease: organicEase }}
+      whileHover={isDisabled ? {} : { scale: 1.015, y: -1 }}
       whileTap={isDisabled ? {} : { scale: 0.98 }}
       className={`
         inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium

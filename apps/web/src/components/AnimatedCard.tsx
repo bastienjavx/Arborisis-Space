@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
+import { organicEase, softScale } from '@/lib/motion';
 
 type GlowPreset = 'green' | 'purple' | 'none';
 
@@ -36,14 +37,20 @@ export function AnimatedCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial="hidden"
+      animate="visible"
+      variants={softScale}
       transition={{
         duration: 0.45,
         delay,
-        ease: [0.22, 1, 0.36, 1],
+        ease: organicEase,
       }}
-      whileHover={hover ? { y: -2, transition: { duration: 0.22 } } : undefined}
+      whileHover={
+        hover
+          ? { y: -3, scale: 1.006, transition: { duration: 0.22, ease: organicEase } }
+          : undefined
+      }
+      whileTap={onClick ? { scale: 0.992 } : undefined}
       onClick={onClick}
       className={`group relative overflow-hidden rounded-xl border border-canopy-700/20 bg-bark-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur-xl transition-colors hover:border-canopy-300/25 ${className}`}
       style={{

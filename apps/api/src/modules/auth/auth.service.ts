@@ -24,7 +24,7 @@ import argon2 from 'argon2';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { Universe, User } from '@prisma/client';
-import type { AuthUser, LoginDto, RegisterDto } from '@arborisis/shared';
+import { RaceType, type AuthUser, type LoginDto, type RegisterDto } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { Env } from '../../common/config/env';
 import { UniverseService } from '../universe/universe.service';
@@ -81,7 +81,7 @@ export class AuthService {
               email: dto.email,
               username: dto.username,
               passwordHash,
-              race: dto.race,
+              race: dto.race as RaceType,
               bannerColor: undefined,
               universeId: universe.id,
               emailVerified: false,
@@ -89,7 +89,7 @@ export class AuthService {
               emailVerificationSentAt: new Date(),
             },
           });
-          await this.worldFactory.initNewPlayer(created.id, tx, dto.race);
+          await this.worldFactory.initNewPlayer(created.id, tx, dto.race as RaceType);
           const incrementedUniverse = await this.universeService.incrementPlayerCount(
             tx,
             universe.id,
@@ -446,16 +446,25 @@ export class AuthService {
       throw new UnauthorizedException();
 
     const presentedHash = this.hashToken(rawToken);
-    if (!this.hashesEqual(session.refreshTokenHash, presentedHash)) {
+    const matchesCurrent = this.hashesEqual(session.refreshTokenHash, presentedHash);
+    const matchesPrevious =
+      session.previousRefreshTokenHash &&
+      session.previousRefreshTokenExpiresAt &&
+      session.previousRefreshTokenExpiresAt > now &&
+      this.hashesEqual(session.previousRefreshTokenHash, presentedHash);
+
+    if (!matchesCurrent && !matchesPrevious) {
       await this.prisma.session.update({ where: { id: session.id }, data: { revokedAt: now } });
       throw new UnauthorizedException();
     }
 
     const nextRefreshToken = this.newRefreshToken(session.id);
     const rotated = await this.prisma.session.updateMany({
-      where: { id: session.id, refreshTokenHash: presentedHash, revokedAt: null },
+      where: { id: session.id, refreshTokenHash: session.refreshTokenHash, revokedAt: null },
       data: {
         refreshTokenHash: this.hashToken(nextRefreshToken),
+        previousRefreshTokenHash: session.refreshTokenHash,
+        previousRefreshTokenExpiresAt: new Date(now.getTime() + this.refreshGracePeriodMs()),
         expiresAt: this.refreshExpiry(),
         lastUsedAt: now,
       },
@@ -564,6 +573,13 @@ export class AuthService {
 
   private refreshExpiry(): Date {
     return new Date(Date.now() + this.config.get('JWT_REFRESH_TTL', { infer: true }) * 1_000);
+  }
+
+  private refreshGracePeriodMs(): number {
+    // Fenêtre pendant laquelle l'ancien refresh token reste valide après rotation.
+    // Cela évite une déconnexion si le client ne reçoit pas la réponse du refresh
+    // (réseau coupé, onglet fermé, proxy timeout, etc.).
+    return 60_000;
   }
 
   private isUniqueViolation(error: unknown): boolean {
