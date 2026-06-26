@@ -26,6 +26,15 @@
     font-family: var(--font-sans), var(--font-sans-fallback);
     background-color: #030906;
     background-attachment: fixed;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  a,
+  button,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
   }
 
   /* Données chiffrées : chasse fixe pour des colonnes stables (jeu de gestion). */

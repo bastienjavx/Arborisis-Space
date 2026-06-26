@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ITEMS, type MarketSummaryView, type ItemKey } from '@arborisis/shared';
 import { api } from '@/lib/api';
+import { GameIcon } from '@/components/GameIcon';
 import { PageHeader } from '@/components/PageHeader';
 import { FiTrendingUp, FiTrendingDown, FiMinus, FiArrowRight } from 'react-icons/fi';
 
@@ -97,7 +98,9 @@ export default function MarketPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl leading-none">{item.icon}</span>
+                      <span className="text-2xl leading-none">
+                        <GameIcon name={item.icon} className="h-6 w-6" />
+                      </span>
                       <div>
                         <p className="text-sm font-semibold text-canopy-100">{item.name}</p>
                         <p className="text-[10px] text-canopy-100/40">

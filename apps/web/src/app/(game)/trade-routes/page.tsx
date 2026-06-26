@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GameIcon } from '@/components/GameIcon';
+import { GameIcon, type IconName } from '@/components/GameIcon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ITEMS,
@@ -17,6 +17,36 @@ import { api } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { FiPlus, FiPause, FiPlay, FiTrash2, FiArrowRight, FiRefreshCw } from 'react-icons/fi';
+
+const ITEM_LABEL_ICON: Record<string, string> = {
+  leaf: '🌿',
+  droplets: '💧',
+  pickaxe: '⛏️',
+  sparkles: '✨',
+  package: '📦',
+  circleDot: '🍄',
+  diamond: '🔷',
+  gem: '💎',
+  star: '🌟',
+  shield: '🛡️',
+  brain: '🧠',
+  zap: '⚡',
+  flask: '⚗️',
+  circle: '🔮',
+  wrench: '🏗️',
+  rocket: '🚀',
+  sprout: '🌱',
+  alertTriangle: '⚠️',
+  swords: '⚔️',
+  arrowLeftRight: '💱',
+  trophy: '🏆',
+  gift: '🎁',
+  trendingUp: '📈',
+  gamepad2: '👾',
+  bell: '🔔',
+  lock: '🔒',
+  search: '🔍',
+};
 
 const TRANSPORT_SHIPS = [
   ShipType.SYMBIOTIC_HARVESTER,
@@ -289,7 +319,7 @@ export default function TradeRoutesPage() {
                 >
                   {Object.values(ITEMS).map((item) => (
                     <option key={item.key} value={item.key}>
-                      {item.icon} {item.name}
+                      {ITEM_LABEL_ICON[item.icon] ?? '📦'} {item.name}
                     </option>
                   ))}
                 </select>
