@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GameIcon } from '@/components/GameIcon';
+import { GameIcon, type IconName } from '@/components/GameIcon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ITEMS,

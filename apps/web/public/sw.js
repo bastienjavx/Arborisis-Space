@@ -41,15 +41,23 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   // Skip caching for /api/ calls to keep auth/gameplay data fresh
-  // Also skip manifest (fetched dynamically and updated frequently)
-  if (url.pathname.startsWith('/api/') || url.pathname === '/manifest.webmanifest') return;
+  // Also skip /manifest.webmanifest and /sw.js (updated via cache headers)
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname === '/manifest.webmanifest' ||
+    url.pathname === '/sw.js'
+  )
+    return;
 
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          event.waitUntil(caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)));
+          // Only cache successful responses (2xx status)
+          if (response.ok) {
+            const copy = response.clone();
+            event.waitUntil(caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)));
+          }
           return response;
         })
         .catch(async () => {
@@ -72,9 +80,12 @@ self.addEventListener('fetch', (event) => {
       if (cached) return cached;
       try {
         const response = await fetch(request);
-        const copy = response.clone();
-        const cacheInstance = await caches.open(RUNTIME_CACHE);
-        await cacheInstance.put(request, copy);
+        // Only cache successful responses (2xx status)
+        if (response.ok) {
+          const copy = response.clone();
+          const cacheInstance = await caches.open(RUNTIME_CACHE);
+          await cacheInstance.put(request, copy);
+        }
         return response;
       } catch {
         return new Response('Network request failed and no cached response is available.', {

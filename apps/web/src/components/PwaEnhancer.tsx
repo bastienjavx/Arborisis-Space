@@ -88,13 +88,10 @@ export function PwaEnhancer() {
     if (!deferredPrompt) return;
     try {
       await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      // Only clear if the user completed the gesture (not just dismissed browser prompt)
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
-      // In both cases, reset the deferred prompt reference to prevent re-use
-      // (beforeinstallprompt events can only be used once per lifecycle)
+      // Wait for user choice to resolve, then clear the stored event reference
+      // (beforeinstallprompt events are single-use and must be cleared after any outcome)
+      await deferredPrompt.userChoice;
+      setDeferredPrompt(null);
     } catch {
       // Prompt already dismissed or other error; clear it
       setDeferredPrompt(null);
@@ -115,8 +112,8 @@ export function PwaEnhancer() {
   }
 
   const showInstall = !standalone && !!deferredPrompt && !dismissed;
-  // Only show update if not dismissed (when dismissed, both prompts should be hidden)
-  const showUpdate = updateReady && !dismissed;
+  // Update banner is independent from install dismiss state
+  const showUpdate = updateReady;
 
   if (!showInstall && !showUpdate) return null;
 
