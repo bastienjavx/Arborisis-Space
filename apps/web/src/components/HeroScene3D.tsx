@@ -17,21 +17,21 @@ const PALETTE = [
 function SporeParticles() {
   const ref = useRef<THREE.Points>(null);
 
-  const { geometry, velocities } = useMemo(() => {
-    const positions = new Float32Array(COUNT * 3);
-    const colors = new Float32Array(COUNT * 3);
+  const { positions, colors, velocities } = useMemo(() => {
+    const pos = new Float32Array(COUNT * 3);
+    const col = new Float32Array(COUNT * 3);
     const vels: { vx: number; vy: number; phase: number }[] = [];
 
     for (let i = 0; i < COUNT; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 26;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 16;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 6 - 1;
+      pos[i * 3] = (Math.random() - 0.5) * 26;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 16;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 6 - 1;
 
       const c = PALETTE[Math.floor(Math.random() * PALETTE.length)];
       const b = 0.25 + Math.random() * 0.75;
-      colors[i * 3] = c[0] * b;
-      colors[i * 3 + 1] = c[1] * b;
-      colors[i * 3 + 2] = c[2] * b;
+      col[i * 3] = c[0] * b;
+      col[i * 3 + 1] = c[1] * b;
+      col[i * 3 + 2] = c[2] * b;
 
       vels.push({
         vx: (Math.random() - 0.5) * 0.004,
@@ -40,15 +40,12 @@ function SporeParticles() {
       });
     }
 
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    return { geometry: geo, velocities: vels };
+    return { positions: pos, colors: col, velocities: vels };
   }, []);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
-    const attr = ref.current.geometry.attributes.position as THREE.BufferAttribute;
+    const attr = ref.current.geometry.attributes['position'] as THREE.BufferAttribute;
     const t = clock.getElapsedTime();
 
     for (let i = 0; i < COUNT; i++) {
@@ -67,7 +64,11 @@ function SporeParticles() {
   });
 
   return (
-    <points ref={ref} geometry={geometry}>
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+      </bufferGeometry>
       <pointsMaterial
         size={0.065}
         vertexColors
