@@ -67,7 +67,7 @@ const ARCHIVE_FRAMES = [
     title: 'Monde-noyau',
     label: 'Biosphère active',
     image: '/images/arborisis/arborisis-hero.png',
-    alt: 'Planète organique d'Arborisis parcourue de réseaux racinaires',
+    alt: "Planète organique d’Arborisis parcourue de réseaux racinaires",
   },
   {
     title: 'Chambre symbiotique',
@@ -79,7 +79,7 @@ const ARCHIVE_FRAMES = [
     title: 'Carte mycélienne',
     label: 'Expansion galactique',
     image: '/images/arborisis/arborisis-symbiosis.png',
-    alt: 'Deux mondes reliés par des réseaux mycéliens dans l'espace',
+    alt: "Deux mondes reliés par des réseaux mycéliens dans l'espace",
   },
 ] as const;
 
