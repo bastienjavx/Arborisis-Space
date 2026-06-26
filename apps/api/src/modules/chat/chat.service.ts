@@ -8,6 +8,7 @@ import { ChatScope as PrismaChatScope, ModerationActionType, UserRole } from '@p
 import type { ChatContactView, ChatMessageView, SendChatMessageDto } from '@arborisis/shared';
 import { ChatScope } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
 
 const authorSelect = {
   id: true,
@@ -21,7 +22,10 @@ const authorSelect = {
 
 @Injectable()
 export class ChatService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsGateway,
+  ) {}
 
   async list(userId: string, scope: ChatScope, peerId?: string): Promise<ChatMessageView[]> {
     const user = await this.viewer(userId);
@@ -70,6 +74,17 @@ export class ChatService {
       },
       include: { author: { select: authorSelect } },
     });
+
+    const payload = { scope: dto.scope, peerId: recipientId ?? undefined };
+    if (dto.scope === ChatScope.GLOBAL) {
+      this.events.emitToUniverse(user.universeId, 'chat:message', payload);
+    } else if (dto.scope === ChatScope.ALLIANCE && allianceId) {
+      this.events.emitToUniverse(user.universeId, 'chat:message', { ...payload, allianceId });
+    } else if (dto.scope === ChatScope.PRIVATE && recipientId) {
+      this.events.emitToUser(userId, 'chat:message', payload);
+      this.events.emitToUser(recipientId, 'chat:message', { ...payload, peerId: userId });
+    }
+
     return this.toView(message);
   }
 

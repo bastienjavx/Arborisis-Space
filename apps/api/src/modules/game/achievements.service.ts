@@ -30,7 +30,7 @@ export class AchievementsService {
       (type) => !alreadyUnlocked.has(type) && progress[type].progress >= progress[type].target,
     );
     if (newlyGranted.length > 0) {
-      await this.prisma.serializable(async (tx) => {
+      await this.prisma.optimistic(async (tx) => {
         // Relecture dans la transaction : une requête concurrente a pu débloquer
         // un succès depuis l'évaluation ci-dessus.
         const existing = new Set(

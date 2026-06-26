@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { PlanetSummary } from '@arborisis/shared';
 import { usePlanets } from '@/lib/queries';
+import { emitSubscribePlanet, emitUnsubscribePlanet } from '@/lib/socket';
 
 interface PlanetContextValue {
   planets: PlanetSummary[];
@@ -22,6 +23,14 @@ export function PlanetProvider({ children }: { children: ReactNode }) {
       setSelectedId(planets.find((p) => p.isHomeworld)?.id ?? planets[0].id);
     }
   }, [planets, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    emitSubscribePlanet(selectedId);
+    return () => {
+      emitUnsubscribePlanet(selectedId);
+    };
+  }, [selectedId]);
 
   const value = useMemo<PlanetContextValue>(
     () => ({ planets: planets ?? [], selectedId, select: setSelectedId, isLoading }),

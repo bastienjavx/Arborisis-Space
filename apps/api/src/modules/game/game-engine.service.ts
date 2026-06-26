@@ -20,7 +20,8 @@ import {
   type ProductionResult,
   type ResourceState,
 } from '@arborisis/shared';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { OptimisticLockError, PrismaService } from '../../common/prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
 
 export interface SettledPlanet {
   planet: Planet & { buildings: PlanetBuilding[] };
@@ -37,7 +38,10 @@ export interface SettledPlanet {
  */
 @Injectable()
 export class GameEngineService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events?: EventsGateway,
+  ) {}
 
   buildingLevelsOf(buildings: PlanetBuilding[]): Partial<Record<BuildingType, number>> {
     const map: Partial<Record<BuildingType, number>> = {};
@@ -76,7 +80,7 @@ export class GameEngineService {
     db?: Prisma.TransactionClient,
   ): Promise<SettledPlanet> {
     if (!db) {
-      return this.prisma.serializable((tx) => this.settlePlanet(planetId, now, tx));
+      return this.prisma.optimistic((tx) => this.settlePlanet(planetId, now, tx));
     }
     const planet = await db.planet.findUniqueOrThrow({
       where: { id: planetId },
@@ -139,7 +143,7 @@ export class GameEngineService {
     );
 
     const updated = await db.planet.update({
-      where: { id: planetId },
+      where: { id: planetId, version: planet.version },
       data: {
         biomass: next[ResourceType.BIOMASS],
         sap: next[ResourceType.SAP],
@@ -148,6 +152,7 @@ export class GameEngineService {
         stability: newStability,
         ecologicalStability,
         lastResourceUpdate: now,
+        version: { increment: 1 },
       },
       include: { buildings: true },
     });
@@ -216,7 +221,7 @@ export class GameEngineService {
     overflow: Record<ResourceType, number>;
   }> {
     if (!db) {
-      return this.prisma.serializable((tx) =>
+      return this.prisma.optimistic((tx) =>
         this.creditResourcesToPlanet(planetId, bundle, now, tx),
       );
     }
@@ -231,12 +236,13 @@ export class GameEngineService {
       overflow[resource] = want - accepted[resource];
     }
     await db.planet.update({
-      where: { id: planetId },
+      where: { id: planetId, version: settled.planet.version },
       data: {
         biomass: { increment: accepted[ResourceType.BIOMASS] },
         sap: { increment: accepted[ResourceType.SAP] },
         minerals: { increment: accepted[ResourceType.MINERALS] },
         spores: { increment: accepted[ResourceType.SPORES] },
+        version: { increment: 1 },
       },
     });
     return { accepted, overflow };
@@ -268,6 +274,11 @@ export class GameEngineService {
     return accepted;
   }
 
+  /** Notifie le client qu'une planète a changé. */
+  emitPlanetUpdated(userId: string, planetId: string): void {
+    this.events?.emitToUser(userId, 'planet:updated', { planetId });
+  }
+
   /** Retourne l'événement galactique actif (endsAt > now), ou null. */
   async getActiveEvent(db?: Prisma.TransactionClient): Promise<GalacticEvent | null> {
     const client = db ?? this.prisma;
@@ -282,31 +293,45 @@ export class GameEngineService {
     planetId: string,
     cost: Partial<Record<ResourceType, number>>,
     db: Prisma.TransactionClient | PrismaService = this.prisma,
+    expectedVersion?: number,
   ): Promise<void> {
     const biomass = cost[ResourceType.BIOMASS] ?? 0;
     const sap = cost[ResourceType.SAP] ?? 0;
     const minerals = cost[ResourceType.MINERALS] ?? 0;
     const spores = cost[ResourceType.SPORES] ?? 0;
 
-    // Décrément conditionnel : la mise à jour n'a lieu que si le solde couvre le coût.
-    // Les appelants pré-vérifient déjà `canAfford` dans une transaction sérialisable ;
-    // cette garde empêche tout solde négatif même en cas d'appel non vérifié ou de course.
+    // Décrément conditionnel : la mise à jour n'a lieu que si le solde couvre le coût
+    // et que le verrou optimiste correspond. Si expectedVersion est fourni, on valide
+    // la version ; sinon on conserve le comportement de garde conditionnelle legacy.
+    const where: Prisma.PlanetWhereInput = {
+      id: planetId,
+      biomass: { gte: biomass },
+      sap: { gte: sap },
+      minerals: { gte: minerals },
+      spores: { gte: spores },
+    };
+    if (expectedVersion !== undefined) {
+      (where as Prisma.PlanetWhereUniqueInput & { version: number }).version = expectedVersion;
+    }
+
+    const data: Prisma.PlanetUpdateInput = {
+      biomass: { decrement: biomass },
+      sap: { decrement: sap },
+      minerals: { decrement: minerals },
+      spores: { decrement: spores },
+    };
+    if (expectedVersion !== undefined) {
+      data.version = { increment: 1 };
+    }
+
     const result = await db.planet.updateMany({
-      where: {
-        id: planetId,
-        biomass: { gte: biomass },
-        sap: { gte: sap },
-        minerals: { gte: minerals },
-        spores: { gte: spores },
-      },
-      data: {
-        biomass: { decrement: biomass },
-        sap: { decrement: sap },
-        minerals: { decrement: minerals },
-        spores: { decrement: spores },
-      },
+      where,
+      data,
     });
     if (result.count !== 1) {
+      if (expectedVersion !== undefined) {
+        throw new OptimisticLockError();
+      }
       throw new BadRequestException('Ressources insuffisantes.');
     }
   }

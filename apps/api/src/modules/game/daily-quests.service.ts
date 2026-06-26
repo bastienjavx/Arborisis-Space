@@ -168,7 +168,7 @@ export class DailyQuestsService {
 
     const reward = quest.reward as unknown as DailyQuestReward;
 
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       await tx.dailyQuest.update({
         where: { id: questId },
         data: { claimed: true },
@@ -222,7 +222,7 @@ export class DailyQuestsService {
     const token = await this.prisma.engagementToken.findUnique({ where: { userId } });
     if (!token || token.count < 7) return;
 
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       await tx.engagementToken.update({
         where: { userId },
         data: { count: 0, lastResetAt: new Date() },

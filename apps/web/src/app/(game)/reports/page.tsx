@@ -20,6 +20,7 @@ import {
 } from '@/lib/queries';
 import { PageHeader } from '@/components/PageHeader';
 import { ResourceCost } from '@/components/ResourceCost';
+import { VirtualList } from '@/components/VirtualList';
 import { motion } from 'framer-motion';
 import {
   FiAlertTriangle,
@@ -140,19 +141,19 @@ export default function ReportsPage() {
             </motion.div>
           ) : (
             <div className="grid gap-5 xl:grid-cols-[minmax(24rem,0.75fr)_minmax(32rem,1fr)]">
-              <section className="mycelium-panel overflow-hidden">
-                <div className="divide-y divide-canopy-700/10">
-                  {expeditions.map((report, index) => {
+              <section className="mycelium-panel flex flex-col overflow-hidden">
+                <VirtualList
+                  items={expeditions}
+                  estimateSize={76}
+                  className="max-h-[calc(100vh-16rem)]"
+                  keyExtractor={(report) => report.id}
+                  renderItem={(report) => {
                     const status = expeditionStatus(report.outcome);
                     const StatusIcon = status.icon;
                     const selected = selectedReport?.id === report.id;
                     return (
-                      <motion.button
-                        key={report.id}
+                      <button
                         type="button"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: Math.min(index * 0.04, 0.35) }}
                         onClick={() => setSelectedId(report.id)}
                         className={`grid w-full grid-cols-[2.5rem_minmax(9rem,1fr)_5rem_1.5rem] items-center gap-3 border-l-2 px-4 py-3 text-left transition ${
                           selected
@@ -184,10 +185,10 @@ export default function ReportsPage() {
                           {status.label}
                         </span>
                         <FiChevronRight className="h-4 w-4 text-canopy-100/25" aria-hidden="true" />
-                      </motion.button>
+                      </button>
                     );
-                  })}
-                </div>
+                  }}
+                />
                 {expeditions.some((r) => !r.isRead) && (
                   <div className="border-t border-canopy-700/15 p-4">
                     <button
@@ -353,18 +354,16 @@ export default function ReportsPage() {
                 <span>Résultat</span>
                 <span>Date · Butin</span>
               </div>
-              <div className="divide-y divide-canopy-700/10">
-                {pvpReports.map((report, index) => {
+              <VirtualList
+                items={pvpReports}
+                estimateSize={80}
+                className="max-h-[calc(100vh-16rem)]"
+                keyExtractor={(report) => report.id}
+                renderItem={(report) => {
                   const { label, cls, Icon } = outcomeStyle(report.result?.outcome ?? '');
                   const isAttack = report.type === PvpMissionType.ATTACK;
                   return (
-                    <motion.div
-                      key={report.id}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index * 0.04, 0.35) }}
-                      className="grid gap-3 px-5 py-4 xl:grid-cols-[2.5rem_minmax(12rem,1.2fr)_7rem_7rem_1fr] xl:items-center"
-                    >
+                    <div className="grid gap-3 border-b border-canopy-700/10 px-5 py-4 xl:grid-cols-[2.5rem_minmax(12rem,1.2fr)_7rem_7rem_1fr] xl:items-center">
                       <span
                         className={`grid h-9 w-9 place-items-center rounded-full border ${
                           isAttack
@@ -408,10 +407,10 @@ export default function ReportsPage() {
                           </span>
                         )}
                       </span>
-                    </motion.div>
+                    </div>
                   );
-                })}
-              </div>
+                }}
+              />
             </section>
           )}
         </>
@@ -442,17 +441,15 @@ export default function ReportsPage() {
                 <span>Récompenses</span>
                 <span>Date</span>
               </div>
-              <div className="divide-y divide-canopy-700/10">
-                {pveReports.map((report, index) => {
+              <VirtualList
+                items={pveReports}
+                estimateSize={76}
+                className="max-h-[calc(100vh-16rem)]"
+                keyExtractor={(report) => report.id}
+                renderItem={(report) => {
                   const { label, cls, Icon } = outcomeStyle(report.result?.outcome ?? '');
                   return (
-                    <motion.div
-                      key={report.id}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index * 0.04, 0.35) }}
-                      className="grid gap-3 px-5 py-4 xl:grid-cols-[2.5rem_minmax(12rem,1fr)_7rem_minmax(12rem,0.8fr)_8rem] xl:items-center"
-                    >
+                    <div className="grid gap-3 border-b border-canopy-700/10 px-5 py-4 xl:grid-cols-[2.5rem_minmax(12rem,1fr)_7rem_minmax(12rem,0.8fr)_8rem] xl:items-center">
                       <span className="grid h-9 w-9 place-items-center rounded-full border border-red-500/25 bg-red-500/[0.04] text-red-300/70">
                         <FiAlertTriangle className="h-4 w-4" aria-hidden="true" />
                       </span>
@@ -482,10 +479,10 @@ export default function ReportsPage() {
                       <span className="text-[10px] text-canopy-100/35">
                         {new Date(report.completedAt).toLocaleString('fr-FR')}
                       </span>
-                    </motion.div>
+                    </div>
                   );
-                })}
-              </div>
+                }}
+              />
             </section>
           )}
         </>

@@ -89,4 +89,71 @@ describe('PrismaService', () => {
       expect(work).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('optimistic', () => {
+    it('wraps the transaction client with the current universe id', async () => {
+      const work = jest.fn().mockResolvedValue('result');
+      const rawTx = {
+        user: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+      } as unknown as Prisma.TransactionClient;
+
+      jest
+        .spyOn(
+          (prismaService as unknown as { scopedClient: PrismaClient }).scopedClient,
+          '$transaction',
+        )
+        .mockImplementation(async (fn: unknown) => {
+          return (fn as (tx: Prisma.TransactionClient) => Promise<unknown>)(rawTx);
+        });
+
+      await universeContext.run({ universeId: 'u-test' }, () => prismaService.optimistic(work));
+
+      expect(work).toHaveBeenCalled();
+      const passedTx = work.mock.calls[0][0] as Prisma.TransactionClient;
+      await passedTx.user.findMany({});
+      expect(rawTx.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { universeId: 'u-test' } }),
+      );
+    });
+
+    it('retries optimistic lock conflicts with backoff', async () => {
+      jest.spyOn(global.Math, 'random').mockReturnValue(0);
+      jest.spyOn(global, 'setTimeout').mockImplementation((callback: () => void) => {
+        if (typeof callback === 'function') callback();
+        return 0 as unknown as NodeJS.Timeout;
+      });
+      const work = jest.fn().mockResolvedValue('ok');
+      const rawTx = {} as Prisma.TransactionClient;
+      const transaction = jest
+        .spyOn(
+          (prismaService as unknown as { scopedClient: PrismaClient }).scopedClient,
+          '$transaction',
+        )
+        .mockRejectedValueOnce({ code: 'P2025' })
+        .mockRejectedValueOnce({ code: 'OPTIMISTIC_LOCK_CONFLICT' })
+        .mockImplementation(async (fn: unknown) => {
+          return (fn as (tx: Prisma.TransactionClient) => Promise<unknown>)(rawTx);
+        });
+
+      await expect(prismaService.optimistic(work)).resolves.toBe('ok');
+
+      expect(transaction).toHaveBeenCalledTimes(3);
+      expect(work).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry non-optimistic errors', async () => {
+      const work = jest.fn().mockResolvedValue('ok');
+      const transaction = jest
+        .spyOn(
+          (prismaService as unknown as { scopedClient: PrismaClient }).scopedClient,
+          '$transaction',
+        )
+        .mockRejectedValueOnce(new Error('boom'));
+
+      await expect(prismaService.optimistic(work)).rejects.toThrow('boom');
+      expect(transaction).toHaveBeenCalledTimes(1);
+    });
+  });
 });

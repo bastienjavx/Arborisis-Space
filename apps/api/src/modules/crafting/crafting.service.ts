@@ -13,6 +13,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
 import { CRAFTING_QUEUE, FINALIZE_JOB } from '../queue/queue.constants';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class CraftingService {
@@ -23,6 +24,7 @@ export class CraftingService {
     private readonly engine: GameEngineService,
     private readonly planets: PlanetsService,
     @InjectQueue(CRAFTING_QUEUE) private readonly craftingQueue: Queue,
+    private readonly events: EventsGateway,
   ) {}
 
   getRecipes(): typeof CRAFTING_RECIPES {
@@ -36,7 +38,7 @@ export class CraftingService {
 
     const settled = await this.engine.settlePlanet(planet.id);
 
-    const createdJob = await this.prisma.serializable(async (tx) => {
+    const createdJob = await this.prisma.optimistic(async (tx) => {
       // Vérifier et déduire les ressources de base
       const resourceCosts: Partial<Record<ResourceType, number>> = {};
       for (const ing of recipe.ingredients) {
@@ -90,7 +92,7 @@ export class CraftingService {
       // Déduire ressources de base
       if (Object.keys(resourceCosts).length > 0) {
         await tx.planet.update({
-          where: { id: dto.planetId },
+          where: { id: dto.planetId, version: planetRow.version },
           data: {
             biomass: resourceCosts[ResourceType.BIOMASS]
               ? { decrement: resourceCosts[ResourceType.BIOMASS] }
@@ -105,6 +107,7 @@ export class CraftingService {
               ? { decrement: resourceCosts[ResourceType.SPORES] }
               : undefined,
             lastResourceUpdate: settled.planet.lastResourceUpdate,
+            version: { increment: 1 },
           },
         });
       }
@@ -136,6 +139,7 @@ export class CraftingService {
         backoff: { type: 'exponential' as const, delay: 5_000 },
       },
     );
+    this.events.emitToUser(userId, 'planet:updated', { planetId: dto.planetId });
 
     const job = await this.prisma.craftingJob.findUniqueOrThrow({
       where: { id: createdJob.id },
@@ -182,7 +186,7 @@ export class CraftingService {
   }
 
   async finalizeCraftingJob(jobId: string, now = new Date()): Promise<void> {
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       const job = await tx.craftingJob.findUnique({ where: { id: jobId } });
       if (!job || job.status !== 'PENDING' || job.completesAt > now) return;
 

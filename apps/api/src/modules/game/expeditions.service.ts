@@ -52,7 +52,7 @@ export class ExpeditionsService {
     const race = user.race as RaceType;
     let mission;
     try {
-      mission = await this.prisma.serializable(async (tx) => {
+      mission = await this.prisma.optimistic(async (tx) => {
         const active = await tx.expeditionMission.findFirst({
           where: {
             planetId: dto.planetId,
@@ -175,7 +175,7 @@ export class ExpeditionsService {
 
   async advanceMission(id: string, now = new Date()): Promise<void> {
     let scheduleReturn: Date | undefined;
-    const state = await this.prisma.serializable(async (tx) => {
+    const state = await this.prisma.optimistic(async (tx) => {
       const mission = await tx.expeditionMission.findUnique({
         where: { id },
         include: { planet: true, report: true },
@@ -334,12 +334,13 @@ export class ExpeditionsService {
         overflow[resource] = rewards[resource] - accepted[resource];
       }
       await tx.planet.update({
-        where: { id: mission.planetId },
+        where: { id: mission.planetId, version: settled.planet.version },
         data: {
           biomass: { increment: accepted[ResourceType.BIOMASS] },
           sap: { increment: accepted[ResourceType.SAP] },
           minerals: { increment: accepted[ResourceType.MINERALS] },
           spores: { increment: accepted[ResourceType.SPORES] },
+          version: { increment: 1 },
         },
       });
       for (const [type, quantity] of [

@@ -17,11 +17,13 @@ import { useMe } from '@/lib/queries';
 import { ApiError } from '@/lib/api';
 import { onSessionEvent } from '@/lib/session';
 import { fadeUp, organicEase } from '@/lib/motion';
+import { useRealtime } from '@/lib/socket';
 
 export function GameShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { data: user, isLoading, isError, error } = useMe();
   const [networkError, setNetworkError] = useState(false);
+  useRealtime();
 
   useEffect(() => {
     const unsubscribe = onSessionEvent((event) => {

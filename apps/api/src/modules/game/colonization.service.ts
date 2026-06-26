@@ -17,6 +17,7 @@ import { GameEngineService } from './game-engine.service';
 import { GalaxyService } from './galaxy.service';
 import { colonizationJobView } from './game.mappers';
 import { PlanetsService } from './planets.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class ColonizationService {
@@ -27,6 +28,7 @@ export class ColonizationService {
     private readonly galaxy: GalaxyService,
     private readonly finalization: FinalizationService,
     private readonly queue: GameQueueService,
+    private readonly events: EventsGateway,
   ) {}
 
   async colonize(userId: string, sourcePlanetId: string, target: Coordinates): Promise<JobView> {
@@ -35,7 +37,7 @@ export class ColonizationService {
     this.galaxy.assertValidPosition(target.galaxy, target.system, target.position);
     let job;
     try {
-      job = await this.prisma.serializable(async (tx) => {
+      job = await this.prisma.optimistic(async (tx) => {
         const universeId = await getDefaultUniverseId(tx);
         const propulsion =
           (
@@ -86,7 +88,7 @@ export class ColonizationService {
         }
         const now = new Date();
         const finishesAt = new Date(now.getTime() + colonizationTimeSeconds(propulsion) * 1_000);
-        await this.engine.spend(sourcePlanetId, cost, tx);
+        await this.engine.spend(sourcePlanetId, cost, tx, settled.planet.version);
         return tx.colonizationJob.create({
           data: {
             userId,
@@ -106,6 +108,8 @@ export class ColonizationService {
       throw error;
     }
     await this.queue.scheduleColonization(job.id, job.finishesAt);
+    this.events.emitToUser(userId, 'planet:updated', { planetId: sourcePlanetId });
+    this.events.emitToUser(userId, 'mission:updated', { kind: 'colonization' });
 
     return colonizationJobView(job);
   }

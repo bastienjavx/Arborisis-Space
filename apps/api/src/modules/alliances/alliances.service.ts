@@ -77,13 +77,13 @@ export class AlliancesService {
       throw new BadRequestException('Ressources insuffisantes pour fonder une alliance.');
     }
 
-    const alliance = await this.prisma.serializable(async (tx) => {
+    const alliance = await this.prisma.optimistic(async (tx) => {
       const settledTx = await this.engine.settlePlanet(homeworld.id, new Date(), tx);
       const resTx = this.engine.buildResourceState(settledTx);
       if (!canAfford(resTx.amounts, ALLIANCE_CREATION_COST)) {
         throw new BadRequestException('Ressources insuffisantes pour fonder une alliance.');
       }
-      await this.engine.spend(homeworld.id, ALLIANCE_CREATION_COST, tx);
+      await this.engine.spend(homeworld.id, ALLIANCE_CREATION_COST, tx, settledTx.planet.version);
 
       const created = await tx.alliance.create({
         data: {

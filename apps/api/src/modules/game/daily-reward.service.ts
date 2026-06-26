@@ -28,7 +28,7 @@ export class DailyRewardService {
   }
 
   async claim(userId: string, now = new Date()): Promise<DailyRewardView> {
-    return this.prisma.serializable(async (tx) => {
+    return this.prisma.optimistic(async (tx) => {
       const user = await tx.user.findUniqueOrThrow({
         where: { id: userId },
         select: { lastDailyClaimAt: true, dailyStreak: true },

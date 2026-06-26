@@ -15,6 +15,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
 import { PRODUCTION_LINE_QUEUE, RUN_PRODUCTION_LINE_JOB } from '../queue/queue.constants';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class ProductionLinesService {
@@ -25,6 +26,7 @@ export class ProductionLinesService {
     private readonly engine: GameEngineService,
     private readonly planets: PlanetsService,
     @InjectQueue(PRODUCTION_LINE_QUEUE) private readonly lineQueue: Queue,
+    private readonly events: EventsGateway,
   ) {}
 
   async getLines(userId: string): Promise<ProductionLineView[]> {
@@ -130,7 +132,7 @@ export class ProductionLinesService {
     await this.engine.settlePlanet(line.planetId);
     const nextRunAt = new Date(now.getTime() + line.cycleSeconds * 1_000);
 
-    const completed = await this.prisma.serializable(async (tx) => {
+    const completed = await this.prisma.optimistic(async (tx) => {
       const claimed = await tx.productionLine.updateMany({
         where: {
           id: lineId,
@@ -161,7 +163,7 @@ export class ProductionLinesService {
       }
 
       await tx.planet.update({
-        where: { id: line.planetId },
+        where: { id: line.planetId, version: planet.version },
         data: {
           biomass: recipe.inputs[ResourceType.BIOMASS]
             ? { decrement: recipe.inputs[ResourceType.BIOMASS] }
@@ -175,6 +177,7 @@ export class ProductionLinesService {
           spores: recipe.inputs[ResourceType.SPORES]
             ? { decrement: recipe.inputs[ResourceType.SPORES] }
             : undefined,
+          version: { increment: 1 },
         },
       });
 
@@ -200,6 +203,7 @@ export class ProductionLinesService {
 
     if (completed) {
       await this.scheduleLine(lineId, nextRunAt);
+      this.events.emitToUser(line.userId, 'planet:updated', { planetId: line.planetId });
       this.logger.debug(`Ligne de production exécutée : ${lineId}`);
     }
   }

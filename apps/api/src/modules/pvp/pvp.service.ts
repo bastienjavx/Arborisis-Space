@@ -71,7 +71,7 @@ export class PvpService {
 
     let mission;
     try {
-      mission = await this.prisma.serializable(async (tx) => {
+      mission = await this.prisma.optimistic(async (tx) => {
         const active = await tx.pvpMission.findFirst({
           where: {
             sourcePlanetId: dto.sourcePlanetId,
@@ -155,7 +155,7 @@ export class PvpService {
 
     let mission;
     try {
-      mission = await this.prisma.serializable(async (tx) => {
+      mission = await this.prisma.optimistic(async (tx) => {
         const active = await tx.pvpMission.findFirst({
           where: {
             sourcePlanetId: dto.sourcePlanetId,
@@ -323,7 +323,7 @@ export class PvpService {
 
   async advanceMission(id: string, now = new Date()): Promise<void> {
     let scheduleNext: { phase: string; at: Date } | undefined;
-    const state = await this.prisma.serializable(async (tx) => {
+    const state = await this.prisma.optimistic(async (tx) => {
       const mission = await tx.pvpMission.findUnique({
         where: { id },
         include: {
@@ -485,12 +485,13 @@ export class PvpService {
           accepted[resource] = Math.max(0, Math.min(loot[resource] ?? 0, cap - current[resource]));
         }
         await tx.planet.update({
-          where: { id: mission.sourcePlanetId },
+          where: { id: mission.sourcePlanetId, version: settled.planet.version },
           data: {
             biomass: { increment: accepted[ResourceType.BIOMASS] },
             sap: { increment: accepted[ResourceType.SAP] },
             minerals: { increment: accepted[ResourceType.MINERALS] },
             spores: { increment: accepted[ResourceType.SPORES] },
+            version: { increment: 1 },
           },
         });
       }

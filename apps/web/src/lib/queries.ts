@@ -113,7 +113,7 @@ export function useChatMessages(scope: ChatScope, peerId?: string) {
     queryKey: keys.chatMessages(scope, peerId),
     queryFn: () => api.chatMessages(scope, peerId),
     enabled: scope !== ChatScope.PRIVATE || !!peerId,
-    refetchInterval: 3_000,
+    refetchInterval: false,
   });
 }
 
@@ -157,7 +157,7 @@ export function useModerationActions(enabled = true) {
   return useQuery({
     queryKey: keys.moderationActions,
     queryFn: () => api.moderationActions(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
     enabled,
   });
 }
@@ -203,7 +203,7 @@ export function usePlanetDetail(
     queryFn: () => api.planet(id!),
     enabled: !!id,
     // Rafraîchit régulièrement pour suivre l'accumulation des ressources.
-    refetchInterval: 15_000,
+    refetchInterval: false,
     ...options,
   });
 }
@@ -213,7 +213,7 @@ export function useResearch(planetId: string | undefined) {
     queryKey: keys.research(planetId ?? 'none'),
     queryFn: () => api.research(planetId!),
     enabled: !!planetId,
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -233,7 +233,7 @@ export function useFleet(planetId: string | undefined) {
     queryKey: keys.fleet(planetId ?? 'none'),
     queryFn: () => api.fleet(planetId!),
     enabled: !!planetId,
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -241,7 +241,7 @@ export function useExpeditions() {
   return useQuery({
     queryKey: keys.expeditions,
     queryFn: () => api.expeditions(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -249,7 +249,7 @@ export function useExpeditionReports() {
   return useQuery({
     queryKey: keys.expeditionReports,
     queryFn: () => api.expeditionReports(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -257,7 +257,7 @@ export function useEncounters() {
   return useQuery({
     queryKey: keys.encounters,
     queryFn: () => api.encounters(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -265,7 +265,7 @@ export function usePveMissions() {
   return useQuery({
     queryKey: keys.pveMissions,
     queryFn: () => api.pveMissions(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -273,7 +273,7 @@ export function usePveReports() {
   return useQuery<PveReportView[]>({
     queryKey: keys.pveReports,
     queryFn: () => api.pveReports(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -281,7 +281,7 @@ export function usePvpMissions() {
   return useQuery({
     queryKey: keys.pvpMissions,
     queryFn: () => api.pvpMissions(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -289,7 +289,7 @@ export function usePvpReports() {
   return useQuery<PvpReportView[]>({
     queryKey: keys.pvpReports,
     queryFn: () => api.pvpReports(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -297,7 +297,7 @@ export function useIncomingAttacks() {
   return useQuery<IncomingAttackView[]>({
     queryKey: keys.incomingAttacks,
     queryFn: () => api.incomingAttacks(),
-    refetchInterval: 30_000,
+    refetchInterval: false,
   });
 }
 
@@ -305,7 +305,7 @@ export function useTransfers() {
   return useQuery<ResourceTransferMissionView[]>({
     queryKey: keys.transfers,
     queryFn: () => api.transfers(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -313,7 +313,7 @@ export function useProductionLines() {
   return useQuery({
     queryKey: keys.productionLines,
     queryFn: () => api.productionLines(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -473,7 +473,7 @@ export function useLeaderboard() {
   return useQuery({
     queryKey: keys.leaderboard,
     queryFn: () => api.leaderboard(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -481,7 +481,7 @@ export function useAllianceLeaderboard() {
   return useQuery({
     queryKey: keys.allianceLeaderboard,
     queryFn: () => api.allianceLeaderboard(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -489,7 +489,7 @@ export function useSeasons() {
   return useQuery({
     queryKey: keys.seasons,
     queryFn: () => api.seasons(),
-    refetchInterval: 120_000,
+    refetchInterval: false,
   });
 }
 
@@ -510,7 +510,7 @@ export function useActiveEvent() {
   return useQuery({
     queryKey: keys.activeEvent,
     queryFn: () => api.activeEvent(),
-    refetchInterval: 120_000,
+    refetchInterval: false,
   });
 }
 
@@ -518,7 +518,7 @@ export function useAchievements() {
   return useQuery({
     queryKey: keys.achievements,
     queryFn: () => api.achievements(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -526,7 +526,7 @@ export function useQuests() {
   return useQuery({
     queryKey: keys.quests,
     queryFn: () => api.quests(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -740,7 +740,7 @@ export function useNotifications() {
   return useQuery<NotificationView[]>({
     queryKey: keys.notifications,
     queryFn: () => api.notifications(),
-    refetchInterval: 30_000,
+    refetchInterval: false,
   });
 }
 
@@ -748,7 +748,7 @@ export function useNotificationUnreadCount() {
   return useQuery<UnreadCountView>({
     queryKey: keys.notificationUnreadCount,
     queryFn: () => api.notificationUnreadCount(),
-    refetchInterval: 20_000,
+    refetchInterval: false,
   });
 }
 

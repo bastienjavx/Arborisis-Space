@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, NotificationType as PrismaNotificationType } from '@prisma/client';
 import { NotificationType, NotificationView, UnreadCountView } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventsGateway,
+  ) {}
 
   async create(
     userId: string,
@@ -23,6 +27,7 @@ export class NotificationsService {
         data: data as Prisma.InputJsonValue,
       },
     });
+    this.events.emitToUser(userId, 'notification:new', { type });
   }
 
   async list(userId: string, limit = 50): Promise<NotificationView[]> {
