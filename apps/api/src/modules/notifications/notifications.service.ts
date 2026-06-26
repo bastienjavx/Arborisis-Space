@@ -1,11 +1,17 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { Prisma, NotificationType as PrismaNotificationType } from '@prisma/client';
+import { Queue } from 'bullmq';
 import { NotificationType, NotificationView, UnreadCountView } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { NOTIFICATIONS_QUEUE, SEND_NOTIFICATION_JOB } from '../queue/queue.constants';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
+  ) {}
 
   async create(
     userId: string,
@@ -22,6 +28,28 @@ export class NotificationsService {
         message,
         data: data as Prisma.InputJsonValue,
       },
+    });
+  }
+
+  async enqueue(
+    userId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    data: Record<string, unknown> = {},
+  ): Promise<void> {
+    const payload: Prisma.NotificationCreateManyInput = {
+      userId,
+      type: type as PrismaNotificationType,
+      title,
+      message,
+      data: data as Prisma.InputJsonValue,
+    };
+    await this.queue.add(SEND_NOTIFICATION_JOB, [payload], {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5_000 },
+      removeOnComplete: true,
+      removeOnFail: 50,
     });
   }
 

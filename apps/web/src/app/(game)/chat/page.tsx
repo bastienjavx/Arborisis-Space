@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, memo, useCallback } from 'react';
 import Link from 'next/link';
-import { ChatScope, UserRole, type ChatContactView } from '@arborisis/shared';
+import { ChatScope, UserRole, type ChatContactView, type ChatMessageView } from '@arborisis/shared';
 import {
   FiGlobe,
   FiLock,
@@ -29,19 +29,20 @@ const TABS = [
   { scope: ChatScope.PRIVATE, label: 'Privé', icon: FiLock },
 ] as const;
 
-function ContactButton({
+const ContactButton = memo(function ContactButton({
   contact,
   active,
-  onClick,
+  onSelect,
 }: {
   contact: ChatContactView;
   active: boolean;
-  onClick: () => void;
+  onSelect: (id: string) => void;
 }) {
+  const handleClick = useCallback(() => onSelect(contact.id), [contact.id, onSelect]);
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
       className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition ${
         active
           ? 'border-canopy-300/30 bg-canopy-500/10'
@@ -62,17 +63,75 @@ function ContactButton({
       </span>
     </button>
   );
-}
+});
+
+const ChatMessage = memo(function ChatMessage({
+  message,
+  mine,
+  canModerate,
+  onDelete,
+}: {
+  message: ChatMessageView;
+  mine: boolean;
+  canModerate: boolean;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <article className={`group flex ${mine ? 'justify-end' : 'justify-start'}`}>
+      <div className={`max-w-[85%] sm:max-w-[70%] ${mine ? 'text-right' : ''}`}>
+        <div className="mb-1 flex items-center gap-2 text-[11px] text-canopy-100/35">
+          <span className={message.author.role !== UserRole.PLAYER ? 'text-amber-200/70' : ''}>
+            {message.author.displayName || message.author.username}
+          </span>
+          {message.author.title ? (
+            <span className="text-[9px] uppercase tracking-wider text-spore-300/60">
+              {message.author.title}
+            </span>
+          ) : null}
+          <time dateTime={message.createdAt}>
+            {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </time>
+        </div>
+        <div
+          className={`rounded-2xl border px-4 py-3 text-left text-sm leading-6 ${
+            message.deletedAt
+              ? 'border-canopy-700/10 text-canopy-100/25 italic'
+              : mine
+                ? 'border-canopy-300/25 bg-canopy-500/10 text-canopy-50/90'
+                : 'border-canopy-700/20 bg-bark-950/55 text-canopy-100/75'
+          }`}
+        >
+          {message.content}
+        </div>
+        {!message.deletedAt && (mine || canModerate) && (
+          <button
+            type="button"
+            onClick={() => onDelete(message.id)}
+            className="mt-1 inline-flex items-center gap-1 text-[10px] text-red-300/0 transition group-hover:text-red-300/55 focus:text-red-300/70"
+            aria-label="Supprimer le message"
+          >
+            <FiTrash2 className="h-3 w-3" aria-hidden="true" />
+            Supprimer
+          </button>
+        )}
+      </div>
+    </article>
+  );
+});
 
 export default function ChatPage() {
   const { data: me } = useMe();
   const { data: alliance } = useMyAlliance();
   const [scope, setScope] = useState<ChatScope>(ChatScope.GLOBAL);
-  const [peer, setPeer] = useState<ChatContactView | null>(null);
+  const [peerId, setPeerId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { data: contacts = [] } = useChatContacts(search);
+  const peer = useMemo(() => contacts.find((c) => c.id === peerId) ?? null, [contacts, peerId]);
   const { data: messages = [], isLoading } = useChatMessages(scope, peer?.id);
   const send = useSendChatMessage(scope, peer?.id);
   const remove = useDeleteChatMessage(scope, peer?.id);
@@ -82,26 +141,54 @@ export default function ChatPage() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length, scope, peer?.id]);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    const value = content.trim();
-    if (!value || (scope === ChatScope.PRIVATE && !peer)) return;
-    setError(null);
-    try {
-      await send.mutateAsync({
-        scope,
-        content: value,
-        recipientId: scope === ChatScope.PRIVATE ? peer?.id : undefined,
-      });
-      setContent('');
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Envoi impossible.');
-    }
-  }
+  const submit = useCallback(
+    async (event: React.FormEvent) => {
+      event.preventDefault();
+      const value = content.trim();
+      if (!value || (scope === ChatScope.PRIVATE && !peer)) return;
+      setError(null);
+      try {
+        await send.mutateAsync({
+          scope,
+          content: value,
+          recipientId: scope === ChatScope.PRIVATE ? peer?.id : undefined,
+        });
+        setContent('');
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'Envoi impossible.');
+      }
+    },
+    [content, scope, peer, send],
+  );
+
+  const handleSelectContact = useCallback((id: string) => {
+    setPeerId(id);
+  }, []);
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      remove.mutate({ id });
+    },
+    [remove],
+  );
 
   const canModerate = me?.role === UserRole.ADMIN || me?.role === UserRole.MODERATOR;
   const allianceUnavailable = scope === ChatScope.ALLIANCE && !alliance;
   const privateUnavailable = scope === ChatScope.PRIVATE && !peer;
+
+  const renderedMessages = useMemo(
+    () =>
+      messages.map((message) => (
+        <ChatMessage
+          key={message.id}
+          message={message}
+          mine={message.author.id === me?.id}
+          canModerate={canModerate}
+          onDelete={handleDelete}
+        />
+      )),
+    [messages, me?.id, canModerate, handleDelete],
+  );
 
   return (
     <div className="space-y-6">
@@ -162,8 +249,8 @@ export default function ChatPage() {
                     <ContactButton
                       key={contact.id}
                       contact={contact}
-                      active={peer?.id === contact.id}
-                      onClick={() => setPeer(contact)}
+                      active={peerId === contact.id}
+                      onSelect={handleSelectContact}
                     />
                   ))}
                   {!contacts.length && (
@@ -217,60 +304,7 @@ export default function ChatPage() {
                   Aucun message. Initiez la conversation.
                 </p>
               )}
-              {messages.map((message) => {
-                const mine = message.author.id === me?.id;
-                return (
-                  <article
-                    key={message.id}
-                    className={`group flex ${mine ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-[85%] sm:max-w-[70%] ${mine ? 'text-right' : ''}`}>
-                      <div className="mb-1 flex items-center gap-2 text-[11px] text-canopy-100/35">
-                        <span
-                          className={
-                            message.author.role !== UserRole.PLAYER ? 'text-amber-200/70' : ''
-                          }
-                        >
-                          {message.author.displayName || message.author.username}
-                        </span>
-                        {message.author.title ? (
-                          <span className="text-[9px] uppercase tracking-wider text-spore-300/60">
-                            {message.author.title}
-                          </span>
-                        ) : null}
-                        <time dateTime={message.createdAt}>
-                          {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </time>
-                      </div>
-                      <div
-                        className={`rounded-2xl border px-4 py-3 text-left text-sm leading-6 ${
-                          message.deletedAt
-                            ? 'border-canopy-700/10 text-canopy-100/25 italic'
-                            : mine
-                              ? 'border-canopy-300/25 bg-canopy-500/10 text-canopy-50/90'
-                              : 'border-canopy-700/20 bg-bark-950/55 text-canopy-100/75'
-                        }`}
-                      >
-                        {message.content}
-                      </div>
-                      {!message.deletedAt && (mine || canModerate) && (
-                        <button
-                          type="button"
-                          onClick={() => remove.mutate({ id: message.id })}
-                          className="mt-1 inline-flex items-center gap-1 text-[10px] text-red-300/0 transition group-hover:text-red-300/55 focus:text-red-300/70"
-                          aria-label="Supprimer le message"
-                        >
-                          <FiTrash2 className="h-3 w-3" aria-hidden="true" />
-                          Supprimer
-                        </button>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+              {renderedMessages}
               <div ref={endRef} />
             </div>
 

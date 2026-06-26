@@ -1,20 +1,12 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { HealthCheckError, HealthIndicator, HealthIndicatorResult } from '@nestjs/terminus';
 import Redis from 'ioredis';
-import type { Env } from '../../common/config/env';
+import { REDIS_CLIENT } from '../../common/redis/redis.module';
 
 @Injectable()
-export class RedisHealthIndicator extends HealthIndicator implements OnModuleDestroy {
-  private readonly client: Redis;
-
-  constructor(config: ConfigService<Env, true>) {
+export class RedisHealthIndicator extends HealthIndicator {
+  constructor(@Inject(REDIS_CLIENT) private readonly client: Redis) {
     super();
-    this.client = new Redis(config.get('REDIS_URL', { infer: true }), {
-      lazyConnect: true,
-      maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-    });
   }
 
   async pingCheck(key: string): Promise<HealthIndicatorResult> {
@@ -30,9 +22,5 @@ export class RedisHealthIndicator extends HealthIndicator implements OnModuleDes
         }),
       );
     }
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    this.client.disconnect();
   }
 }

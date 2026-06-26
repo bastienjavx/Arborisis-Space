@@ -7,6 +7,7 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
 import { LoggerModule } from 'nestjs-pino';
 import { validateEnv, type Env } from './common/config/env';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { RedisModule } from './common/redis/redis.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { OriginGuard } from './common/guards/origin.guard';
 import { AntiCheatModule } from './modules/anticheat/anticheat.module';
@@ -86,6 +87,7 @@ import { DefensesModule } from './modules/defenses/defenses.module';
         };
       },
     }),
+    RedisModule,
     PrismaModule,
     AntiCheatModule,
     HealthModule,
