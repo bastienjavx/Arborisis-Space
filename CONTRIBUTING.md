@@ -50,6 +50,14 @@ npm run test:e2e -w @arborisis/api
 - If schema/enums changed, include migration files and mention rollout implications.
 - Never commit secrets. Keep `.env` local only.
 
+### Expected security checks on PRs
+
+- `Security / Scan de secrets (gitleaks)`
+- `Security / Audit dépendances runtime`
+- `Security / Scan Trivy (repo/config)`
+- `CodeQL / Analyse CodeQL`
+- `Dependency Review / Dependency Review (HIGH + CRITICAL bloquant)`
+
 ---
 
 ## FR
@@ -96,3 +104,11 @@ npm run test:e2e -w @arborisis/api
 - Décrire l’impact fonctionnel et les zones à risque.
 - Si schema/enums évoluent, inclure les migrations et noter l’impact déploiement.
 - Ne jamais versionner de secrets.
+
+### Checks sécurité attendus sur PR
+
+- `Security / Scan de secrets (gitleaks)`
+- `Security / Audit dépendances runtime`
+- `Security / Scan Trivy (repo/config)`
+- `CodeQL / Analyse CodeQL`
+- `Dependency Review / Dependency Review (HIGH + CRITICAL bloquant)`

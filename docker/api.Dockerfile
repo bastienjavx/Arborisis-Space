@@ -26,17 +26,21 @@ RUN npx prisma generate \
 FROM base AS runner
 ENV NODE_ENV=production
 # node_modules complet (inclut prisma CLI pour `migrate deploy`) + artefacts compilés.
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/packages/shared/dist packages/shared/dist
-COPY --from=builder /app/packages/shared/package.json packages/shared/package.json
-COPY --from=builder /app/apps/api/dist apps/api/dist
-COPY --from=builder /app/apps/api/package.json apps/api/package.json
-COPY --from=builder /app/apps/api/node_modules apps/api/node_modules
-COPY --from=builder /app/prisma prisma
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --from=builder --chown=node:node /app/packages/shared/dist packages/shared/dist
+COPY --from=builder --chown=node:node /app/packages/shared/package.json packages/shared/package.json
+COPY --from=builder --chown=node:node /app/apps/api/dist apps/api/dist
+COPY --from=builder --chown=node:node /app/apps/api/package.json apps/api/package.json
+COPY --from=builder --chown=node:node /app/apps/api/node_modules apps/api/node_modules
+COPY --from=builder --chown=node:node /app/prisma prisma
 
-COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY --chown=node:node docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+  && touch /app/.env \
+  && chown node:node /app/.env \
+  && chmod 600 /app/.env
 
 EXPOSE 4000
+USER node
 CMD ["/entrypoint.sh"]

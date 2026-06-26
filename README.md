@@ -126,6 +126,7 @@ npm run test:e2e -w @arborisis/api
 - Web service must be configured to use `/railway.web.toml`.
 - Database migrations and seed run in API release phase (`preDeployCommand`).
 - Web calls API through private network `API_INTERNAL_URL`.
+- GitHub CI is the quality gate before deploys (`CI`, `Security`, `CodeQL`, and `Dependency Review` checks).
 
 ### 6) Full documentation
 

@@ -1,0 +1,38 @@
+name: OSSF Scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '41 4 * * 1' # lundi 04:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: scorecards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scorecard-analysis:
+    name: Scorecard supply-chain
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run OSSF Scorecard
+        uses: ossf/scorecard-action@e4c423540e964e15ccadc56558705ba15136265c
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+
+      - name: Upload SARIF (scorecard)
+        uses: github/codeql-action/upload-sarif@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb
+        with:
+          sarif_file: scorecard-results.sarif
+          category: scorecard

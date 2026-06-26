@@ -41,6 +41,16 @@ Private contact: **bastienjavaux@gmail.com**
 - `.env.example` documents required variables; `.env` stays local.
 - Prisma queries are parameterized; no raw SQL from untrusted input.
 
+### CI/CD security checks (GitHub Actions)
+
+- **CodeQL** (`.github/workflows/codeql.yml`) for JS/TS SAST and GitHub Security alerts.
+- **Security** (`.github/workflows/security.yml`) for:
+  - **gitleaks** secret scanning (blocking),
+  - npm runtime audit (`--omit=dev`) with HIGH/CRITICAL blocking threshold,
+  - **Trivy** repository/config scan (vulns, misconfigs, secrets; HIGH/CRITICAL blocking).
+- **Dependency Review** (`.github/workflows/dependency-review.yml`) blocks newly introduced HIGH/CRITICAL vulnerabilities in dependency changes.
+- **OSSF Scorecard** (`.github/workflows/scorecards.yml`) continuously monitors supply-chain posture and publishes SARIF results.
+
 ---
 
 ## FR
@@ -79,3 +89,13 @@ Contact privé : **bastienjavaux@gmail.com**
 - Secrets JWT forts requis (`openssl rand -base64 48`).
 - `.env.example` documente, `.env` reste local.
 - Accès DB via Prisma (requêtes paramétrées).
+
+### Sécurité CI/CD (GitHub Actions)
+
+- **CodeQL** (`.github/workflows/codeql.yml`) pour la SAST JavaScript/TypeScript et la remontée d’alertes dans GitHub Security.
+- **Security** (`.github/workflows/security.yml`) pour :
+  - le scan de secrets **gitleaks** (bloquant),
+  - l’audit npm runtime (`--omit=dev`) avec seuil bloquant HIGH/CRITICAL,
+  - le scan **Trivy** repo/config (vulnérabilités, mauvaises configurations, secrets; HIGH/CRITICAL bloquant).
+- **Dependency Review** (`.github/workflows/dependency-review.yml`) bloque l’introduction de nouvelles vulnérabilités HIGH/CRITICAL via les changements de dépendances.
+- **OSSF Scorecard** (`.github/workflows/scorecards.yml`) suit la posture supply-chain et publie les résultats SARIF.
