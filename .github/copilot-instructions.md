@@ -177,16 +177,16 @@ npm run test:e2e -w @arborisis/api
 
 ## Important Files & Patterns
 
-| File                                       | Purpose                                     | Watch For                                                           |
-| ------------------------------------------ | ------------------------------------------- | ------------------------------------------------------------------- |
-| `packages/shared/src/constants.ts`         | All balance and gameplay constants          | Changes here affect both front and back; requires rebuild + testing |
-| `packages/shared/src/enums.ts`             | Game enums (research, building types, etc.) | Must mirror `prisma/schema.prisma`; new values need migrations      |
-| `packages/shared/src/formulas.ts`          | Pure gameplay formulas (tested)             | Import only; do not duplicate logic elsewhere                       |
-| `apps/api/src/modules/game/game-engine.service.ts`   | Lazy resource settlement & authority        | Server-side recalculation of all player resources before mutations  |
+| File                                                | Purpose                                     | Watch For                                                           |
+| --------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
+| `packages/shared/src/constants.ts`                  | All balance and gameplay constants          | Changes here affect both front and back; requires rebuild + testing |
+| `packages/shared/src/enums.ts`                      | Game enums (research, building types, etc.) | Must mirror `prisma/schema.prisma`; new values need migrations      |
+| `packages/shared/src/formulas.ts`                   | Pure gameplay formulas (tested)             | Import only; do not duplicate logic elsewhere                       |
+| `apps/api/src/modules/game/game-engine.service.ts`  | Lazy resource settlement & authority        | Server-side recalculation of all player resources before mutations  |
 | `apps/api/src/modules/game/finalization.service.ts` | Idempotent job finalization                 | Processes BullMQ jobs; designed to be retried safely                |
-| `apps/web/src/lib/api.ts`                  | Typed API client with auto-refresh          | Handles 401 → refresh → retry automatically                         |
-| `prisma/schema.prisma`                     | Database schema + Prisma enums              | Enums must match `shared/enums.ts`                                  |
-| `.env.example`                             | Environment template                        | Always keep in sync with required secrets                           |
+| `apps/web/src/lib/api.ts`                           | Typed API client with auto-refresh          | Handles 401 → refresh → retry automatically                         |
+| `prisma/schema.prisma`                              | Database schema + Prisma enums              | Enums must match `shared/enums.ts`                                  |
+| `.env.example`                                      | Environment template                        | Always keep in sync with required secrets                           |
 
 ## Git & Development Practices
 
