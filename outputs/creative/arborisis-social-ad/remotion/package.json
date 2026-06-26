@@ -5,6 +5,9 @@
   "repository": {},
   "license": "UNLICENSED",
   "private": true,
+  "overrides": {
+    "@eslint/plugin-kit": "^0.3.4"
+  },
   "dependencies": {
     "@remotion/cli": "4.0.481",
     "@remotion/media": "4.0.481",
