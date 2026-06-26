@@ -1,7 +1,8 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 interface AnimatedButtonProps {
   children: ReactNode;
@@ -24,7 +25,7 @@ const variantStyles = {
     'bg-red-900/40 text-red-200 border border-red-700/30 hover:bg-red-800/50 shadow-[0_0_16px_-4px_rgba(220,38,38,0.3)]',
 };
 
-export function AnimatedButton({
+function AnimatedButtonInner({
   children,
   onClick,
   disabled = false,
@@ -68,4 +69,5 @@ export function AnimatedButton({
   );
 }
 
+export const AnimatedButton = memo(AnimatedButtonInner);
 export default AnimatedButton;

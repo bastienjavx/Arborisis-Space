@@ -134,7 +134,11 @@ export class AuthService {
    */
   private async enqueueProvisioning(): Promise<void> {
     await this.provisioningQueue
-      .add(PROVISION_UNIVERSE_JOB, {}, { removeOnComplete: true, removeOnFail: 10 })
+      .add(
+        PROVISION_UNIVERSE_JOB,
+        {},
+        { jobId: 'provisioning-universe', removeOnComplete: true, removeOnFail: 10 },
+      )
       .catch((error) => {
         this.logger.error(error, "Impossible de planifier le provisioning d'un nouvel univers.");
       });

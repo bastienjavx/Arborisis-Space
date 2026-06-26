@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import type { AuthUser } from '@arborisis/shared';
 import { UserRole } from '@arborisis/shared';
 import {
   FiAward,
@@ -31,7 +32,7 @@ import {
   FiX,
 } from 'react-icons/fi';
 import { api } from '@/lib/api';
-import { useMe, useExpeditionReports } from '@/lib/queries';
+import { useExpeditionReports } from '@/lib/queries';
 import { usePlanetSelection } from './PlanetContext';
 
 const LINKS = [
@@ -67,17 +68,16 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Nav({ username }: { username: string }) {
+export function Nav({ user }: { user: AuthUser }) {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
-  const { data: user } = useMe();
   const { data: expeditionReports } = useExpeditionReports();
   const unreadCount = expeditionReports?.filter((r) => !r.isRead).length ?? 0;
   const { planets, selectedId, select } = usePlanetSelection();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigationLinks =
-    user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR
+    user.role === UserRole.ADMIN || user.role === UserRole.MODERATOR
       ? [...LINKS, ADMIN_LINK]
       : LINKS;
 
@@ -200,7 +200,7 @@ export function Nav({ username }: { username: string }) {
               Stratège
             </span>
             <span className="mt-1 block truncate text-sm text-canopy-100/75">
-              {user?.displayName || username}
+              {user.displayName || user.username}
             </span>
           </Link>
           <button

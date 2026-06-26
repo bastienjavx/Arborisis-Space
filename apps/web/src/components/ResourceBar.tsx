@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { RESOURCE_TYPES, ResourceType, type ResourceState } from '@arborisis/shared';
@@ -10,6 +10,36 @@ import { RESOURCE_VISUALS } from '@/lib/resourceVisuals';
 import { codexId } from '@/lib/codex';
 import { AnimatedCounter } from './AnimatedCounter';
 import { WikiPopover } from './WikiPopover';
+
+interface ResourceBase {
+  amounts: ResourceState['amounts'];
+  perHour: ResourceState['perHour'];
+  capacity: ResourceState['capacity'];
+  at: number;
+}
+
+function ResourceValue({ base, type }: { base: ResourceBase; type: ResourceType }) {
+  const [value, setValue] = useState(() => Math.floor(base.amounts[type]));
+
+  useEffect(() => {
+    const update = () => {
+      const hours = (Date.now() - base.at) / 3_600_000;
+      const projected = base.amounts[type] + base.perHour[type] * hours;
+      setValue(Math.floor(Math.min(base.capacity[type], projected)));
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [base, type]);
+
+  const full = value >= base.capacity[type];
+
+  return (
+    <span className={full ? 'font-semibold text-sap-400' : 'font-semibold text-canopy-50'}>
+      <AnimatedCounter value={value} duration={1} />
+    </span>
+  );
+}
 
 /**
  * Barre de ressources avec accumulation fluide côté client (extrapolation de la
@@ -24,33 +54,21 @@ export function ResourceBar({
   compact?: boolean;
   className?: string;
 }) {
-  const base = useRef({ amounts: resources.amounts, at: Date.now() });
-  const [display, setDisplay] = useState(resources.amounts);
-
-  useEffect(() => {
-    base.current = { amounts: resources.amounts, at: Date.now() };
-    setDisplay(resources.amounts);
-  }, [resources]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const hours = (Date.now() - base.current.at) / 3_600_000;
-      const next = {} as Record<ResourceType, number>;
-      for (const r of RESOURCE_TYPES) {
-        const projected = base.current.amounts[r] + resources.perHour[r] * hours;
-        next[r] = Math.min(resources.capacity[r], projected);
-      }
-      setDisplay(next);
-    }, 1000);
-    return () => clearInterval(id);
-  }, [resources]);
+  const base = useMemo<ResourceBase>(
+    () => ({
+      amounts: resources.amounts,
+      perHour: resources.perHour,
+      capacity: resources.capacity,
+      at: Date.now(),
+    }),
+    [resources],
+  );
 
   return (
     <div
       className={`tabular ${compact ? 'grid grid-cols-6 gap-0 overflow-visible' : 'flex gap-2 overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible'} text-sm ${className}`}
     >
       {RESOURCE_TYPES.map((r) => {
-        const full = display[r] >= resources.capacity[r];
         const ResourceIcon = RESOURCE_VISUALS[r].Icon;
         return (
           <motion.div
@@ -67,11 +85,7 @@ export function ResourceBar({
                     {resourceLabel(r)}
                   </WikiPopover>
                 </span>
-                <span
-                  className={full ? 'font-semibold text-sap-400' : 'font-semibold text-canopy-50'}
-                >
-                  <AnimatedCounter value={Math.floor(display[r])} duration={1} />
-                </span>
+                <ResourceValue base={base} type={r} />
               </div>
               <ResourceIcon
                 className={`h-4 w-4 shrink-0 ${RESOURCE_VISUALS[r].className}`}

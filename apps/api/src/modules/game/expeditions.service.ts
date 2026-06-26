@@ -28,7 +28,9 @@ import {
   type ExpeditionView,
   type StartExpeditionDto,
 } from '@arborisis/shared';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { withConcurrencyLimit } from '../../common/utils/concurrency';
 import { GameQueueService } from '../queue/game-queue.service';
 import { GameEngineService } from './game-engine.service';
 import { PlanetsService } from './planets.service';
@@ -48,7 +50,10 @@ export class ExpeditionsService {
     const source = await this.planets.assertOwnership(userId, dto.planetId);
     this.assertTarget(dto.target.galaxy, dto.target.system);
     const ships = dto.ships;
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { race: true },
+    });
     const race = user.race as RaceType;
     let mission;
     try {
@@ -80,14 +85,7 @@ export class ExpeditionsService {
         const now = new Date();
         const arrivesAt = new Date(now.getTime() + travelSeconds * 1_000);
         const returnsAt = new Date(arrivesAt.getTime() + travelSeconds * 1_000);
-        for (const type of EXPEDITION_SHIP_TYPES) {
-          if (ships[type] > 0) {
-            await tx.planetShip.update({
-              where: { planetId_type: { planetId: dto.planetId, type } },
-              data: { quantity: { decrement: ships[type] } },
-            });
-          }
-        }
+        await this.decrementShips(tx, dto.planetId, ships);
         return tx.expeditionMission.create({
           data: {
             userId,
@@ -170,7 +168,7 @@ export class ExpeditionsService {
         ],
       },
     });
-    for (const mission of due) await this.advanceMission(mission.id, now);
+    await withConcurrencyLimit(due, 10, (mission) => this.advanceMission(mission.id, now));
   }
 
   async advanceMission(id: string, now = new Date()): Promise<void> {
@@ -178,7 +176,39 @@ export class ExpeditionsService {
     const state = await this.prisma.serializable(async (tx) => {
       const mission = await tx.expeditionMission.findUnique({
         where: { id },
-        include: { planet: true, report: true },
+        select: {
+          id: true,
+          userId: true,
+          planetId: true,
+          phase: true,
+          scoutCount: true,
+          harvesterCount: true,
+          tenderilCount: true,
+          freighterCount: true,
+          cruiserCount: true,
+          titanCount: true,
+          targetGalaxy: true,
+          targetSystem: true,
+          arrivesAt: true,
+          returnsAt: true,
+          planet: { select: { galaxy: true, system: true, position: true } },
+          report: {
+            select: {
+              id: true,
+              outcome: true,
+              rewardBiomass: true,
+              rewardSap: true,
+              rewardMinerals: true,
+              rewardSpores: true,
+              lostScouts: true,
+              lostHarvesters: true,
+              lostTendrils: true,
+              lostFreighters: true,
+              lostCruisers: true,
+              lostTitans: true,
+            },
+          },
+        },
       });
       if (!mission || mission.phase === ExpeditionPhase.COMPLETED) return 'done' as const;
 
@@ -342,22 +372,14 @@ export class ExpeditionsService {
           spores: { increment: accepted[ResourceType.SPORES] },
         },
       });
-      for (const [type, quantity] of [
-        [ShipType.SPORAL_SCOUT, mission.scoutCount],
-        [ShipType.SYMBIOTIC_HARVESTER, mission.harvesterCount],
-        [ShipType.MYCELIAL_TENDRIL, mission.tenderilCount],
-        [ShipType.CHITIN_FREIGHTER, mission.freighterCount],
-        [ShipType.BIOLUMINESCENT_CRUISER, mission.cruiserCount],
-        [ShipType.SPOROGENESIS_TITAN, mission.titanCount],
-      ] as [ShipType, number][]) {
-        if (quantity > 0) {
-          await tx.planetShip.upsert({
-            where: { planetId_type: { planetId: mission.planetId, type } },
-            update: { quantity: { increment: quantity } },
-            create: { planetId: mission.planetId, type, quantity },
-          });
-        }
-      }
+      await this.upsertShips(tx, mission.planetId, {
+        [ShipType.SPORAL_SCOUT]: mission.scoutCount,
+        [ShipType.SYMBIOTIC_HARVESTER]: mission.harvesterCount,
+        [ShipType.MYCELIAL_TENDRIL]: mission.tenderilCount,
+        [ShipType.CHITIN_FREIGHTER]: mission.freighterCount,
+        [ShipType.BIOLUMINESCENT_CRUISER]: mission.cruiserCount,
+        [ShipType.SPOROGENESIS_TITAN]: mission.titanCount,
+      });
       await tx.expeditionReport.update({
         where: { id: mission.report.id },
         data: {
@@ -508,6 +530,47 @@ export class ExpeditionsService {
       occurredAt: report.occurredAt.toISOString(),
       returnedAt: report.returnedAt?.toISOString() ?? null,
     };
+  }
+
+  private async decrementShips(
+    tx: Prisma.TransactionClient,
+    planetId: string,
+    ships: Record<ExpeditionShipType, number>,
+  ): Promise<void> {
+    const entries = Object.entries(ships).filter(([, qty]) => qty > 0);
+    if (entries.length === 0) return;
+    const typeArray = Prisma.sql`ARRAY[${Prisma.join(
+      entries.map(([type]) => Prisma.sql`${type}::text`),
+      ', ',
+    )}]`;
+    const qtyArray = Prisma.sql`ARRAY[${Prisma.join(
+      entries.map(([, qty]) => Prisma.sql`${qty}::int`),
+      ', ',
+    )}]`;
+    await tx.$executeRaw`
+      UPDATE "planet_ships" ps
+      SET quantity = ps.quantity - d.qty
+      FROM unnest(${typeArray}::text[], ${qtyArray}::int[]) AS d(type, qty)
+      WHERE ps."planetId" = ${planetId}
+        AND ps."type"::text = d.type
+        AND ps.quantity >= d.qty
+    `;
+  }
+
+  private async upsertShips(
+    tx: Prisma.TransactionClient,
+    planetId: string,
+    ships: Record<string, number>,
+  ): Promise<void> {
+    const entries = Object.entries(ships).filter(([, qty]) => qty > 0);
+    if (entries.length === 0) return;
+    const values = entries.map(([type, qty]) => Prisma.sql`(${planetId}, ${type}, ${qty})`);
+    await tx.$executeRaw`
+      INSERT INTO "planet_ships" ("planetId", "type", "quantity")
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT ("planetId", "type") DO UPDATE
+      SET quantity = "planet_ships".quantity + EXCLUDED.quantity
+    `;
   }
 
   private isUniqueViolation(error: unknown): boolean {

@@ -6,7 +6,7 @@ import { FinalizationService } from '../../game/finalization.service';
 import { RESEARCH_QUEUE, type FinalizeJobData } from '../queue.constants';
 import { runWithUniverse } from './run-with-universe';
 
-@Processor(RESEARCH_QUEUE)
+@Processor(RESEARCH_QUEUE, { concurrency: 10 })
 export class ResearchProcessor extends WorkerHost {
   private readonly logger = new Logger(ResearchProcessor.name);
 

@@ -125,6 +125,9 @@ export class TradeRoutesService {
     if (!route) throw new NotFoundException('Route introuvable.');
     if (route.userId !== userId)
       throw new BadRequestException('Cette route ne vous appartient pas.');
+    if (route.nextRunAt) {
+      await this.gameQueue.removeTradeRouteJob(routeId, route.nextRunAt).catch(() => void 0);
+    }
     await this.prisma.tradeRoute.delete({ where: { id: routeId } });
   }
 

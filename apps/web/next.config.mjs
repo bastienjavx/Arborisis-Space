@@ -4,6 +4,9 @@ const nextConfig = {
   // Le package monorepo est livré en TS/CJS : Next le transpile.
   transpilePackages: ['@arborisis/shared'],
   output: 'standalone',
+  images: {
+    formats: ['image/avif', 'image/webp'],
+  },
   // Le lint tourne en CI (`npm run lint`) ; on ne bloque pas le build de prod
   // sur des règles cosmétiques (ex. react/no-unescaped-entities).
   eslint: { ignoreDuringBuilds: true },

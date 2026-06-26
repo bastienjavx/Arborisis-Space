@@ -15,6 +15,7 @@ import {
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
+import { withConcurrencyLimit } from '../../common/utils/concurrency';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GameQueueService } from '../queue/game-queue.service';
 import { EngagementHookService } from './engagement-hook.service';
@@ -30,6 +31,7 @@ import { WorldFactoryService } from './world-factory.service';
 @Injectable()
 export class FinalizationService {
   private readonly logger = new Logger(FinalizationService.name);
+  private readonly SWEEP_CONCURRENCY = 10;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -78,7 +80,7 @@ export class FinalizationService {
       };
       const buildingName = BUILDINGS[buildingType as BuildingType]?.name ?? buildingType;
       await this.notifications
-        .create(
+        .enqueue(
           userId,
           NotificationType.CONSTRUCTION_COMPLETE,
           'Construction terminée',
@@ -86,12 +88,12 @@ export class FinalizationService {
           { buildingType, level },
         )
         .catch(() => void 0);
-      await this.processNextInQueue(planetId, userId);
+      await this.processNextInQueue(planetId);
       await this.engagementHook.onBuildingCompleted(userId).catch(() => void 0);
     }
   }
 
-  async processNextInQueue(planetId: string, userId: string): Promise<void> {
+  async processNextInQueue(planetId: string): Promise<void> {
     const next = await this.prisma.constructionQueueItem.findFirst({
       where: { planetId },
       orderBy: { queueOrder: 'asc' },
@@ -106,9 +108,7 @@ export class FinalizationService {
     try {
       const settled = await this.engine.settlePlanet(planetId);
       const buildings = this.engine.buildingLevelsOf(settled.planet.buildings);
-      const research = this.engine.researchLevelsOf(
-        await this.prisma.researchLevel.findMany({ where: { userId } }),
-      );
+      const research = this.engine.researchLevelsOf(settled.researchLevels);
 
       const cost = buildingCost(next.targetType as BuildingType, next.targetLevel);
       const resourceState = this.engine.buildResourceState(settled);
@@ -178,7 +178,7 @@ export class FinalizationService {
       };
       const researchName = RESEARCHES[researchType as ResearchType]?.name ?? researchType;
       await this.notifications
-        .create(
+        .enqueue(
           userId,
           NotificationType.RESEARCH_COMPLETE,
           'Recherche terminée',
@@ -227,7 +227,7 @@ export class FinalizationService {
         data: { status: JobStatus.COMPLETED },
       });
       await this.notifications
-        .create(
+        .enqueue(
           job.userId,
           NotificationType.COLONIZATION_COMPLETE,
           'Essaimage réussi',
@@ -260,7 +260,7 @@ export class FinalizationService {
     if (done?.status === JobStatus.COMPLETED) {
       const shipName = SHIPS[done.shipType as ShipType]?.name ?? done.shipType;
       await this.notifications
-        .create(
+        .enqueue(
           done.planet.ownerId,
           NotificationType.SHIP_PRODUCED,
           'Production navale terminée',
@@ -277,28 +277,36 @@ export class FinalizationService {
     const due = await this.prisma.constructionJob.findMany({
       where: { planetId, status: JobStatus.PENDING, finishesAt: { lte: now } },
     });
-    for (const job of due) await this.finalizeConstruction(job.id, now);
+    await withConcurrencyLimit(due, this.SWEEP_CONCURRENCY, (job) =>
+      this.finalizeConstruction(job.id, now),
+    );
   }
 
   async finalizeDueResearchForUser(userId: string, now = new Date()): Promise<void> {
     const due = await this.prisma.researchJob.findMany({
       where: { userId, status: JobStatus.PENDING, finishesAt: { lte: now } },
     });
-    for (const job of due) await this.finalizeResearch(job.id, now);
+    await withConcurrencyLimit(due, this.SWEEP_CONCURRENCY, (job) =>
+      this.finalizeResearch(job.id, now),
+    );
   }
 
   async finalizeDueColonizationForUser(userId: string, now = new Date()): Promise<void> {
     const due = await this.prisma.colonizationJob.findMany({
       where: { userId, status: JobStatus.PENDING, finishesAt: { lte: now } },
     });
-    for (const job of due) await this.finalizeColonization(job.id, now);
+    await withConcurrencyLimit(due, this.SWEEP_CONCURRENCY, (job) =>
+      this.finalizeColonization(job.id, now),
+    );
   }
 
   async finalizeDueShipProduction(planetId: string, now = new Date()): Promise<void> {
     const due = await this.prisma.shipProductionJob.findMany({
       where: { planetId, status: JobStatus.PENDING, finishesAt: { lte: now } },
     });
-    for (const job of due) await this.finalizeShipProduction(job.id, now);
+    await withConcurrencyLimit(due, this.SWEEP_CONCURRENCY, (job) =>
+      this.finalizeShipProduction(job.id, now),
+    );
   }
 
   /** Balayage de récupération au démarrage : finalise tout job échu. */
@@ -317,10 +325,18 @@ export class FinalizationService {
         where: { status: JobStatus.PENDING, finishesAt: { lte: now } },
       }),
     ]);
-    for (const j of c) await this.finalizeConstruction(j.id, now);
-    for (const j of r) await this.finalizeResearch(j.id, now);
-    for (const j of col) await this.finalizeColonization(j.id, now);
-    for (const j of ships) await this.finalizeShipProduction(j.id, now);
+    await Promise.all([
+      withConcurrencyLimit(c, this.SWEEP_CONCURRENCY, (job) =>
+        this.finalizeConstruction(job.id, now),
+      ),
+      withConcurrencyLimit(r, this.SWEEP_CONCURRENCY, (job) => this.finalizeResearch(job.id, now)),
+      withConcurrencyLimit(col, this.SWEEP_CONCURRENCY, (job) =>
+        this.finalizeColonization(job.id, now),
+      ),
+      withConcurrencyLimit(ships, this.SWEEP_CONCURRENCY, (job) =>
+        this.finalizeShipProduction(job.id, now),
+      ),
+    ]);
     if (c.length + r.length + col.length + ships.length > 0) {
       this.logger.log(
         `Balayage : ${c.length} construction(s), ${r.length} recherche(s), ${col.length} essaimage(s), ${ships.length} production(s) finalisé(s).`,
@@ -332,9 +348,9 @@ export class FinalizationService {
     const due = await this.prisma.resourceTransferMission.findMany({
       where: { userId, phase: TransferPhase.OUTBOUND, arrivesAt: { lte: now } },
     });
-    for (const m of due) {
-      await this.finalizeTransferById(m.id, now);
-    }
+    await withConcurrencyLimit(due, this.SWEEP_CONCURRENCY, (m) =>
+      this.finalizeTransferById(m.id, now),
+    );
   }
 
   async finalizeTransferById(missionId: string, now = new Date()): Promise<void> {

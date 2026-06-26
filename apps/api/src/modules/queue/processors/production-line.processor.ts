@@ -8,7 +8,7 @@ interface ProductionLineJobData {
   lineId: string;
 }
 
-@Processor(PRODUCTION_LINE_QUEUE)
+@Processor(PRODUCTION_LINE_QUEUE, { concurrency: 5 })
 export class ProductionLineProcessor extends WorkerHost {
   private readonly logger = new Logger(ProductionLineProcessor.name);
 

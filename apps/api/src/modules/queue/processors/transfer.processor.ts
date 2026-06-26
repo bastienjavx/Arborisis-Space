@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { TransferService } from '../../game/transfer.service';
 import { FINALIZE_JOB, TRANSFER_QUEUE, type FinalizeJobData } from '../queue.constants';
 
-@Processor(TRANSFER_QUEUE)
+@Processor(TRANSFER_QUEUE, { concurrency: 10 })
 export class TransferProcessor extends WorkerHost {
   private readonly logger = new Logger(TransferProcessor.name);
 

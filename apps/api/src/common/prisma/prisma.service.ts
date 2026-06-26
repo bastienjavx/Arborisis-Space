@@ -15,6 +15,11 @@ function appendConnectionLimit(url: string, limit: number): string {
   return `${url}${url.includes('?') ? '&' : '?'}connection_limit=${limit}`;
 }
 
+function appendStatementTimeout(url: string, ms: number): string {
+  if (!url || url.includes('statement_timeout=')) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}statement_timeout=${ms}`;
+}
+
 function isRetryableTransactionError(error: unknown): boolean {
   return (
     typeof error === 'object' &&
@@ -37,7 +42,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     // Runtime traffic goes through PgBouncer in production. Keep each app-side
     // Prisma pool tiny so replica spikes do not fan out into Postgres sessions.
-    const pooledUrl = appendConnectionLimit(process.env.DATABASE_URL ?? '', 2);
+    // Allow overriding via env for local dev and high-throughput workloads.
+    const connectionLimit = Number(process.env.PRISMA_CONNECTION_LIMIT ?? 2);
+    const statementTimeoutMs = Number(process.env.PRISMA_STATEMENT_TIMEOUT_MS ?? 30_000);
+    let pooledUrl = appendConnectionLimit(process.env.DATABASE_URL ?? '', connectionLimit);
+    pooledUrl = appendStatementTimeout(pooledUrl, statementTimeoutMs);
     super({ datasources: { db: { url: pooledUrl } } });
     this.scopedClient = applyUniverseScopeMiddleware(this);
 

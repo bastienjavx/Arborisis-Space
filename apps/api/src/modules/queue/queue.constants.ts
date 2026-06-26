@@ -18,9 +18,11 @@ export const PROVISION_UNIVERSE_JOB = 'provisioning.universe';
 export const RECONCILE_UNIVERSES_JOB = 'provisioning.reconcile';
 export const SPAWN_NPC_JOB = 'SPAWN_NPC_JOB';
 export const TRANSFER_QUEUE = 'transfer';
+export const NOTIFICATIONS_QUEUE = 'notifications';
 export const RUN_PRODUCTION_LINE_JOB = 'run-production-line';
 export const RUN_TRADE_ROUTE_JOB = 'run-trade-route';
 export const EXPIRE_MARKET_ORDER_JOB = 'expire-market-order';
+export const SEND_NOTIFICATION_JOB = 'send-notification';
 
 /** Données portées par un job de file : l'identifiant du job métier à finaliser. */
 export interface FinalizeJobData {

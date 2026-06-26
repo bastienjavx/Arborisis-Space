@@ -26,6 +26,7 @@ function makeService(
     prisma?: Partial<MockPrisma>;
     engine?: Record<string, unknown>;
     planets?: Record<string, unknown>;
+    gameQueue?: Record<string, unknown>;
     queue?: Record<string, unknown>;
   } = {},
 ) {
@@ -51,17 +52,20 @@ function makeService(
   prisma = { ...prisma, ...overrides.prisma };
   const engine = { settlePlanet: jest.fn(), ...overrides.engine };
   const planets = { assertOwnership: jest.fn(), ...overrides.planets };
+  const gameQueue = { removeProductionLineJob: jest.fn(), ...overrides.gameQueue };
   const queue = { add: jest.fn(), ...overrides.queue };
 
   return {
     prisma,
     engine,
     planets,
+    gameQueue,
     queue,
     service: new ProductionLinesService(
       prisma as never,
       engine as never,
       planets as never,
+      gameQueue as never,
       queue as never,
     ),
   };
