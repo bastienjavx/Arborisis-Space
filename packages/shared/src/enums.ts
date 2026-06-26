@@ -124,6 +124,9 @@ export enum ShipType {
   SPORAL_SWARM = 'SPORAL_SWARM',
   LUMINOUS_WARDEN = 'LUMINOUS_WARDEN',
   CHITIN_BULWARK = 'CHITIN_BULWARK',
+
+  // ── Recycleur (récolte les champs de débris) ──
+  BIO_RECYCLER = 'BIO_RECYCLER',
 }
 
 export const SHIP_TYPES = Object.values(ShipType);
@@ -421,6 +424,13 @@ export enum NotificationType {
   DAILY_REWARD_AVAILABLE = 'DAILY_REWARD_AVAILABLE',
   MARKET_ORDER_FILLED = 'MARKET_ORDER_FILLED',
   PVE_COMPLETE = 'PVE_COMPLETE',
+  DEBRIS_FIELD_APPEARED = 'DEBRIS_FIELD_APPEARED',
+  DEBRIS_COLLECTED = 'DEBRIS_COLLECTED',
+  COMMANDER_LEVELED_UP = 'COMMANDER_LEVELED_UP',
+  MOON_CREATED = 'MOON_CREATED',
+  TERRITORY_CLAIMED = 'TERRITORY_CLAIMED',
+  TERRITORY_ATTACKED = 'TERRITORY_ATTACKED',
+  DEFENSE_UNDER_ATTACK = 'DEFENSE_UNDER_ATTACK',
 }
 
 /** Statut d'une relation diplomatique entre alliances. */
@@ -438,3 +448,114 @@ export enum DiplomaticOfferStatus {
   WITHDRAWN = 'WITHDRAWN',
   EXPIRED = 'EXPIRED',
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Commandants Symbiotiques (Rise of Kingdoms)
+// ═══════════════════════════════════════════════════════════════════
+
+/** Types de commandants recrutables. */
+export enum CommanderType {
+  // ── Combat ──
+  MYCO_WARLORD = 'MYCO_WARLORD', // Mycélien offensif, maître de l'essaim
+  CHITIN_GUARDIAN = 'CHITIN_GUARDIAN', // Défenseur blindé, boost défenses orbitales
+  VOID_REAPER = 'VOID_REAPER', // Pillard du vide, bonus de pillage PvP
+  SPORE_STORM = 'SPORE_STORM', // Spécialiste raids, vitesse de flotte
+  // ── Économie ──
+  SYMBIONT_SAGE = 'SYMBIONT_SAGE', // Maître de la recherche, réduit temps de recherche
+  ROOT_WEAVER = 'ROOT_WEAVER', // Expert agricole, boost production de ressources
+  FUNGAL_MERCHANT = 'FUNGAL_MERCHANT', // Négociant, réduit taxes marché, boost routes
+  CANOPY_ARCHITECT = 'CANOPY_ARCHITECT', // Bâtisseur, réduit temps de construction
+  // ── Expédition ──
+  VOID_NAVIGATOR = 'VOID_NAVIGATOR', // Explorateur, boost résultats d'expédition
+  SPORE_ORACLE = 'SPORE_ORACLE', // Espion légendaire, boost espionnage
+  // ── Alliance ──
+  HIVE_HERALD = 'HIVE_HERALD', // Leader diplomatique, bonus d'alliance
+  ANCIENT_SYMBIONT = 'ANCIENT_SYMBIONT', // Commandant légendaire universel
+}
+
+export const COMMANDER_TYPES = Object.values(CommanderType);
+
+/** Rareté d'un commandant — détermine ses stats de base et sa capacité max de talents. */
+export enum CommanderRarity {
+  COMMON = 'COMMON',
+  UNCOMMON = 'UNCOMMON',
+  RARE = 'RARE',
+  EPIC = 'EPIC',
+  LEGENDARY = 'LEGENDARY',
+}
+
+/** Branches de talent d'un commandant. */
+export enum CommanderTalentBranch {
+  COMBAT = 'COMBAT', // Attaque, défense, rapid-fire
+  GATHERING = 'GATHERING', // Collecte de ressources, expéditions
+  CONSTRUCTION = 'CONSTRUCTION', // Vitesse de construction, coût des bâtiments
+  RESEARCH = 'RESEARCH', // Vitesse de recherche, coût des recherches
+  LEADERSHIP = 'LEADERSHIP', // Bonus d'alliance, vitesse de flotte, multi-queues
+}
+
+/** Statut d'un commandant. */
+export enum CommanderStatus {
+  IDLE = 'IDLE',
+  ON_FLEET = 'ON_FLEET',
+  ASSIGNED_TO_PLANET = 'ASSIGNED_TO_PLANET',
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Lunes Organiques + Débris (OGame)
+// ═══════════════════════════════════════════════════════════════════
+
+/** Bâtiments construisibles sur une lune organique. */
+export enum MoonBuildingType {
+  LUNAR_CORE = 'LUNAR_CORE', // Hub de la lune, nécessaire pour tout
+  SPORE_PHALANX = 'SPORE_PHALANX', // Détecte les flottes ennemies en transit
+  BIO_JUMP_GATE = 'BIO_JUMP_GATE', // Téléportation instantanée inter-lunes
+  LUNAR_NURSERY = 'LUNAR_NURSERY', // Produit des vaisseaux depuis la lune
+  CRYSTALLINE_SILO = 'CRYSTALLINE_SILO', // Stockage supplémentaire sur la lune
+}
+
+export const MOON_BUILDING_TYPES = Object.values(MoonBuildingType);
+
+// ═══════════════════════════════════════════════════════════════════
+// Territoire d'Alliance (Rise of Kingdoms)
+// ═══════════════════════════════════════════════════════════════════
+
+/** Statut d'un secteur de territoire d'alliance. */
+export enum AllianceTerritoryStatus {
+  NEUTRAL = 'NEUTRAL',
+  CLAIMED = 'CLAIMED',
+  CONTESTED = 'CONTESTED',
+}
+
+/** Statut d'une balise sporale. */
+export enum BeaconStatus {
+  ACTIVE = 'ACTIVE',
+  DECAYING = 'DECAYING',
+  DESTROYED = 'DESTROYED',
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Population / Main-d'œuvre (Prosperous Universe)
+// ═══════════════════════════════════════════════════════════════════
+
+/** Niveau de qualification des travailleurs Symbiotes. */
+export enum WorkerTier {
+  BASIC = 'BASIC', // Bâtiments niveaux 1-4
+  SKILLED = 'SKILLED', // Bâtiments niveaux 5-9
+  EXPERT = 'EXPERT', // Bâtiments niveau 10+
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Défenses Orbitales (OGame)
+// ═══════════════════════════════════════════════════════════════════
+
+/** Structures défensives orbitales fixes sur une planète. */
+export enum DefenseType {
+  ION_CANNON = 'ION_CANNON', // Canon ionique — défense légère polyvalente
+  SPORE_NET = 'SPORE_NET', // Filet sporale — ralentit les flottes d'assaut
+  SHIELD_MEMBRANE = 'SHIELD_MEMBRANE', // Membrane bouclier — absorbe les premiers tirs
+  MYCELIAL_TURRET = 'MYCELIAL_TURRET', // Tourelle mycélienne — haute cadence de tir
+  VOID_LANCE = 'VOID_LANCE', // Lance du Vide — anti-gros vaisseaux
+  ORBITAL_THORN_BED = 'ORBITAL_THORN_BED', // Lit d'épines orbitales — dégâts de zone
+}
+
+export const DEFENSE_TYPES = Object.values(DefenseType);

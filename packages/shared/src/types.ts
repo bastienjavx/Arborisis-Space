@@ -5,10 +5,17 @@
 import { ResourceBundle } from './constants';
 import {
   AchievementType,
+  AllianceTerritoryStatus,
   AllianceRole,
   ApplicationStatus,
+  BeaconStatus,
   BuildingType,
   ChatScope,
+  CommanderRarity,
+  CommanderStatus,
+  CommanderTalentBranch,
+  CommanderType,
+  DefenseType,
   DiplomaticOfferStatus,
   DiplomaticStatus,
   ExpeditionOutcome,
@@ -18,6 +25,7 @@ import {
   JobKind,
   MarketOrderSide,
   MarketOrderStatus,
+  MoonBuildingType,
   NotificationType,
   NpcEncounterType,
   PlanetSpecialization,
@@ -38,6 +46,7 @@ import {
   UniverseStatus,
   UserRole,
   ModerationActionType,
+  WorkerTier,
 } from './enums';
 import { UnmetRequirement } from './formulas';
 import { Coordinates, type ExpeditionShipType } from './schemas';
@@ -786,4 +795,151 @@ export interface EngagementOverview {
   loginStreak: LoginStreakView;
   sessionBonus: SessionBonusView;
   totalMultiplier: number;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMMANDANTS SYMBIOTIQUES
+// ═══════════════════════════════════════════════════════════════════
+
+export interface TalentNodeView {
+  id: string;
+  name: string;
+  description: string;
+  maxPoints: number;
+  pointsInvested: number;
+  effectKey: string;
+  effectValue: number;
+  unlocked: boolean;
+  available: boolean;
+  requires: string[];
+}
+
+export interface CommanderTalentBranchView {
+  branch: CommanderTalentBranch;
+  name: string;
+  nodes: TalentNodeView[];
+}
+
+export interface CommanderView {
+  id: string;
+  type: CommanderType;
+  name: string;
+  lore: string;
+  rarity: CommanderRarity;
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  talentPoints: number;
+  status: CommanderStatus;
+  assignedToPlanetId: string | null;
+  assignedToPlanetName: string | null;
+  /** Branches de talents disponibles pour ce commandant avec l'état de chaque nœud. */
+  talentBranches: CommanderTalentBranchView[];
+  /** Bonus actuellement actifs calculés par le serveur. */
+  activeBonus: Record<string, number>;
+  stats: { attack: number; defense: number; speed: number; leadership: number };
+}
+
+export interface CommandersOverview {
+  commanders: CommanderView[];
+  maxActive: number;
+  canRecruit: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LUNES ORGANIQUES
+// ═══════════════════════════════════════════════════════════════════
+
+export interface DebrisFieldView {
+  id: string;
+  coordinates: Coordinates;
+  biomass: number;
+  minerals: number;
+  totalResources: number;
+  expiresAt: string;
+}
+
+export interface MoonBuildingView {
+  type: MoonBuildingType;
+  name: string;
+  description: string;
+  level: number;
+  nextLevelCost: ResourceBundle;
+  nextLevelTimeSeconds: number;
+  canAfford: boolean;
+}
+
+export interface MoonView {
+  id: string;
+  name: string;
+  planetId: string;
+  planetName: string;
+  coordinates: Coordinates;
+  usedFields: number;
+  maxFields: number;
+  buildings: MoonBuildingView[];
+  hasJumpGate: boolean;
+  phalanxRange: number;
+  constructionJob: JobView | null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DÉFENSES ORBITALES
+// ═══════════════════════════════════════════════════════════════════
+
+export interface OrbitalDefenseView {
+  type: DefenseType;
+  name: string;
+  description: string;
+  quantity: number;
+  cost: ResourceBundle;
+  buildTimeSeconds: number;
+  attack: number;
+  defense: number;
+  hull: number;
+  canAfford: boolean;
+  unmet: UnmetRequirement[];
+}
+
+export interface PlanetDefensesView {
+  defenses: OrbitalDefenseView[];
+  totalAttack: number;
+  totalDefense: number;
+  isBuilding: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TERRITOIRE D'ALLIANCE
+// ═══════════════════════════════════════════════════════════════════
+
+export interface AllianceTerritoryView {
+  id: string;
+  allianceId: string;
+  allianceName: string;
+  allianceTag: string;
+  allianceBannerColor: string;
+  galaxy: number;
+  system: number;
+  status: AllianceTerritoryStatus;
+  beaconStatus: BeaconStatus;
+  beaconHealth: number;
+  beaconMaxHealth: number;
+  productionBonus: number;
+  speedBonus: number;
+  claimedAt: string;
+  contestedBy: string | null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// POPULATION / MAIN-D'ŒUVRE
+// ═══════════════════════════════════════════════════════════════════
+
+export interface PopulationView {
+  current: number;
+  max: number;
+  growthPerHour: number;
+  workers: Record<WorkerTier, number>;
+  requiredWorkers: Record<WorkerTier, number>;
+  workerSatisfaction: number;
+  productionPenalty: number;
 }

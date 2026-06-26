@@ -83,6 +83,15 @@ import type {
   ModerateUserDto,
   ModerationActionView,
   SendChatMessageDto,
+  CommanderView,
+  CommandersOverview,
+  CommanderType,
+  CommanderTalentBranch,
+  PlanetDefensesView,
+  DefenseType,
+  DebrisFieldView,
+  MoonView,
+  MoonBuildingType,
 } from '@arborisis/shared';
 
 const BASE = '/api';
@@ -425,4 +434,34 @@ export const api = {
     request<void>(`/diplomacy/offers/${id}`, { method: 'DELETE' }),
   breakDiplomaticRelation: (id: string) =>
     request<void>(`/diplomacy/relations/${id}`, { method: 'DELETE' }),
+
+  // ── Commandants ──
+  commanders: () => request<CommandersOverview>('/commanders'),
+  recruitCommander: (type: CommanderType) =>
+    request<CommanderView>('/commanders/recruit', { method: 'POST', body: { type } }),
+  assignCommander: (id: string, planetId: string | null) =>
+    request<CommanderView>(`/commanders/${id}/assign`, { method: 'PATCH', body: { planetId } }),
+  investTalent: (id: string, branch: CommanderTalentBranch, nodeId: string) =>
+    request<CommanderView>(`/commanders/${id}/talent`, {
+      method: 'POST',
+      body: { branch, nodeId },
+    }),
+
+  // ── Défenses orbitales ──
+  defenses: (planetId: string) => request<PlanetDefensesView>(`/planets/${planetId}/defenses`),
+  buildDefense: (planetId: string, defenseType: DefenseType, quantity: number) =>
+    request<PlanetDefensesView>(`/planets/${planetId}/defenses/build`, {
+      method: 'POST',
+      body: { defenseType, quantity },
+    }),
+
+  // ── Lunes & débris ──
+  debrisFields: (galaxy: number, system: number) =>
+    request<DebrisFieldView[]>(`/galaxy/${galaxy}/system/${system}/debris`),
+  moon: (planetId: string) => request<MoonView | null>(`/planets/${planetId}/moon`),
+  buildMoonBuilding: (planetId: string, buildingType: MoonBuildingType) =>
+    request<MoonView>(`/planets/${planetId}/moon/build`, {
+      method: 'POST',
+      body: { buildingType },
+    }),
 };

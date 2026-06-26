@@ -12,11 +12,16 @@
 import {
   AchievementType,
   BuildingType,
+  CommanderRarity,
+  CommanderTalentBranch,
+  CommanderType,
+  DefenseType,
   ExpeditionOutcome,
   GalacticEventType,
   ItemCategory,
   ItemKey,
   ItemRarity,
+  MoonBuildingType,
   NpcEncounterType,
   PlanetSpecialization,
   PlanetType,
@@ -26,6 +31,7 @@ import {
   ResourceType,
   ShipRole,
   ShipType,
+  WorkerTier,
 } from './enums';
 
 /** Quantité par ressource. Partielle = ressources absentes valent 0. */
@@ -90,6 +96,8 @@ export interface ShipConfig {
   racialBonusFactor?: number;
   /** Races autorisées à produire ce vaisseau (vide = toutes). */
   restrictedToRaces?: RaceType[];
+  /** Prérequis de recherche/bâtiment pour débloquer ce vaisseau. */
+  requires?: Requirements;
 }
 
 export interface RaceConfig {
@@ -994,6 +1002,29 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     defense: 150,
     hull: 1_000,
     racialBonusFactor: 1.15,
+  },
+
+  // ── Recycleur de débris ──
+  [ShipType.BIO_RECYCLER]: {
+    type: ShipType.BIO_RECYCLER,
+    name: 'Bio-recycleur',
+    description:
+      "Organisme-éponge capable d'aspirer les débris de bataille flottant dans l'espace.",
+    role: ShipRole.TRANSPORT,
+    cost: {
+      [ResourceType.BIOMASS]: 500,
+      [ResourceType.MINERALS]: 600,
+      [ResourceType.SAP]: 200,
+      [ResourceType.SPORES]: 60,
+    },
+    baseTimeSeconds: 480,
+    cargo: 4_000,
+    speed: 6,
+    requiresNurseryLevel: 3,
+    attack: 1,
+    defense: 8,
+    hull: 120,
+    requires: { research: { [ResearchType.BIOENGINEERING]: 2 } },
   },
 };
 
@@ -2152,3 +2183,759 @@ export const EXPEDITION_DROP_TABLES: Partial<Record<ExpeditionOutcome, DropEntry
     { itemKey: ItemKey.BIOLUMINESCENT_GEL, chance: 0.3, minQty: 2, maxQty: 5 },
   ],
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// COMMANDANTS SYMBIOTIQUES
+// ═══════════════════════════════════════════════════════════════════
+
+/** Un nœud de talent dans une branche de commandant. */
+export interface TalentNodeConfig {
+  /** Identifiant unique dans la branche. */
+  id: string;
+  name: string;
+  description: string;
+  maxPoints: number;
+  /** Effet par point : clé générique interprétée par le serveur. */
+  effectKey: string;
+  effectValue: number;
+  /** ID des nœuds prérequis dans la même branche. */
+  requires?: string[];
+}
+
+export interface CommanderTalentBranchConfig {
+  branch: CommanderTalentBranch;
+  name: string;
+  nodes: TalentNodeConfig[];
+}
+
+export interface CommanderConfig {
+  type: CommanderType;
+  name: string;
+  lore: string;
+  rarity: CommanderRarity;
+  /** Branches de talents disponibles pour ce commandant. */
+  talentBranches: CommanderTalentBranch[];
+  /** Bonus passif au niveau 1 sans talent (string clé → valeur). */
+  baseBonus: Record<string, number>;
+  /** Stats au niveau 1. */
+  baseStats: { attack: number; defense: number; speed: number; leadership: number };
+  /** Coût de recrutement (base). */
+  recruitCost: ResourceBundle;
+  /** XP nécessaire pour passer du niveau N au niveau N+1. Formule: baseXp * level^1.5 */
+  baseXpPerLevel: number;
+  maxLevel: number;
+}
+
+/** Formule XP : XP requis pour passer du niveau `level` au niveau `level+1`. */
+export function commanderXpToNextLevel(baseXp: number, level: number): number {
+  return Math.floor(baseXp * Math.pow(level, 1.5));
+}
+
+/** Talents communs (COMBAT) — partagés par tous les commandants combattants. */
+const COMBAT_TALENTS: CommanderTalentBranchConfig = {
+  branch: CommanderTalentBranch.COMBAT,
+  name: 'Combat',
+  nodes: [
+    {
+      id: 'combat_attack_1',
+      name: 'Crocs acérés',
+      description: '+2% attaque de flotte par point.',
+      maxPoints: 5,
+      effectKey: 'fleet_attack_pct',
+      effectValue: 0.02,
+    },
+    {
+      id: 'combat_defense_1',
+      name: 'Carapace renforcée',
+      description: '+2% défense de flotte par point.',
+      maxPoints: 5,
+      effectKey: 'fleet_defense_pct',
+      effectValue: 0.02,
+    },
+    {
+      id: 'combat_rapid_fire',
+      name: 'Salve sporale',
+      description: '+5% tirs en rafale contre les petits vaisseaux.',
+      maxPoints: 3,
+      effectKey: 'rapid_fire_small_pct',
+      effectValue: 0.05,
+      requires: ['combat_attack_1'],
+    },
+    {
+      id: 'combat_pillage',
+      name: 'Pillage organique',
+      description: '+5% de ressources pillées par point.',
+      maxPoints: 4,
+      effectKey: 'loot_pct',
+      effectValue: 0.05,
+      requires: ['combat_attack_1'],
+    },
+    {
+      id: 'combat_warlord',
+      name: 'Fureur du Seigneur',
+      description: '+10% attaque et défense simultanément.',
+      maxPoints: 1,
+      effectKey: 'warlord_bonus',
+      effectValue: 0.1,
+      requires: ['combat_rapid_fire', 'combat_defense_1'],
+    },
+  ],
+};
+
+const GATHERING_TALENTS: CommanderTalentBranchConfig = {
+  branch: CommanderTalentBranch.GATHERING,
+  name: 'Collecte',
+  nodes: [
+    {
+      id: 'gather_speed',
+      name: 'Essaim rapide',
+      description: '+3% vitesse des expéditions.',
+      maxPoints: 5,
+      effectKey: 'expedition_speed_pct',
+      effectValue: 0.03,
+    },
+    {
+      id: 'gather_yield',
+      name: 'Récolte abondante',
+      description: '+4% ressources obtenues en expédition.',
+      maxPoints: 5,
+      effectKey: 'expedition_yield_pct',
+      effectValue: 0.04,
+    },
+    {
+      id: 'gather_debris',
+      name: 'Récupérateur de débris',
+      description: '+10% capacité de recyclage des BIO_RECYCLER.',
+      maxPoints: 3,
+      effectKey: 'debris_recycle_pct',
+      effectValue: 0.1,
+      requires: ['gather_speed'],
+    },
+    {
+      id: 'gather_legendary',
+      name: 'Instinct prédateur',
+      description: '+15% chance de résultat rare en expédition.',
+      maxPoints: 1,
+      effectKey: 'expedition_rare_chance',
+      effectValue: 0.15,
+      requires: ['gather_yield', 'gather_debris'],
+    },
+  ],
+};
+
+const CONSTRUCTION_TALENTS: CommanderTalentBranchConfig = {
+  branch: CommanderTalentBranch.CONSTRUCTION,
+  name: 'Construction',
+  nodes: [
+    {
+      id: 'build_speed',
+      name: 'Mycélium industrieux',
+      description: '-3% temps de construction par point.',
+      maxPoints: 5,
+      effectKey: 'build_time_reduction_pct',
+      effectValue: 0.03,
+    },
+    {
+      id: 'build_cost',
+      name: 'Optimisation des ressources',
+      description: '-2% coût de construction par point.',
+      maxPoints: 5,
+      effectKey: 'build_cost_reduction_pct',
+      effectValue: 0.02,
+    },
+    {
+      id: 'build_queue',
+      name: "File d'attente avancée",
+      description: '+1 emplacement de file de construction.',
+      maxPoints: 2,
+      effectKey: 'build_queue_slots',
+      effectValue: 1,
+      requires: ['build_speed'],
+    },
+    {
+      id: 'build_master',
+      name: 'Architecte Légendaire',
+      description: '-15% coût et temps de construction pour les bâtiments niveau 10+.',
+      maxPoints: 1,
+      effectKey: 'master_builder_bonus',
+      effectValue: 0.15,
+      requires: ['build_cost', 'build_queue'],
+    },
+  ],
+};
+
+const RESEARCH_TALENTS: CommanderTalentBranchConfig = {
+  branch: CommanderTalentBranch.RESEARCH,
+  name: 'Recherche',
+  nodes: [
+    {
+      id: 'research_speed',
+      name: 'Réseau cognitif étendu',
+      description: '-4% temps de recherche par point.',
+      maxPoints: 5,
+      effectKey: 'research_time_reduction_pct',
+      effectValue: 0.04,
+    },
+    {
+      id: 'research_cost',
+      name: 'Frugalité sporale',
+      description: '-3% coût de recherche par point.',
+      maxPoints: 5,
+      effectKey: 'research_cost_reduction_pct',
+      effectValue: 0.03,
+    },
+    {
+      id: 'research_xp',
+      name: 'Apprentissage accéléré',
+      description: '+10% XP gagné en recherche.',
+      maxPoints: 3,
+      effectKey: 'research_xp_pct',
+      effectValue: 0.1,
+      requires: ['research_speed'],
+    },
+    {
+      id: 'research_legendary',
+      name: 'Illumination',
+      description: '-20% coût des prochaines 3 recherches (usage unique/heure).',
+      maxPoints: 1,
+      effectKey: 'illumination_cooldown',
+      effectValue: 3600,
+      requires: ['research_cost', 'research_xp'],
+    },
+  ],
+};
+
+const LEADERSHIP_TALENTS: CommanderTalentBranchConfig = {
+  branch: CommanderTalentBranch.LEADERSHIP,
+  name: 'Leadership',
+  nodes: [
+    {
+      id: 'lead_speed',
+      name: 'Marche forcée',
+      description: '+3% vitesse de flotte par point.',
+      maxPoints: 5,
+      effectKey: 'fleet_speed_pct',
+      effectValue: 0.03,
+    },
+    {
+      id: 'lead_march',
+      name: 'Files de marche',
+      description: '+1 file de marche simultanée par point.',
+      maxPoints: 3,
+      effectKey: 'march_queue_slots',
+      effectValue: 1,
+    },
+    {
+      id: 'lead_alliance',
+      name: "Aura d'alliance",
+      description: '+2% à toutes les productions pour les alliés dans le même secteur.',
+      maxPoints: 3,
+      effectKey: 'alliance_sector_bonus',
+      effectValue: 0.02,
+      requires: ['lead_speed'],
+    },
+    {
+      id: 'lead_legendary',
+      name: 'Commandant Légendaire',
+      description: '+1 file de marche, +5% attaque, +5% vitesse de flotte.',
+      maxPoints: 1,
+      effectKey: 'legendary_commander',
+      effectValue: 1,
+      requires: ['lead_march', 'lead_alliance'],
+    },
+  ],
+};
+
+export const COMMANDER_TALENT_BRANCHES: Record<CommanderTalentBranch, CommanderTalentBranchConfig> =
+  {
+    [CommanderTalentBranch.COMBAT]: COMBAT_TALENTS,
+    [CommanderTalentBranch.GATHERING]: GATHERING_TALENTS,
+    [CommanderTalentBranch.CONSTRUCTION]: CONSTRUCTION_TALENTS,
+    [CommanderTalentBranch.RESEARCH]: RESEARCH_TALENTS,
+    [CommanderTalentBranch.LEADERSHIP]: LEADERSHIP_TALENTS,
+  };
+
+export const COMMANDERS: Record<CommanderType, CommanderConfig> = {
+  [CommanderType.MYCO_WARLORD]: {
+    type: CommanderType.MYCO_WARLORD,
+    name: 'Seigneur Mycélien',
+    lore: 'Un général fongique issu des sous-bois de la Convergence. Sa horde est implacable.',
+    rarity: CommanderRarity.RARE,
+    talentBranches: [CommanderTalentBranch.COMBAT, CommanderTalentBranch.LEADERSHIP],
+    baseBonus: { fleet_attack_pct: 0.05 },
+    baseStats: { attack: 25, defense: 10, speed: 15, leadership: 20 },
+    recruitCost: { [ResourceType.SPORES]: 800, [ResourceType.BIOMASS]: 1_500 },
+    baseXpPerLevel: 100,
+    maxLevel: 40,
+  },
+  [CommanderType.CHITIN_GUARDIAN]: {
+    type: CommanderType.CHITIN_GUARDIAN,
+    name: 'Gardien Chitinide',
+    lore: "Colosse défensif dont l'armure chitineuse a résisté à mille batailles.",
+    rarity: CommanderRarity.RARE,
+    talentBranches: [CommanderTalentBranch.COMBAT, CommanderTalentBranch.CONSTRUCTION],
+    baseBonus: { fleet_defense_pct: 0.08, build_time_reduction_pct: 0.03 },
+    baseStats: { attack: 10, defense: 30, speed: 8, leadership: 15 },
+    recruitCost: { [ResourceType.MINERALS]: 1_200, [ResourceType.BIOMASS]: 800 },
+    baseXpPerLevel: 100,
+    maxLevel: 40,
+  },
+  [CommanderType.VOID_REAPER]: {
+    type: CommanderType.VOID_REAPER,
+    name: 'Faucheur du Vide',
+    lore: 'Chasseur solitaire qui frappe depuis les failles du Vide avec une précision mortelle.',
+    rarity: CommanderRarity.EPIC,
+    talentBranches: [CommanderTalentBranch.COMBAT, CommanderTalentBranch.GATHERING],
+    baseBonus: { loot_pct: 0.1, fleet_attack_pct: 0.03 },
+    baseStats: { attack: 30, defense: 8, speed: 20, leadership: 12 },
+    recruitCost: { [ResourceType.SPORES]: 1_500, [ResourceType.MINERALS]: 1_000 },
+    baseXpPerLevel: 120,
+    maxLevel: 40,
+  },
+  [CommanderType.SPORE_STORM]: {
+    type: CommanderType.SPORE_STORM,
+    name: 'Tempête Sporale',
+    lore: 'Commandant de flotte spécialisé dans les raids éclair et les retraites stratégiques.',
+    rarity: CommanderRarity.UNCOMMON,
+    talentBranches: [CommanderTalentBranch.COMBAT, CommanderTalentBranch.LEADERSHIP],
+    baseBonus: { fleet_speed_pct: 0.1 },
+    baseStats: { attack: 15, defense: 12, speed: 25, leadership: 18 },
+    recruitCost: { [ResourceType.BIOMASS]: 600, [ResourceType.SAP]: 400 },
+    baseXpPerLevel: 80,
+    maxLevel: 40,
+  },
+  [CommanderType.SYMBIONT_SAGE]: {
+    type: CommanderType.SYMBIONT_SAGE,
+    name: 'Sage Symbiotique',
+    lore: 'Érudit millénaire dont la mémoire encode toutes les connaissances des Tisserands.',
+    rarity: CommanderRarity.EPIC,
+    talentBranches: [CommanderTalentBranch.RESEARCH, CommanderTalentBranch.CONSTRUCTION],
+    baseBonus: { research_time_reduction_pct: 0.1 },
+    baseStats: { attack: 5, defense: 5, speed: 5, leadership: 30 },
+    recruitCost: { [ResourceType.SPORES]: 2_000, [ResourceType.SAP]: 1_500 },
+    baseXpPerLevel: 120,
+    maxLevel: 40,
+  },
+  [CommanderType.ROOT_WEAVER]: {
+    type: CommanderType.ROOT_WEAVER,
+    name: 'Tisseuse de Racines',
+    lore: 'Génie agricole qui tisse les racines planétaires pour maximiser les récoltes.',
+    rarity: CommanderRarity.UNCOMMON,
+    talentBranches: [CommanderTalentBranch.GATHERING, CommanderTalentBranch.CONSTRUCTION],
+    baseBonus: { expedition_yield_pct: 0.08 },
+    baseStats: { attack: 5, defense: 10, speed: 8, leadership: 15 },
+    recruitCost: { [ResourceType.BIOMASS]: 800, [ResourceType.SAP]: 600 },
+    baseXpPerLevel: 80,
+    maxLevel: 40,
+  },
+  [CommanderType.FUNGAL_MERCHANT]: {
+    type: CommanderType.FUNGAL_MERCHANT,
+    name: 'Marchand Fongique',
+    lore: "Commerçant légendaire dont les routes commerciales s'étendent aux confins de la galaxie.",
+    rarity: CommanderRarity.RARE,
+    talentBranches: [CommanderTalentBranch.GATHERING, CommanderTalentBranch.LEADERSHIP],
+    baseBonus: { market_tax_reduction: 0.1 },
+    baseStats: { attack: 3, defense: 8, speed: 12, leadership: 25 },
+    recruitCost: { [ResourceType.SPORES]: 1_200, [ResourceType.SAP]: 1_000 },
+    baseXpPerLevel: 100,
+    maxLevel: 40,
+  },
+  [CommanderType.CANOPY_ARCHITECT]: {
+    type: CommanderType.CANOPY_ARCHITECT,
+    name: 'Architecte de la Canopée',
+    lore: 'Maître bâtisseur qui ériger des structures vivantes en un temps record.',
+    rarity: CommanderRarity.UNCOMMON,
+    talentBranches: [CommanderTalentBranch.CONSTRUCTION, CommanderTalentBranch.RESEARCH],
+    baseBonus: { build_time_reduction_pct: 0.1, build_cost_reduction_pct: 0.05 },
+    baseStats: { attack: 4, defense: 8, speed: 6, leadership: 20 },
+    recruitCost: { [ResourceType.BIOMASS]: 500, [ResourceType.MINERALS]: 800 },
+    baseXpPerLevel: 80,
+    maxLevel: 40,
+  },
+  [CommanderType.VOID_NAVIGATOR]: {
+    type: CommanderType.VOID_NAVIGATOR,
+    name: 'Navigatrice du Vide',
+    lore: 'Exploratrice qui a cartographié des centaines de systèmes inexplorés.',
+    rarity: CommanderRarity.RARE,
+    talentBranches: [CommanderTalentBranch.GATHERING, CommanderTalentBranch.LEADERSHIP],
+    baseBonus: { expedition_speed_pct: 0.15, expedition_rare_chance: 0.05 },
+    baseStats: { attack: 8, defense: 8, speed: 22, leadership: 18 },
+    recruitCost: { [ResourceType.SPORES]: 1_000, [ResourceType.SAP]: 800 },
+    baseXpPerLevel: 100,
+    maxLevel: 40,
+  },
+  [CommanderType.SPORE_ORACLE]: {
+    type: CommanderType.SPORE_ORACLE,
+    name: 'Oracle Sporique',
+    lore: "Maître de l'espionnage dont les spores invisibles infiltrent les empires ennemis.",
+    rarity: CommanderRarity.EPIC,
+    talentBranches: [CommanderTalentBranch.GATHERING, CommanderTalentBranch.COMBAT],
+    baseBonus: { spy_success_chance: 0.15 },
+    baseStats: { attack: 5, defense: 15, speed: 25, leadership: 10 },
+    recruitCost: { [ResourceType.SPORES]: 2_500, [ResourceType.SAP]: 1_000 },
+    baseXpPerLevel: 120,
+    maxLevel: 40,
+  },
+  [CommanderType.HIVE_HERALD]: {
+    type: CommanderType.HIVE_HERALD,
+    name: 'Héraut de la Ruche',
+    lore: "Diplomate et stratège d'alliance dont la présence galvanise chaque membre.",
+    rarity: CommanderRarity.RARE,
+    talentBranches: [CommanderTalentBranch.LEADERSHIP, CommanderTalentBranch.CONSTRUCTION],
+    baseBonus: { alliance_sector_bonus: 0.05, march_queue_slots: 1 },
+    baseStats: { attack: 8, defense: 12, speed: 10, leadership: 35 },
+    recruitCost: { [ResourceType.SPORES]: 1_500, [ResourceType.BIOMASS]: 1_500 },
+    baseXpPerLevel: 110,
+    maxLevel: 40,
+  },
+  [CommanderType.ANCIENT_SYMBIONT]: {
+    type: CommanderType.ANCIENT_SYMBIONT,
+    name: 'Symbionte Ancien',
+    lore: 'Entité primordiale survivante de la Convergence originelle. Ses pouvoirs défient la compréhension.',
+    rarity: CommanderRarity.LEGENDARY,
+    talentBranches: [
+      CommanderTalentBranch.COMBAT,
+      CommanderTalentBranch.GATHERING,
+      CommanderTalentBranch.RESEARCH,
+      CommanderTalentBranch.LEADERSHIP,
+    ],
+    baseBonus: {
+      fleet_attack_pct: 0.05,
+      fleet_defense_pct: 0.05,
+      expedition_yield_pct: 0.05,
+      research_time_reduction_pct: 0.05,
+    },
+    baseStats: { attack: 20, defense: 20, speed: 20, leadership: 40 },
+    recruitCost: {
+      [ResourceType.SPORES]: 5_000,
+      [ResourceType.BIOMASS]: 5_000,
+      [ResourceType.MINERALS]: 3_000,
+      [ResourceType.SAP]: 3_000,
+    },
+    baseXpPerLevel: 200,
+    maxLevel: 60,
+  },
+};
+
+/** Nombre maximum de commandants actifs (non IDLE) en simultané selon le niveau du SYMBIOTIC_CORE. */
+export function maxActiveCommanders(symbioticCoreLevel: number): number {
+  return Math.min(1 + Math.floor(symbioticCoreLevel / 5), 6);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LUNES ORGANIQUES
+// ═══════════════════════════════════════════════════════════════════
+
+export interface MoonBuildingConfig {
+  type: MoonBuildingType;
+  name: string;
+  description: string;
+  baseCost: ResourceBundle;
+  costFactor: number;
+  maxLevel: number;
+  requires?: Requirements;
+}
+
+export const MOON_BUILDINGS: Record<MoonBuildingType, MoonBuildingConfig> = {
+  [MoonBuildingType.LUNAR_CORE]: {
+    type: MoonBuildingType.LUNAR_CORE,
+    name: 'Noyau Lunaire',
+    description: 'Hub central de la lune organique. Requis pour tout autre bâtiment.',
+    baseCost: {
+      [ResourceType.BIOMASS]: 2_000,
+      [ResourceType.MINERALS]: 2_000,
+      [ResourceType.SAP]: 500,
+    },
+    costFactor: 2.0,
+    maxLevel: 10,
+  },
+  [MoonBuildingType.SPORE_PHALANX]: {
+    type: MoonBuildingType.SPORE_PHALANX,
+    name: 'Phalange Sporale',
+    description: 'Réseau de détection qui révèle les flottes ennemies dans des systèmes voisins.',
+    baseCost: {
+      [ResourceType.BIOMASS]: 3_000,
+      [ResourceType.MINERALS]: 1_500,
+      [ResourceType.SPORES]: 500,
+    },
+    costFactor: 2.5,
+    maxLevel: 5,
+    requires: { buildings: { [BuildingType.RESEARCH_NEXUS]: 5 } },
+  },
+  [MoonBuildingType.BIO_JUMP_GATE]: {
+    type: MoonBuildingType.BIO_JUMP_GATE,
+    name: 'Bio-Porte de Saut',
+    description:
+      "Téléporte instantanément une flotte depuis cette lune vers une autre lune équipée d'une porte.",
+    baseCost: {
+      [ResourceType.BIOMASS]: 5_000,
+      [ResourceType.MINERALS]: 4_000,
+      [ResourceType.SAP]: 2_000,
+      [ResourceType.SPORES]: 1_000,
+    },
+    costFactor: 3.0,
+    maxLevel: 1,
+    requires: { research: { [ResearchType.WORMHOLE_MYCOLOGY]: 2 } },
+  },
+  [MoonBuildingType.LUNAR_NURSERY]: {
+    type: MoonBuildingType.LUNAR_NURSERY,
+    name: 'Nid Lunaire',
+    description: 'Produit des vaisseaux depuis la sécurité de la lune.',
+    baseCost: {
+      [ResourceType.BIOMASS]: 2_500,
+      [ResourceType.MINERALS]: 1_800,
+      [ResourceType.SAP]: 800,
+    },
+    costFactor: 1.8,
+    maxLevel: 8,
+    requires: { research: { [ResearchType.SPORAL_PROPULSION]: 3 } },
+  },
+  [MoonBuildingType.CRYSTALLINE_SILO]: {
+    type: MoonBuildingType.CRYSTALLINE_SILO,
+    name: 'Silo Cristallin',
+    description: 'Stockage souterrain lunaire, invisible aux espions.',
+    baseCost: { [ResourceType.MINERALS]: 2_000, [ResourceType.BIOMASS]: 1_000 },
+    costFactor: 1.6,
+    maxLevel: 10,
+  },
+};
+
+/** Probabilité de création d'une lune selon la taille du champ de débris (en unités de ressources). */
+export function moonCreationChance(debrisSize: number): number {
+  // 1% par tranche de 100 000 ressources de débris, max 20%
+  return Math.min(0.2, debrisSize / 10_000_000);
+}
+
+/** Fraction des ressources des vaisseaux détruits qui alimentent le champ de débris. */
+export const DEBRIS_FRACTION = 0.3;
+
+/** Durée en heures avant qu'un champ de débris ne disparaisse. */
+export const DEBRIS_EXPIRY_HOURS = 48;
+
+// ═══════════════════════════════════════════════════════════════════
+// DÉFENSES ORBITALES
+// ═══════════════════════════════════════════════════════════════════
+
+export interface DefenseConfig {
+  type: DefenseType;
+  name: string;
+  description: string;
+  cost: ResourceBundle;
+  buildTimeSeconds: number;
+  attack: number;
+  defense: number;
+  hull: number;
+  /** Facteur de dégâts contre les gros vaisseaux. */
+  antiCapitalFactor?: number;
+  requires?: Requirements;
+}
+
+export const DEFENSES: Record<DefenseType, DefenseConfig> = {
+  [DefenseType.ION_CANNON]: {
+    type: DefenseType.ION_CANNON,
+    name: 'Canon Ionique',
+    description: "Structure défensive polyvalente qui tire des salves d'ions chargés.",
+    cost: { [ResourceType.BIOMASS]: 300, [ResourceType.MINERALS]: 400 },
+    buildTimeSeconds: 120,
+    attack: 40,
+    defense: 20,
+    hull: 200,
+  },
+  [DefenseType.SPORE_NET]: {
+    type: DefenseType.SPORE_NET,
+    name: 'Filet Sporale',
+    description: "Nuage de spores collantes qui ralentit les flottes d'assaut et les endommage.",
+    cost: { [ResourceType.BIOMASS]: 500, [ResourceType.SAP]: 200 },
+    buildTimeSeconds: 90,
+    attack: 15,
+    defense: 40,
+    hull: 150,
+  },
+  [DefenseType.SHIELD_MEMBRANE]: {
+    type: DefenseType.SHIELD_MEMBRANE,
+    name: 'Membrane Bouclier',
+    description: 'Membrane organique semi-perméable qui absorbe les 10 premiers % de dégâts.',
+    cost: { [ResourceType.BIOMASS]: 800, [ResourceType.SAP]: 600, [ResourceType.MINERALS]: 200 },
+    buildTimeSeconds: 300,
+    attack: 5,
+    defense: 100,
+    hull: 500,
+    requires: { research: { [ResearchType.CHITIN_ARMOR]: 2 } },
+  },
+  [DefenseType.MYCELIAL_TURRET]: {
+    type: DefenseType.MYCELIAL_TURRET,
+    name: 'Tourelle Mycélienne',
+    description: 'Tourelle organique à haute cadence de tir, idéale contre les petits vaisseaux.',
+    cost: { [ResourceType.BIOMASS]: 600, [ResourceType.MINERALS]: 600, [ResourceType.SPORES]: 100 },
+    buildTimeSeconds: 240,
+    attack: 60,
+    defense: 30,
+    hull: 300,
+    requires: { research: { [ResearchType.BIOLOGICAL_WARFARE]: 2 } },
+  },
+  [DefenseType.VOID_LANCE]: {
+    type: DefenseType.VOID_LANCE,
+    name: 'Lance du Vide',
+    description:
+      'Arme anti-capitaux qui perce les blindages lourds avec un rayon de Vide focalisé.',
+    cost: {
+      [ResourceType.BIOMASS]: 2_000,
+      [ResourceType.MINERALS]: 2_500,
+      [ResourceType.SPORES]: 500,
+      [ResourceType.SAP]: 500,
+    },
+    buildTimeSeconds: 900,
+    attack: 200,
+    defense: 50,
+    hull: 800,
+    antiCapitalFactor: 2.0,
+    requires: {
+      research: { [ResearchType.ORBITAL_DEFENSE_GRID]: 5 },
+      buildings: { [BuildingType.ORBITAL_NURSERY]: 5 },
+    },
+  },
+  [DefenseType.ORBITAL_THORN_BED]: {
+    type: DefenseType.ORBITAL_THORN_BED,
+    name: "Lit d'Épines Orbitales",
+    description:
+      "Champ d'épines cristallines qui inflige des dégâts à toute flotte passant en orbite.",
+    cost: {
+      [ResourceType.BIOMASS]: 1_000,
+      [ResourceType.MINERALS]: 1_200,
+      [ResourceType.SAP]: 300,
+    },
+    buildTimeSeconds: 600,
+    attack: 80,
+    defense: 60,
+    hull: 600,
+    requires: { research: { [ResearchType.ORBITAL_DEFENSE_GRID]: 3 } },
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// POPULATION & MAIN-D'ŒUVRE
+// ═══════════════════════════════════════════════════════════════════
+
+/** Population de base d'un Noyau-Monde à la création. */
+export const BASE_POPULATION = 1_000;
+/** Population de base d'une colonie à la fondation. */
+export const COLONY_BASE_POPULATION = 200;
+/** Croissance horaire de la population (% de la pop actuelle). */
+export const POPULATION_GROWTH_RATE_PER_HOUR = 0.005; // 0.5%/h
+/** Population maximale de base (avant bonus de recherche). */
+export const BASE_MAX_POPULATION = 5_000;
+/** Bonus de population maximale par niveau de Terraformation. */
+export const MAX_POPULATION_PER_TERRAFORMATION = 1_000;
+
+/** Travailleurs requis par bâtiment à chaque niveau (Niv 1 → Niv max). */
+export const BUILDING_WORKER_REQUIREMENTS: Record<BuildingType, Record<WorkerTier, number>> = {
+  [BuildingType.BIOMASS_SYNTHESIZER]: {
+    [WorkerTier.BASIC]: 5,
+    [WorkerTier.SKILLED]: 0,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.SAP_WELL]: {
+    [WorkerTier.BASIC]: 5,
+    [WorkerTier.SKILLED]: 0,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.MINERAL_VEIN]: {
+    [WorkerTier.BASIC]: 6,
+    [WorkerTier.SKILLED]: 0,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.SPORANGE]: {
+    [WorkerTier.BASIC]: 4,
+    [WorkerTier.SKILLED]: 2,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.PHOTOSYNTHETIC_CANOPY]: {
+    [WorkerTier.BASIC]: 3,
+    [WorkerTier.SKILLED]: 1,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.STORAGE_VACUOLE]: {
+    [WorkerTier.BASIC]: 2,
+    [WorkerTier.SKILLED]: 0,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.RESEARCH_NEXUS]: {
+    [WorkerTier.BASIC]: 2,
+    [WorkerTier.SKILLED]: 4,
+    [WorkerTier.EXPERT]: 2,
+  },
+  [BuildingType.SYMBIOTIC_CORE]: {
+    [WorkerTier.BASIC]: 3,
+    [WorkerTier.SKILLED]: 3,
+    [WorkerTier.EXPERT]: 2,
+  },
+  [BuildingType.ORBITAL_NURSERY]: {
+    [WorkerTier.BASIC]: 4,
+    [WorkerTier.SKILLED]: 4,
+    [WorkerTier.EXPERT]: 2,
+  },
+};
+
+/** Ratio d'occupation des travailleurs : travailleurs disponibles / requis.
+ *  Si < 1, la production est pénalisée proportionnellement. */
+export function workerProductionFactor(available: number, required: number): number {
+  if (required === 0) return 1;
+  return Math.min(1, available / required);
+}
+
+/** Niveau de qualification requis selon le niveau du bâtiment. */
+export function requiredWorkerTier(buildingLevel: number): WorkerTier {
+  if (buildingLevel >= 10) return WorkerTier.EXPERT;
+  if (buildingLevel >= 5) return WorkerTier.SKILLED;
+  return WorkerTier.BASIC;
+}
+
+/** Travailleurs qualifiés disponibles selon la population totale. */
+export function workerDistribution(population: number): Record<WorkerTier, number> {
+  return {
+    [WorkerTier.BASIC]: Math.floor(population * 0.6),
+    [WorkerTier.SKILLED]: Math.floor(population * 0.3),
+    [WorkerTier.EXPERT]: Math.floor(population * 0.1),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FILES DE MARCHE MULTIPLES
+// ═══════════════════════════════════════════════════════════════════
+
+/** Nombre de files de marche de base (une seule mission PvP à la fois). */
+export const BASE_MARCH_QUEUES = 1;
+/** Files de marche supplémentaires par niveau de Propulsion Sporale (max 4 bonus). */
+export const MARCH_QUEUES_PER_SPORAL_PROPULSION = 1;
+/** Maximum absolu de files de marche. */
+export const MAX_MARCH_QUEUES = 5;
+
+/** Calcule le nombre de files de marche disponibles pour un joueur. */
+export function availableMarchQueues(
+  sporalPropulsionLevel: number,
+  commanderBonus: number,
+): number {
+  return Math.min(
+    MAX_MARCH_QUEUES,
+    BASE_MARCH_QUEUES + Math.min(4, sporalPropulsionLevel) + commanderBonus,
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TERRITOIRE D'ALLIANCE
+// ═══════════════════════════════════════════════════════════════════
+
+/** Points de vie d'une balise sporale de territoire. */
+export const TERRITORY_BEACON_MAX_HEALTH = 1_000;
+/** Coût de déploiement d'une balise sporale. */
+export const TERRITORY_BEACON_COST: ResourceBundle = {
+  [ResourceType.SPORES]: 2_000,
+  [ResourceType.BIOMASS]: 3_000,
+  [ResourceType.MINERALS]: 1_500,
+};
+/** Bonus de production pour les membres de l'alliance dans un secteur contrôlé (%). */
+export const TERRITORY_PRODUCTION_BONUS = 0.1;
+/** Bonus de vitesse de flotte pour les membres dans un secteur contrôlé (%). */
+export const TERRITORY_SPEED_BONUS = 0.05;
+/** Durée de décroissance d'une balise non défendue (heures). */
+export const TERRITORY_DECAY_HOURS = 72;

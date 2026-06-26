@@ -26,6 +26,7 @@ const SHIP_COLORS: Record<ShipType, string> = {
   [ShipType.SPORAL_SWARM]: '#2dd4bf',
   [ShipType.LUMINOUS_WARDEN]: '#fde047',
   [ShipType.CHITIN_BULWARK]: '#991b1b',
+  [ShipType.BIO_RECYCLER]: '#34d399',
 };
 
 interface BioShipProps {

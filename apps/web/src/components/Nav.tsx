@@ -42,6 +42,8 @@ const LINKS = [
   { href: '/research', label: 'Recherche', icon: FiCpu },
   { href: '/galaxy', label: 'Galaxie', icon: FiGlobe },
   { href: '/fleets', label: 'Flottes', icon: FiNavigation },
+  { href: '/commanders', label: 'Commandants', icon: FiUser },
+  { href: '/defenses', label: 'Défenses', icon: FiShield },
   { href: '/pve', label: 'PvE', icon: FiCrosshair },
   { href: '/pvp', label: 'PvP', icon: FiCrosshair },
   { href: '/diplomacy', label: 'Diplomatie', icon: FiUsers },
