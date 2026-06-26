@@ -9,6 +9,9 @@ on:
   schedule:
     - cron: "23 5 * * 1" # lundi 05:23 UTC
 
+permissions:
+  contents: read
+
 concurrency:
   group: security-${{ github.ref }}
   cancel-in-progress: true
@@ -19,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      security-events: write
     env:
       GITLEAKS_VERSION: "8.21.2"
     steps:
@@ -34,11 +38,21 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
           gitleaks version
       - name: Scan
-        run: gitleaks detect --source . --redact --verbose --exit-code 1
+        run: >-
+          gitleaks detect --source . --redact --verbose --exit-code 1
+          --report-format sarif --report-path gitleaks.sarif
+      - name: Upload SARIF (gitleaks)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
 
   dependency-audit:
     name: Audit dépendances runtime
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,3 +72,29 @@ jobs:
         if: always()
         continue-on-error: true
         run: npm audit --audit-level=moderate --omit=dev
+
+  trivy-repo-scan:
+    name: Scan Trivy (repo/config)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy scan (HIGH + CRITICAL bloquant)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1"
+      - name: Upload SARIF (trivy)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy

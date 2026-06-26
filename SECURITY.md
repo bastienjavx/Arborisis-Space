@@ -56,6 +56,19 @@ Le client est considéré comme **non fiable**. Règles fondamentales :
 - En production : générer des secrets forts (`openssl rand -base64 48`), définir
   `COOKIE_DOMAIN`, `NODE_ENV=production` (active `Secure` sur les cookies).
 
+## Sécurité CI/CD (GitHub Actions)
+
+- **CodeQL** (`.github/workflows/codeql.yml`) : SAST JavaScript/TypeScript avec publication
+  des alertes dans GitHub Security.
+- **Security** (`.github/workflows/security.yml`) :
+  - scan de secrets **gitleaks** (bloquant),
+  - audit npm runtime (`--omit=dev`) avec seuil **HIGH/CRITICAL bloquant**,
+  - scan **Trivy** repo/config (vuln + misconfig + secrets, HIGH/CRITICAL bloquant).
+- **Dependency Review** (`.github/workflows/dependency-review.yml`) : bloque en PR
+  l'introduction de nouvelles vulnérabilités **HIGH/CRITICAL** via changements de dépendances.
+- **OSSF Scorecard** (`.github/workflows/scorecards.yml`) : mesure continue de la posture
+  supply-chain et publication SARIF dans GitHub Security.
+
 ## Données
 
 - Accès aux données via Prisma (requêtes paramétrées — pas d'injection SQL).

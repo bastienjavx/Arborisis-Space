@@ -1,0 +1,22 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency Review (HIGH + CRITICAL bloquant)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Analyze dependency changes
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
