@@ -1,9 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import type { DailyQuestsOverview } from '@arborisis/shared';
 import { GameIcon } from './GameIcon';
 import { AnimatedCard } from './AnimatedCard';
 import { AnimatedButton } from './AnimatedButton';

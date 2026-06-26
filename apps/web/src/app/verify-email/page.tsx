@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { FiCheckCircle, FiXCircle, FiLoader } from 'react-icons/fi';
+import { FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { keys } from '@/lib/queries';

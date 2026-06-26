@@ -322,7 +322,7 @@ export default function ItemMarketPage() {
                 <div className="rounded-lg bg-bark-800/50 p-2 text-xs">
                   <span className="text-canopy-100/40">Total : </span>
                   <span className="font-mono font-semibold text-canopy-100">
-                    {(parseInt(price || '0') * parseInt(quantity || '0')).toLocaleString()} B
+                    {(parseInt(price) * parseInt(quantity)).toLocaleString()} B
                   </span>
                   {side === MarketOrderSide.BUY && (
                     <span className="ml-2 text-[10px] text-canopy-100/30">
