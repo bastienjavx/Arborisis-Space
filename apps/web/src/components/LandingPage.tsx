@@ -37,7 +37,7 @@ const GAMEPLAY = [
     eyebrow: 'Cultiver',
     description:
       'Développez des cités vivantes, reliées par des réseaux racinaires. Chaque structure transforme durablement votre monde.',
-    image: '/images/arborisis/arborisis-empire.png',
+    image: '/images/arborisis/feature-empire.webp',
     accent: 'text-canopy-300',
     glowColor: 'rgba(22,191,108,0.18)',
   },
@@ -46,7 +46,7 @@ const GAMEPLAY = [
     eyebrow: 'Évoluer',
     description:
       "Explorez des symbioses, débloquez de nouvelles voies d'évolution et adaptez votre civilisation aux merveilles de la galaxie.",
-    image: '/images/arborisis/arborisis-research.png',
+    image: '/images/arborisis/feature-research.webp',
     accent: 'text-spore-400',
     glowColor: 'rgba(155,140,255,0.18)',
   },
@@ -55,7 +55,7 @@ const GAMEPLAY = [
     eyebrow: 'Étendre',
     description:
       "Déployez vos essaims à travers une galaxie vivante, découvrez des anomalies et étendez l'influence de vos colonies.",
-    image: '/images/arborisis/arborisis-galaxy.png',
+    image: '/images/arborisis/feature-galaxy.webp',
     accent: 'text-sap-400',
     glowColor: 'rgba(245,201,107,0.18)',
   },
@@ -66,13 +66,13 @@ const ARCHIVE_FRAMES = [
   {
     title: 'Monde-noyau',
     label: 'Biosphère active',
-    image: '/images/arborisis/arborisis-hero.png',
+    image: '/images/arborisis/hero-living-planet.webp',
     alt: 'Planète organique d’Arborisis parcourue de réseaux racinaires',
   },
   {
     title: 'Chambre symbiotique',
     label: 'Recherche évolutive',
-    image: '/images/arborisis/arborisis-research.png',
+    image: '/images/arborisis/feature-research.webp',
     alt: 'Nexus de recherche bioluminescent avec orbe énergétique',
   },
   {
@@ -350,7 +350,7 @@ export default function LandingPage() {
           {/* Hero image with scroll parallax */}
           <motion.div className="absolute inset-0 z-[1]" style={{ y: heroY, opacity: heroOpacity }}>
             <Image
-              src="/images/arborisis/arborisis-hero.png"
+              src="/images/arborisis/hero-living-planet.webp"
               alt="Planète organique vivante dont les réseaux racinaires s'étendent vers ses lunes"
               fill
               priority
@@ -709,7 +709,7 @@ export default function LandingPage() {
         <section className="relative h-[55vh] min-h-[380px] overflow-hidden lg:h-[65vh]">
           <motion.div className="absolute inset-0" style={{ y: symbiosisY }}>
             <Image
-              src="/images/arborisis/arborisis-symbiosis.png"
+              src="/images/arborisis/arborisis-symbiosis.webp"
               alt="Deux mondes organiques reliés par des réseaux mycéliens dans l'espace"
               fill
               sizes="100vw"
@@ -858,7 +858,7 @@ export default function LandingPage() {
           {/* Wormhole background */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
             <Image
-              src="/images/arborisis/arborisis-wormhole.png"
+              src="/images/arborisis/arborisis-wormhole.webp"
               alt=""
               fill
               sizes="100vw"
@@ -874,7 +874,7 @@ export default function LandingPage() {
           >
             <div className="absolute inset-0 bg-gradient-to-r from-bark-950 via-bark-950/50 to-transparent" />
             <Image
-              src="/images/arborisis/arborisis-commander.png"
+              src="/images/arborisis/arborisis-commander.webp"
               alt=""
               fill
               sizes="33vw"

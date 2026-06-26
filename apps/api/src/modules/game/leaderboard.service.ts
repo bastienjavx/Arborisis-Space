@@ -13,71 +13,125 @@ export interface ScoredUser {
   alliance: { id: string; tag: string; name: string; bannerColor: string } | null;
 }
 
+interface ScoredUserRow {
+  id: string;
+  username: string;
+  title: string | null;
+  updatedAt: Date;
+  buildingScore: number;
+  researchScore: number;
+  colonies: number;
+  ships: number;
+  expeditions: number;
+  allianceId: string | null;
+  allianceTag: string | null;
+  allianceName: string | null;
+  allianceBannerColor: string | null;
+}
+
 @Injectable()
 export class LeaderboardService {
   constructor(private readonly prisma: PrismaService) {}
-
-  /** Score d'un joueur à partir de ses bâtiments, recherches, colonies, flotte et expéditions. */
-  private scoreUser(user: {
-    planets: { buildings: { level: number }[]; ships: { quantity: number }[] }[];
-    researchLevels: { level: number }[];
-    expeditionReports: { id: string }[];
-  }): { score: number; colonies: number; ships: number } {
-    const buildingScore = user.planets
-      .flatMap((p) => p.buildings)
-      .reduce((sum, b) => sum + b.level * 10, 0);
-    const researchScore = user.researchLevels.reduce((sum, r) => sum + r.level * 100, 0);
-    const colonies = user.planets.length;
-    const ships = user.planets.flatMap((p) => p.ships).reduce((sum, s) => sum + s.quantity, 0);
-    const score =
-      buildingScore +
-      researchScore +
-      colonies * 500 +
-      ships * 5 +
-      user.expeditionReports.length * 20;
-    return { score, colonies, ships };
-  }
 
   /**
    * Joueurs scorés. Sans argument, repose sur le scoping d'univers par contexte
    * (requêtes HTTP) ; avec `universeId`, filtre explicitement (rollover de saison
    * hors contexte de requête).
+   *
+   * Le calcul est poussé en base de données pour éviter de matérialiser l'ensemble
+   * des planètes/bâtiments/vaisseaux en mémoire.
    */
   async scoredUsers(universeId?: string): Promise<ScoredUser[]> {
-    const users = await this.prisma.user.findMany({
-      where: universeId ? { universeId } : undefined,
-      select: {
-        id: true,
-        username: true,
-        title: true,
-        updatedAt: true,
-        planets: {
-          select: {
-            buildings: { select: { level: true } },
-            ships: { select: { quantity: true } },
-          },
-        },
-        researchLevels: { select: { level: true } },
-        expeditionReports: { select: { id: true } },
-        allianceMembership: {
-          select: {
-            alliance: { select: { id: true, tag: true, name: true, bannerColor: true } },
-          },
-        },
-      },
-    });
+    const effectiveUniverseId =
+      universeId ??
+      (await this.prisma.universe.findUnique({ where: { slug: 'default' }, select: { id: true } }))
+        ?.id;
+    if (!effectiveUniverseId) return [];
 
-    return users.map((user) => {
-      const { score, colonies, ships } = this.scoreUser(user);
+    const rows = await this.prisma.$queryRaw<ScoredUserRow[]>`
+      WITH building_scores AS (
+        SELECT p.owner_id AS user_id,
+               COUNT(DISTINCT p.id) AS colonies,
+               COALESCE(SUM(b.level) * 10, 0) AS building_score
+        FROM planets p
+        LEFT JOIN planet_buildings b ON b.planet_id = p.id
+        WHERE p.universe_id = ${effectiveUniverseId}
+        GROUP BY p.owner_id
+      ),
+      research_scores AS (
+        SELECT rl.user_id,
+               COALESCE(SUM(rl.level) * 100, 0) AS research_score
+        FROM research_levels rl
+        WHERE rl.user_id IN (SELECT id FROM users WHERE universe_id = ${effectiveUniverseId})
+        GROUP BY rl.user_id
+      ),
+      ship_counts AS (
+        SELECT p.owner_id AS user_id,
+               COALESCE(SUM(ps.quantity), 0) AS ships
+        FROM planets p
+        LEFT JOIN planet_ships ps ON ps.planet_id = p.id
+        WHERE p.universe_id = ${effectiveUniverseId}
+        GROUP BY p.owner_id
+      ),
+      expedition_counts AS (
+        SELECT er.user_id,
+               COUNT(*) AS expeditions
+        FROM expedition_reports er
+        WHERE er.user_id IN (SELECT id FROM users WHERE universe_id = ${effectiveUniverseId})
+        GROUP BY er.user_id
+      )
+      SELECT
+        u.id,
+        u.username,
+        u.title,
+        u.updated_at AS "updatedAt",
+        COALESCE(bs.building_score, 0) AS "buildingScore",
+        COALESCE(rs.research_score, 0) AS "researchScore",
+        COALESCE(bs.colonies, 0) AS colonies,
+        COALESCE(sc.ships, 0) AS ships,
+        COALESCE(ec.expeditions, 0) AS expeditions,
+        a.id AS "allianceId",
+        a.tag AS "allianceTag",
+        a.name AS "allianceName",
+        a.banner_color AS "allianceBannerColor"
+      FROM users u
+      LEFT JOIN building_scores bs ON bs.user_id = u.id
+      LEFT JOIN research_scores rs ON rs.user_id = u.id
+      LEFT JOIN ship_counts sc ON sc.user_id = u.id
+      LEFT JOIN expedition_counts ec ON ec.user_id = u.id
+      LEFT JOIN alliance_members am ON am.user_id = u.id
+      LEFT JOIN alliances a ON a.id = am.alliance_id
+      WHERE u.universe_id = ${effectiveUniverseId}
+      ORDER BY
+        COALESCE(bs.building_score, 0) + COALESCE(rs.research_score, 0)
+        + COALESCE(bs.colonies, 0) * 500 + COALESCE(sc.ships, 0) * 5
+        + COALESCE(ec.expeditions, 0) * 20 DESC
+    `;
+
+    return rows.map((row) => {
+      const score =
+        Number(row.buildingScore) +
+        Number(row.researchScore) +
+        Number(row.colonies) * 500 +
+        Number(row.ships) * 5 +
+        Number(row.expeditions) * 20;
       return {
-        id: user.id,
-        username: user.username,
-        title: user.title,
-        updatedAt: user.updatedAt,
+        id: row.id,
+        username: row.username,
+        title: row.title,
+        updatedAt: row.updatedAt,
         score,
-        colonies,
-        ships,
-        alliance: user.allianceMembership?.alliance ?? null,
+        colonies: Number(row.colonies),
+        ships: Number(row.ships),
+        alliance:
+          row.allianceId && row.allianceTag && row.allianceName
+            ? {
+                id: row.allianceId,
+                tag: row.allianceTag,
+                name: row.allianceName,
+                bannerColor: row.allianceBannerColor ?? '#22c55e',
+              }
+            : null,
       };
     });
   }

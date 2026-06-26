@@ -17,6 +17,9 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 
+const COORDINATE_RANDOM_ATTEMPTS = 30;
+const COORDINATE_LOAD_OCCUPIED_THRESHOLD = 2_000;
+
 @Injectable()
 export class WorldFactoryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -33,13 +36,10 @@ export class WorldFactoryService {
     const initialize = async (tx: Prisma.TransactionClient): Promise<void> => {
       const universeId = await getDefaultUniverseId(tx);
 
-      for (const type of RESEARCH_TYPES) {
-        await tx.researchLevel.upsert({
-          where: { userId_type: { userId, type } },
-          update: {},
-          create: { userId, type, level: 0 },
-        });
-      }
+      await tx.researchLevel.createMany({
+        data: RESEARCH_TYPES.map((type) => ({ userId, type, level: 0 })),
+        skipDuplicates: true,
+      });
 
       const existing = await tx.planet.findFirst({ where: { ownerId: userId, isHomeworld: true } });
       if (existing) return;
@@ -129,7 +129,36 @@ export class WorldFactoryService {
     tx: Prisma.TransactionClient,
     universeId: string,
   ): Promise<{ galaxy: number; system: number; position: number }> {
-    for (let attempt = 0; attempt < 100; attempt++) {
+    const totalPlanets = await tx.planet.count({ where: { universeId } });
+    const totalSlots = GALAXY_COUNT * SYSTEMS_PER_GALAXY * POSITIONS_PER_SYSTEM;
+
+    // Univers peuplé : charger les coordonnées occupées et trouver un trou (O(planètes)).
+    if (totalPlanets > COORDINATE_LOAD_OCCUPIED_THRESHOLD || totalPlanets > totalSlots * 0.3) {
+      const occupied = new Set(
+        (
+          await tx.planet.findMany({
+            where: { universeId },
+            select: { galaxy: true, system: true, position: true },
+          })
+        ).map((p) => `${p.galaxy}:${p.system}:${p.position}`),
+      );
+
+      // Limite de sécurité : ne pas scanner une grille gigantesque.
+      const maxScan = Math.min(totalSlots, 100_000);
+      let scanned = 0;
+      while (scanned < maxScan) {
+        const galaxy = randInt(1, GALAXY_COUNT);
+        const system = randInt(1, SYSTEMS_PER_GALAXY);
+        const position = randInt(1, POSITIONS_PER_SYSTEM);
+        const key = `${galaxy}:${system}:${position}`;
+        scanned++;
+        if (!occupied.has(key)) return { galaxy, system, position };
+      }
+      throw new ConflictException('Aucun emplacement libre disponible dans la galaxie.');
+    }
+
+    // Univers clairsemé : tirage aléatoire avec peu de collisions.
+    for (let attempt = 0; attempt < COORDINATE_RANDOM_ATTEMPTS; attempt++) {
       const galaxy = randInt(1, GALAXY_COUNT);
       const system = randInt(1, SYSTEMS_PER_GALAXY);
       const position = randInt(1, POSITIONS_PER_SYSTEM);

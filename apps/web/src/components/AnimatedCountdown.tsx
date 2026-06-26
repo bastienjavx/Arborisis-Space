@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { formatDuration, secondsUntil } from '@/lib/format';
+import { useTicker } from './TickerContext';
 
 interface AnimatedCountdownProps {
   finishesAt: string;
@@ -12,27 +13,23 @@ interface AnimatedCountdownProps {
   totalSeconds?: number;
 }
 
-export function AnimatedCountdown({
+function AnimatedCountdownInner({
   finishesAt,
   onDone,
   className = '',
   showRing = false,
   totalSeconds,
 }: AnimatedCountdownProps) {
-  const [remaining, setRemaining] = useState(() => secondsUntil(finishesAt));
+  useTicker();
+  const remaining = Math.max(0, secondsUntil(finishesAt));
+  const calledRef = useRef(false);
 
   useEffect(() => {
-    setRemaining(secondsUntil(finishesAt));
-    const id = setInterval(() => {
-      const next = secondsUntil(finishesAt);
-      setRemaining(next);
-      if (next <= 0) {
-        clearInterval(id);
-        onDone?.();
-      }
-    }, 1000);
-    return () => clearInterval(id);
-  }, [finishesAt, onDone]);
+    if (remaining <= 0 && !calledRef.current) {
+      calledRef.current = true;
+      onDone?.();
+    }
+  }, [remaining, onDone]);
 
   const progress =
     totalSeconds && totalSeconds > 0 ? Math.max(0, Math.min(1, remaining / totalSeconds)) : 0;
@@ -47,16 +44,16 @@ export function AnimatedCountdown({
         <div className="relative h-12 w-12">
           <svg className="h-full w-full -rotate-90" viewBox="0 0 48 48">
             <circle
-              cx="24"
-              cy="24"
+              cx={24}
+              cy={24}
               r={radius}
               fill="none"
               stroke="rgba(22, 191, 108, 0.1)"
               strokeWidth="4"
             />
             <motion.circle
-              cx="24"
-              cy="24"
+              cx={24}
+              cy={24}
               r={radius}
               fill="none"
               stroke="#16bf6c"
@@ -81,7 +78,7 @@ export function AnimatedCountdown({
   return (
     <motion.span
       className={`tabular-nums ${className}`}
-      key={remaining}
+      key={Math.floor(remaining)}
       initial={{ opacity: 0.5, y: -2 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -90,3 +87,5 @@ export function AnimatedCountdown({
     </motion.span>
   );
 }
+
+export const AnimatedCountdown = memo(AnimatedCountdownInner);

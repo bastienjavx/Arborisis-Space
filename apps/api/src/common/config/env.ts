@@ -10,6 +10,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().optional(),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
+  PRISMA_CONNECTION_LIMIT: z.coerce.number().int().positive().optional(),
+  PRISMA_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET doit faire ≥ 32 caractères'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET doit faire ≥ 32 caractères'),
   JWT_ACCESS_TTL: z.coerce.number().int().positive().default(900),
