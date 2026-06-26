@@ -13,6 +13,7 @@ import { Nav } from '@/components/Nav';
 import { NearMissBanner } from '@/components/NearMissBanner';
 import { OrganicBackgroundInner } from '@/components/OrganicBackgroundInner';
 import { PlanetProvider } from '@/components/PlanetContext';
+import { TickerProvider } from '@/components/TickerContext';
 import { useMe } from '@/lib/queries';
 import { ApiError } from '@/lib/api';
 import { onSessionEvent } from '@/lib/session';
@@ -82,35 +83,37 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <PlanetProvider>
-      <OrganicBackgroundInner />
-      <div className="pointer-events-none fixed inset-0 z-0 bg-bark-950/80 shadow-[inset_0_0_180px_rgba(0,0,0,0.7)]" />
-      <Nav username={user.username} />
-      <GameTopBar />
-      <DailyRewardModal />
-      <AbsenceSummaryModal />
-      <EngagementFeedback />
-      <div className="relative z-10 min-h-screen pb-24 lg:pl-[15rem] lg:pt-[5rem] lg:pb-0">
-        <motion.main
-          className="mx-auto max-w-[96rem] px-4 py-5 sm:px-6 sm:py-7 xl:px-9"
-          initial="hidden"
-          animate="visible"
-          variants={fadeUp}
-          transition={{ duration: 0.45, ease: organicEase }}
-        >
-          <motion.div
-            className="mb-5"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.35, ease: organicEase }}
+    <TickerProvider>
+      <PlanetProvider>
+        <OrganicBackgroundInner />
+        <div className="pointer-events-none fixed inset-0 z-0 bg-bark-950/80 shadow-[inset_0_0_180px_rgba(0,0,0,0.7)]" />
+        <Nav user={user} />
+        <GameTopBar />
+        <DailyRewardModal />
+        <AbsenceSummaryModal />
+        <EngagementFeedback />
+        <div className="relative z-10 min-h-screen pb-24 lg:pl-[15rem] lg:pt-[5rem] lg:pb-0">
+          <motion.main
+            className="mx-auto max-w-[96rem] px-4 py-5 sm:px-6 sm:py-7 xl:px-9"
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
+            transition={{ duration: 0.45, ease: organicEase }}
           >
-            <AttackWarningBanner />
-            <EventBanner />
-            <NearMissBanner />
-          </motion.div>
-          {children}
-        </motion.main>
-      </div>
-    </PlanetProvider>
+            <motion.div
+              className="mb-5"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.35, ease: organicEase }}
+            >
+              <AttackWarningBanner />
+              <EventBanner />
+              <NearMissBanner />
+            </motion.div>
+            {children}
+          </motion.main>
+        </div>
+      </PlanetProvider>
+    </TickerProvider>
   );
 }

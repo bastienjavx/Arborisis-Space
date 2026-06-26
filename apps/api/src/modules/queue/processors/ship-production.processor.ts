@@ -6,7 +6,7 @@ import { FinalizationService } from '../../game/finalization.service';
 import { FINALIZE_JOB, SHIP_PRODUCTION_QUEUE, type FinalizeJobData } from '../queue.constants';
 import { runWithUniverse } from './run-with-universe';
 
-@Processor(SHIP_PRODUCTION_QUEUE)
+@Processor(SHIP_PRODUCTION_QUEUE, { concurrency: 10 })
 export class ShipProductionProcessor extends WorkerHost {
   private readonly logger = new Logger(ShipProductionProcessor.name);
   constructor(

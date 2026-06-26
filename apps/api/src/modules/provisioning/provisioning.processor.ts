@@ -13,7 +13,7 @@ import { ProvisioningService } from './provisioning.service';
 /**
  * Worker BullMQ qui consomme les jobs de provisioning d'univers.
  */
-@Processor(PROVISIONING_QUEUE)
+@Processor(PROVISIONING_QUEUE, { concurrency: 2, lockDuration: 300_000 })
 export class ProvisioningProcessor extends WorkerHost {
   private readonly logger = new Logger(ProvisioningProcessor.name);
 

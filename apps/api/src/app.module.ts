@@ -88,6 +88,7 @@ import { EventsModule } from './modules/events/events.module';
         };
       },
     }),
+    RedisModule,
     PrismaModule,
     RedisModule,
     AntiCheatModule,

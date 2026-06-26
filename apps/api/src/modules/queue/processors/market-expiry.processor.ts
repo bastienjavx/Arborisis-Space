@@ -8,7 +8,7 @@ interface ExpireJobData {
   orderId: string;
 }
 
-@Processor(MARKET_EXPIRY_QUEUE)
+@Processor(MARKET_EXPIRY_QUEUE, { concurrency: 5 })
 export class MarketExpiryProcessor extends WorkerHost {
   private readonly logger = new Logger(MarketExpiryProcessor.name);
 

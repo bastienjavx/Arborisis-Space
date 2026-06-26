@@ -14,6 +14,7 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
+import { GameQueueService } from '../queue/game-queue.service';
 import { PRODUCTION_LINE_QUEUE, RUN_PRODUCTION_LINE_JOB } from '../queue/queue.constants';
 import { EventsGateway } from '../events/events.gateway';
 
@@ -25,6 +26,7 @@ export class ProductionLinesService {
     private readonly prisma: PrismaService,
     private readonly engine: GameEngineService,
     private readonly planets: PlanetsService,
+    private readonly gameQueue: GameQueueService,
     @InjectQueue(PRODUCTION_LINE_QUEUE) private readonly lineQueue: Queue,
     private readonly events: EventsGateway,
   ) {}
@@ -111,6 +113,9 @@ export class ProductionLinesService {
     if (!line) throw new NotFoundException('Ligne de production introuvable.');
     if (line.userId !== userId)
       throw new BadRequestException('Cette ligne de production ne vous appartient pas.');
+    if (line.nextRunAt) {
+      await this.gameQueue.removeProductionLineJob(lineId, line.nextRunAt).catch(() => void 0);
+    }
     await this.prisma.productionLine.delete({ where: { id: lineId } });
   }
 

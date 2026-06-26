@@ -515,7 +515,10 @@ model Planet {
 
   @@unique([universeId, galaxy, system, position])
   @@index([ownerId])
+  @@index([ownerId, isHomeworld])
   @@index([universeId])
+  @@index([galaxy, system])
+  @@index([universeId, galaxy, system])
   @@map("planets")
 }
 
@@ -753,6 +756,7 @@ model ColonizationJob {
 
   @@index([userId, status])
   @@index([status, finishesAt])
+  @@index([status, targetGalaxy, targetSystem, targetPosition])
   @@map("colonization_jobs")
 }
 
@@ -797,6 +801,7 @@ model ChatMessage {
   @@index([universeId, scope, createdAt])
   @@index([allianceId, createdAt])
   @@index([authorId, recipientId, createdAt])
+  @@index([recipientId, authorId, createdAt])
   @@map("chat_messages")
 }
 
@@ -888,6 +893,10 @@ model PveMission {
 
   @@index([userId, phase])
   @@index([encounterId])
+  @@index([sourcePlanetId, phase])
+  @@index([travelArrivesAt, phase])
+  @@index([combatEndsAt, phase])
+  @@index([returnsAt, phase])
   @@map("pve_missions")
 }
 
@@ -910,6 +919,9 @@ model PvpMission {
 
   @@index([userId, phase])
   @@index([targetPlanetId, phase])
+  @@index([sourcePlanetId, phase])
+  @@index([arrivesAt, phase])
+  @@index([returnsAt, phase])
   @@map("pvp_missions")
 }
 
@@ -931,6 +943,8 @@ model ResourceTransferMission {
 
   @@index([userId, phase])
   @@index([phase, arrivesAt])
+  @@index([targetPlanetId, phase])
+  @@index([arrivesAt, phase])
   @@map("resource_transfer_missions")
 }
 
@@ -1019,6 +1033,7 @@ model MarketOrder {
   sellTrades MarketTrade[] @relation("OrderSell")
 
   @@index([universeId, itemKey, side, status, pricePerUnit])
+  @@index([universeId, itemKey, pricePerUnit, status, side])
   @@index([userId, status])
   @@index([expiresAt])
   @@map("market_orders")
@@ -1065,7 +1080,6 @@ model OhlcvCandle {
   volume     Int           @default(0)
 
   @@unique([universeId, itemKey, interval, openTime])
-  @@index([universeId, itemKey, interval, openTime])
   @@map("ohlcv_candles")
 }
 
@@ -1384,6 +1398,7 @@ model DebrisField {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
+  @@unique([universeId, galaxy, system, position])
   @@index([universeId, galaxy, system])
   @@index([expiresAt])
   @@map("debris_fields")

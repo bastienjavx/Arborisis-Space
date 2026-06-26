@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
 import { ITEMS, type MarketSummaryView, type ItemKey } from '@arborisis/shared';
-import { api } from '@/lib/api';
+import { useMarketSummaries } from '@/lib/queries';
 import { GameIcon } from '@/components/GameIcon';
 import { PageHeader } from '@/components/PageHeader';
 import { FiTrendingUp, FiTrendingDown, FiMinus, FiArrowRight } from 'react-icons/fi';
@@ -34,11 +33,7 @@ function PriceChange({ change }: { change: number | null }) {
 const RARITY_ORDER = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY'];
 
 export default function MarketPage() {
-  const { data: summaries, isLoading } = useQuery({
-    queryKey: ['market', 'summaries'],
-    queryFn: () => api.marketSummaries(),
-    refetchInterval: 15_000,
-  });
+  const { data: summaries, isLoading } = useMarketSummaries();
 
   const grouped = summaries
     ? Object.values(ITEMS).reduce(

@@ -21,13 +21,16 @@ import {
   type ResourceState,
 } from '@arborisis/shared';
 import { OptimisticLockError, PrismaService } from '../../common/prisma/prisma.service';
+import { RedisCacheService } from '../../common/redis/redis-cache.service';
 import { EventsGateway } from '../events/events.gateway';
+import { getCurrentUniverseId } from '../universe/universe-context';
 
 export interface SettledPlanet {
   planet: Planet & { buildings: PlanetBuilding[] };
   buildings: Partial<Record<BuildingType, number>>;
   productionIntensities: Partial<Record<BuildingType, number>>;
   research: Partial<Record<ResearchType, number>>;
+  researchLevels: ResearchLevel[];
   production: ProductionResult;
 }
 
@@ -40,6 +43,7 @@ export interface SettledPlanet {
 export class GameEngineService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly cache: RedisCacheService,
     private readonly events?: EventsGateway,
   ) {}
 
@@ -84,7 +88,10 @@ export class GameEngineService {
     }
     const planet = await db.planet.findUniqueOrThrow({
       where: { id: planetId },
-      include: { buildings: true, owner: true },
+      include: {
+        buildings: true,
+        owner: { select: { race: true } },
+      },
     });
     const researchLevels = await db.researchLevel.findMany({
       where: { userId: planet.ownerId },
@@ -94,9 +101,9 @@ export class GameEngineService {
     const productionIntensities = this.productionIntensitiesOf(planet.buildings);
     const research = this.researchLevelsOf(researchLevels);
 
-    // Check for active galactic events affecting production
+    // Check for active galactic events affecting production (cached).
     const activeEvent = await this.getActiveEvent(db);
-    const production = computeProduction({
+    const productionBefore = computeProduction({
       buildings,
       productionIntensities,
       research,
@@ -109,7 +116,7 @@ export class GameEngineService {
     // Apply SPORE_BLOOM event: +50% production
     if (activeEvent?.type === GalacticEventType.SPORE_BLOOM) {
       for (const r of Object.values(ResourceType)) {
-        production.perHour[r] = Math.round(production.perHour[r] * 1.5 * 100) / 100;
+        productionBefore.perHour[r] = Math.round(productionBefore.perHour[r] * 1.5 * 100) / 100;
       }
     }
 
@@ -120,7 +127,7 @@ export class GameEngineService {
 
     const next: Record<ResourceType, number> = { ...amounts };
     for (const r of Object.values(ResourceType)) {
-      const gained = production.perHour[r] * hours;
+      const gained = productionBefore.perHour[r] * hours;
       next[r] = amounts[r] > cap ? amounts[r] : Math.min(cap, amounts[r] + gained);
     }
 
@@ -138,7 +145,7 @@ export class GameEngineService {
     );
     const newStability = effectiveStability(
       ecologicalStability,
-      production.energyRatio,
+      productionBefore.energyRatio,
       stabilityMax,
     );
 
@@ -157,28 +164,43 @@ export class GameEngineService {
       include: { buildings: true },
     });
 
-    const currentProduction = computeProduction({
-      buildings,
-      productionIntensities,
-      research,
-      stability: newStability,
-      planetType: updated.planetType as PlanetType,
-      race: planet.owner.race as RaceType,
-      specialization: (updated.specialization as PlanetSpecialization) ?? null,
-    });
-    if (activeEvent?.type === GalacticEventType.SPORE_BLOOM) {
-      for (const r of Object.values(ResourceType)) {
-        currentProduction.perHour[r] = Math.round(currentProduction.perHour[r] * 1.5 * 100) / 100;
-      }
-    }
+    // Reuse production if stability didn't change meaningfully, otherwise recompute once.
+    const currentProduction =
+      Math.abs(newStability - planet.stability) < 0.001
+        ? productionBefore
+        : this.applySporeBloom(
+            computeProduction({
+              buildings,
+              productionIntensities,
+              research,
+              stability: newStability,
+              planetType: updated.planetType as PlanetType,
+              race: planet.owner.race as RaceType,
+              specialization: (updated.specialization as PlanetSpecialization) ?? null,
+            }),
+            activeEvent,
+          );
 
     return {
       planet: updated,
       buildings,
       productionIntensities,
       research,
+      researchLevels,
       production: currentProduction,
     };
+  }
+
+  private applySporeBloom(
+    production: ProductionResult,
+    activeEvent: GalacticEvent | null,
+  ): ProductionResult {
+    if (activeEvent?.type === GalacticEventType.SPORE_BLOOM) {
+      for (const r of Object.values(ResourceType)) {
+        production.perHour[r] = Math.round(production.perHour[r] * 1.5 * 100) / 100;
+      }
+    }
+    return production;
   }
 
   /** Construit l'état ressources exposé au client. */
@@ -282,10 +304,31 @@ export class GameEngineService {
   /** Retourne l'événement galactique actif (endsAt > now), ou null. */
   async getActiveEvent(db?: Prisma.TransactionClient): Promise<GalacticEvent | null> {
     const client = db ?? this.prisma;
-    return client.galacticEvent.findFirst({
+    const universeId = this.currentUniverseId() ?? 'default';
+    const cacheKey = `active-event:${universeId}`;
+
+    const cached = await this.cache.get<GalacticEvent>('galactic-event', cacheKey);
+    if (cached) {
+      const stillValid = new Date(cached.endsAt).getTime() > Date.now();
+      if (stillValid) return cached;
+      await this.cache.del('galactic-event', cacheKey);
+    }
+
+    const event = await client.galacticEvent.findFirst({
       where: { endsAt: { gt: new Date() } },
       orderBy: { startAt: 'desc' },
     });
+
+    if (event) {
+      const ttlSeconds = Math.max(1, Math.floor((event.endsAt.getTime() - Date.now()) / 1000));
+      await this.cache.set('galactic-event', cacheKey, event, ttlSeconds);
+    }
+
+    return event;
+  }
+
+  private currentUniverseId(): string | undefined {
+    return getCurrentUniverseId();
   }
 
   /** Débite un coût en ressources d'une planète déjà settlée. */

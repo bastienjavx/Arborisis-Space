@@ -207,7 +207,7 @@ export class DailyQuestsService {
       await this.claimWeeklyBonus(userId);
     }
 
-    await this.notifications.create(
+    await this.notifications.enqueue(
       userId,
       NotificationType.ACHIEVEMENT_UNLOCKED,
       'Quête quotidienne terminée',
@@ -241,7 +241,7 @@ export class DailyQuestsService {
       );
     });
 
-    await this.notifications.create(
+    await this.notifications.enqueue(
       userId,
       NotificationType.ACHIEVEMENT_UNLOCKED,
       'Bonus hebdomadaire',

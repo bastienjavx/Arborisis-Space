@@ -22,6 +22,7 @@ import type {
   EmpireOverview,
   FleetPresetView,
   IncomingAttackView,
+  ItemKey,
   ModerateUserDto,
   NotificationView,
   PlanetDetail,
@@ -88,6 +89,12 @@ export const keys = {
   adminUsers: (search: string) => ['admin-users', search] as const,
   moderationActions: ['moderation-actions'] as const,
   productionLines: ['production-lines'] as const,
+  marketSummaries: ['market', 'summaries'] as const,
+  marketOrderBook: (itemKey: string) => ['market', 'orderbook', itemKey] as const,
+  marketCandles: (itemKey: string, interval: string) =>
+    ['market', 'candles', itemKey, interval] as const,
+  myMarketOrders: ['market', 'my-orders'] as const,
+  inventory: ['inventory'] as const,
 };
 
 export function useMe() {
@@ -191,7 +198,11 @@ export function usePublicProfile(id: string | undefined) {
 }
 
 export function usePlanets() {
-  return useQuery({ queryKey: keys.planets, queryFn: () => api.planets() });
+  return useQuery({
+    queryKey: keys.planets,
+    queryFn: () => api.planets(),
+    staleTime: 30_000,
+  });
 }
 
 export function usePlanetDetail(
@@ -345,6 +356,58 @@ export function useDeleteProductionLine() {
   return useMutation({
     mutationFn: (id: string) => api.deleteProductionLine(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.productionLines }),
+  });
+}
+
+// ── Market ──
+
+export function useMarketSummaries() {
+  return useQuery({
+    queryKey: keys.marketSummaries,
+    queryFn: () => api.marketSummaries(),
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+    staleTime: 5_000,
+  });
+}
+
+export function useMarketOrderBook(itemKey: string | undefined) {
+  return useQuery({
+    queryKey: keys.marketOrderBook(itemKey ?? 'none'),
+    queryFn: () => api.marketOrderBook(itemKey as ItemKey),
+    enabled: !!itemKey,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    staleTime: 1_000,
+  });
+}
+
+export function useMarketCandles(itemKey: string | undefined, interval: string) {
+  return useQuery({
+    queryKey: keys.marketCandles(itemKey ?? 'none', interval),
+    queryFn: () => api.marketCandles(itemKey as ItemKey, interval as '1h' | '4h' | '1d'),
+    enabled: !!itemKey,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
+  });
+}
+
+export function useMyMarketOrders() {
+  return useQuery({
+    queryKey: keys.myMarketOrders,
+    queryFn: () => api.myMarketOrders(),
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
+    staleTime: 3_000,
+  });
+}
+
+export function useInventory() {
+  return useQuery({
+    queryKey: keys.inventory,
+    queryFn: () => api.inventory(),
+    staleTime: 10_000,
   });
 }
 
@@ -547,6 +610,7 @@ export function useDailyReward() {
     queryKey: keys.dailyReward,
     queryFn: () => api.dailyReward(),
     refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -571,6 +635,7 @@ export function useAbsenceSummary() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchInterval: false,
+    refetchIntervalInBackground: false,
   });
 }
 
