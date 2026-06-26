@@ -147,6 +147,9 @@ export const LORE_SHIPS: Record<ShipType, LoreEntry> = {
   [ShipType.CHITIN_BULWARK]: {
     lore: `Le Rempart de Chitine est un mur vivant propulsé dans l'espace. Sa carapace peut encaisser des salves entières sans ciller, et sa seule présence suffit à faire hésiter les flottes adverses. C'est le symbole de la défense chitinide.`,
   },
+  [ShipType.BIO_RECYCLER]: {
+    lore: `Le Bio-recycleur est une créature ingénieuse façonnée pour absorber les débris de guerre. Ses organes internes décomposent la chitine brisée et le métal organique, transformant les ruines de batailles passées en ressources réutilisables. Là où d'autres voient des cendres, il voit de la nourriture.`,
+  },
 };
 
 export interface ChapterUnlock {

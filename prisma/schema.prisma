@@ -64,6 +64,7 @@ enum ShipType {
   SPORAL_SWARM
   LUMINOUS_WARDEN
   CHITIN_BULWARK
+  BIO_RECYCLER
 }
 
 enum PlanetType {
@@ -302,6 +303,13 @@ enum NotificationType {
   DAILY_REWARD_AVAILABLE
   MARKET_ORDER_FILLED
   PVE_COMPLETE
+  DEBRIS_FIELD_APPEARED
+  DEBRIS_COLLECTED
+  COMMANDER_LEVELED_UP
+  MOON_CREATED
+  TERRITORY_CLAIMED
+  TERRITORY_ATTACKED
+  DEFENSE_UNDER_ATTACK
 }
 
 enum DiplomaticStatus {
@@ -424,6 +432,8 @@ model User {
   engagementToken           EngagementToken?
   loginStreak               LoginStreak?
   sessionBonus              SessionBonus?
+  commanders                Commander[]
+  galaxyVisibility          GalaxyVisibility[]
 
   @@map("users")
 }
@@ -494,6 +504,8 @@ model Planet {
   outgoingRoutes     TradeRoute[]              @relation("TradeRouteFrom")
   incomingRoutes     TradeRoute[]              @relation("TradeRouteTo")
   constructionQueue  ConstructionQueueItem[]
+  orbitalDefenses    OrbitalDefense[]
+  population         PlanetPopulation?
 
   @@unique([universeId, galaxy, system, position])
   @@index([ownerId])
@@ -752,6 +764,7 @@ model Alliance {
   members      AllianceMember[]
   applications AllianceApplication[]
   chatMessages ChatMessage[]
+  territories  AllianceTerritory[]
 
   @@map("alliances")
 }
@@ -1263,4 +1276,234 @@ model FleetPreset {
 
   @@index([userId])
   @@map("fleet_presets")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Commandants Symbiotiques
+// ═══════════════════════════════════════════════════════════════════
+
+enum CommanderType {
+  MYCO_WARLORD
+  CHITIN_GUARDIAN
+  VOID_REAPER
+  SPORE_STORM
+  SYMBIONT_SAGE
+  ROOT_WEAVER
+  FUNGAL_MERCHANT
+  CANOPY_ARCHITECT
+  VOID_NAVIGATOR
+  SPORE_ORACLE
+  HIVE_HERALD
+  ANCIENT_SYMBIONT
+}
+
+enum CommanderRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum CommanderTalentBranch {
+  COMBAT
+  GATHERING
+  CONSTRUCTION
+  RESEARCH
+  LEADERSHIP
+}
+
+enum CommanderStatus {
+  IDLE
+  ON_FLEET
+  ASSIGNED_TO_PLANET
+}
+
+/// Un commandant symbiotique appartenant à un joueur.
+model Commander {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        CommanderType
+  rarity      CommanderRarity
+  level       Int              @default(1)
+  xp          Int              @default(0)
+  talentPoints Int             @default(0)
+  status      CommanderStatus  @default(IDLE)
+  assignedToPlanetId String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  talentInvestments CommanderTalentInvestment[]
+
+  @@index([userId])
+  @@map("commanders")
+}
+
+/// Points investis dans un nœud de talent d'un commandant.
+model CommanderTalentInvestment {
+  id           String                @id @default(uuid())
+  commanderId  String
+  commander    Commander             @relation(fields: [commanderId], references: [id], onDelete: Cascade)
+  branch       CommanderTalentBranch
+  nodeId       String
+  pointsInvested Int                 @default(1)
+  unlockedAt   DateTime              @default(now())
+
+  @@unique([commanderId, branch, nodeId])
+  @@map("commander_talent_investments")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Lunes Organiques + Débris
+// ═══════════════════════════════════════════════════════════════════
+
+enum MoonBuildingType {
+  LUNAR_CORE
+  SPORE_PHALANX
+  BIO_JUMP_GATE
+  LUNAR_NURSERY
+  CRYSTALLINE_SILO
+}
+
+/// Champ de débris généré après un combat PvP/PvE.
+model DebrisField {
+  id        String   @id @default(uuid())
+  universeId String
+  galaxy    Int
+  system    Int
+  position  Int
+  biomass   Float    @default(0)
+  minerals  Float    @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([universeId, galaxy, system])
+  @@index([expiresAt])
+  @@map("debris_fields")
+}
+
+/// Lune organique orbitant autour d'une planète.
+model Moon {
+  id        String   @id @default(uuid())
+  planetId  String   @unique
+  name      String
+  maxFields Int      @default(3)
+  createdAt DateTime @default(now())
+
+  buildings MoonBuildingLevel[]
+
+  @@map("moons")
+}
+
+/// Niveau d'un bâtiment construit sur une lune.
+model MoonBuildingLevel {
+  id           String         @id @default(uuid())
+  moonId       String
+  moon         Moon           @relation(fields: [moonId], references: [id], onDelete: Cascade)
+  buildingType MoonBuildingType
+  level        Int            @default(0)
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([moonId, buildingType])
+  @@map("moon_building_levels")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Défenses Orbitales
+// ═══════════════════════════════════════════════════════════════════
+
+enum DefenseType {
+  ION_CANNON
+  SPORE_NET
+  SHIELD_MEMBRANE
+  MYCELIAL_TURRET
+  VOID_LANCE
+  ORBITAL_THORN_BED
+}
+
+/// Structures défensives fixes sur une planète.
+model OrbitalDefense {
+  id         String     @id @default(uuid())
+  planetId   String
+  planet     Planet     @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  defenseType DefenseType
+  quantity   Int        @default(0)
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([planetId, defenseType])
+  @@index([planetId])
+  @@map("orbital_defenses")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Territoire d'Alliance
+// ═══════════════════════════════════════════════════════════════════
+
+enum AllianceTerritoryStatus {
+  NEUTRAL
+  CLAIMED
+  CONTESTED
+}
+
+enum BeaconStatus {
+  ACTIVE
+  DECAYING
+  DESTROYED
+}
+
+/// Secteur galactique revendiqué par une alliance.
+model AllianceTerritory {
+  id           String                  @id @default(uuid())
+  allianceId   String
+  alliance     Alliance                @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  universeId   String
+  galaxy       Int
+  system       Int
+  status       AllianceTerritoryStatus @default(CLAIMED)
+  beaconStatus BeaconStatus            @default(ACTIVE)
+  beaconHealth Int                     @default(1000)
+  contestedBy  String?
+  claimedAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@unique([universeId, galaxy, system])
+  @@index([allianceId])
+  @@map("alliance_territories")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Population / Main-d'œuvre
+// ═══════════════════════════════════════════════════════════════════
+
+/// Données de population d'une planète (croissance lazy).
+model PlanetPopulation {
+  id               String   @id @default(uuid())
+  planetId         String   @unique
+  planet           Planet   @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  population       Int      @default(1000)
+  maxPopulation    Int      @default(5000)
+  lastGrowthAt     DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("planet_populations")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Visibilité galactique (Brouillard de guerre)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Secteur exploré par un joueur (lève le brouillard de guerre).
+model GalaxyVisibility {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  universeId    String
+  galaxy        Int
+  system        Int
+  lastScoutedAt DateTime @default(now())
+
+  @@unique([userId, universeId, galaxy, system])
+  @@index([userId, universeId])
+  @@map("galaxy_visibility")
 }

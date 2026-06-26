@@ -30,6 +30,9 @@ import { ProductionLinesModule } from './modules/production-lines/production-lin
 import { TradeRoutesModule } from './modules/trade-routes/trade-routes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DiplomacyModule } from './modules/diplomacy/diplomacy.module';
+import { CommandersModule } from './modules/commanders/commanders.module';
+import { MoonsModule } from './modules/moons/moons.module';
+import { DefensesModule } from './modules/defenses/defenses.module';
 
 @Module({
   imports: [
@@ -108,6 +111,9 @@ import { DiplomacyModule } from './modules/diplomacy/diplomacy.module';
     TradeRoutesModule,
     NotificationsModule,
     DiplomacyModule,
+    CommandersModule,
+    MoonsModule,
+    DefensesModule,
     ProcessorsModule,
     ProvisioningModule,
     UniverseModule,

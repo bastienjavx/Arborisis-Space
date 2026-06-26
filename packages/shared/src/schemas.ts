@@ -229,6 +229,7 @@ export const pveShipsSchema = z
     [ShipType.SPORAL_SWARM]: shipField(),
     [ShipType.LUMINOUS_WARDEN]: shipField(),
     [ShipType.CHITIN_BULWARK]: shipField(),
+    [ShipType.BIO_RECYCLER]: shipField(),
   })
   .refine(
     (ships) => COMBAT_SHIP_TYPES.some((type) => (ships[type] ?? 0) > 0),
@@ -259,6 +260,7 @@ export const pvpShipsSchema = z
     [ShipType.SPORAL_SWARM]: shipField(),
     [ShipType.LUMINOUS_WARDEN]: shipField(),
     [ShipType.CHITIN_BULWARK]: shipField(),
+    [ShipType.BIO_RECYCLER]: shipField(),
   })
   .refine(
     (ships) => Object.values(ships).some((v) => v > 0),

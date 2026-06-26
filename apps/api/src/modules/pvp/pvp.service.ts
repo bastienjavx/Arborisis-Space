@@ -9,6 +9,8 @@ import { PvpMissionPhase, PvpMissionType as PrismaPvpMissionType } from '@prisma
 import {
   BuildingType,
   computeDefensePower,
+  DEBRIS_EXPIRY_HOURS,
+  DEBRIS_FRACTION,
   NotificationType,
   pvpTravelTimeSeconds,
   PvpMissionPhase as SharedPvpMissionPhase,
@@ -441,6 +443,16 @@ export class PvpService {
               result: result as unknown as Prisma.InputJsonValue,
             },
           });
+
+          // Génération du champ de débris (30% des vaisseaux détruits).
+          await this.createDebrisAfterCombat(
+            mission.targetPlanet.universeId,
+            mission.targetPlanet.galaxy,
+            mission.targetPlanet.system,
+            mission.targetPlanet.position,
+            { ...resolve.lostShips, ...resolve.defenderLosses },
+            tx,
+          );
         }
 
         scheduleNext = { phase: PvpMissionPhase.RETURNING, at: mission.returnsAt };
@@ -579,5 +591,37 @@ export class PvpService {
 
   private isUniqueViolation(error: unknown): boolean {
     return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
+  }
+
+  /** Génère un champ de débris après combat (DEBRIS_FRACTION des vaisseaux détruits). */
+  private async createDebrisAfterCombat(
+    universeId: string,
+    galaxy: number,
+    system: number,
+    position: number,
+    destroyedShips: Partial<Record<string, number>>,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    let biomassDebris = 0;
+    let mineralsDebris = 0;
+    for (const [type, qty] of Object.entries(destroyedShips)) {
+      if (!qty || qty <= 0) continue;
+      const ship = SHIPS[type as ShipType];
+      if (!ship) continue;
+      biomassDebris += Math.floor((ship.cost.BIOMASS ?? 0) * qty * DEBRIS_FRACTION);
+      mineralsDebris += Math.floor((ship.cost.MINERALS ?? 0) * qty * DEBRIS_FRACTION);
+    }
+    if (biomassDebris + mineralsDebris === 0) return;
+
+    const expiresAt = new Date(Date.now() + DEBRIS_EXPIRY_HOURS * 3_600_000);
+    const existing = await tx.debrisField.findFirst({ where: { universeId, galaxy, system, position } });
+    if (existing) {
+      await tx.debrisField.update({
+        where: { id: existing.id },
+        data: { biomass: { increment: biomassDebris }, minerals: { increment: mineralsDebris }, expiresAt },
+      });
+    } else {
+      await tx.debrisField.create({ data: { universeId, galaxy, system, position, biomass: biomassDebris, minerals: mineralsDebris, expiresAt } });
+    }
   }
 }
