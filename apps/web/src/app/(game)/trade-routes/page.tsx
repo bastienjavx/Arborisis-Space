@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GameIcon, type IconName } from '@/components/GameIcon';
+import { GameIcon } from '@/components/GameIcon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ITEMS,
@@ -166,7 +166,7 @@ function RouteCard({
 
 export default function TradeRoutesPage() {
   const qc = useQueryClient();
-  const { planets, selectedId: planetId } = usePlanetSelection();
+  const { planets } = usePlanetSelection();
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState('');
 
