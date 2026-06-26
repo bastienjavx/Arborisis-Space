@@ -48,6 +48,14 @@ npm run build
 
 La CI (GitHub Actions) rejoue ces étapes. Une PR doit être verte.
 
+Checks sécurité attendus sur PR :
+
+- `Security / Scan de secrets (gitleaks)`
+- `Security / Audit dépendances runtime`
+- `Security / Scan Trivy (repo/config)`
+- `CodeQL / Analyse CodeQL`
+- `Dependency Review / Dependency Review (HIGH + CRITICAL bloquant)`
+
 ## Style
 
 - TypeScript **strict** partout. Prettier (`npm run format`).

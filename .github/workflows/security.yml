@@ -7,7 +7,10 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: "23 5 * * 1" # lundi 05:23 UTC
+    - cron: '23 5 * * 1' # lundi 05:23 UTC
+
+permissions:
+  contents: read
 
 concurrency:
   group: security-${{ github.ref }}
@@ -19,28 +22,46 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      security-events: write
     env:
-      GITLEAKS_VERSION: "8.21.2"
+      GITLEAKS_VERSION: '8.21.2'
     steps:
       - uses: actions/checkout@v7
         with:
           # Historique complet : gitleaks scanne aussi les commits passés sur les PR.
           fetch-depth: 0
+          persist-credentials: false
       # Binaire épinglé plutôt que l'action : pas d'appel API GitHub (évite le 403
       # « Resource not accessible by integration ») ni de dépendance à une licence.
       - name: Installer gitleaks
         run: |
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz -C /usr/local/bin gitleaks
+          asset="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          base_url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -sSfLo "/tmp/${asset}" "${base_url}/${asset}"
+          curl -sSfLo /tmp/gitleaks_checksums.txt "${base_url}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " ${asset}\$" /tmp/gitleaks_checksums.txt | (cd /tmp && sha256sum -c -)
+          tar -xzf "/tmp/${asset}" -C /usr/local/bin gitleaks
           gitleaks version
       - name: Scan
-        run: gitleaks detect --source . --redact --verbose --exit-code 1
+        run: >-
+          gitleaks detect --source . --redact --verbose --exit-code 1
+          --report-format sarif --report-path gitleaks.sarif
+      - name: Upload SARIF (gitleaks)
+        if: always()
+        uses: github/codeql-action/upload-sarif@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
 
   dependency-audit:
     name: Audit dépendances runtime
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -58,3 +79,33 @@ jobs:
         if: always()
         continue-on-error: true
         run: npm audit --audit-level=moderate --omit=dev
+
+  trivy-repo-scan:
+    name: Scan Trivy (repo/config)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Trivy scan (HIGH + CRITICAL bloquant)
+        # v0.35.0 is the first safe tag after the March 2026 tag compromise.
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: '1'
+      - name: Upload SARIF (trivy)
+        if: always()
+        uses: github/codeql-action/upload-sarif@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
