@@ -62,9 +62,18 @@ export const metadata: Metadata = {
     title: siteConfig.title,
     description: siteConfig.description,
   },
+  appleWebApp: {
+    title: siteConfig.name,
+    capable: true,
+    statusBarStyle: 'black-translucent',
+  },
   icons: {
-    icon: [{ url: '/favicon.ico' }, { url: '/icon.png', type: 'image/png' }],
-    apple: [{ url: '/apple-icon.png', type: 'image/png' }],
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icons/icon-192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/icons/icon-512.png', type: 'image/png', sizes: '512x512' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', type: 'image/png', sizes: '180x180' }],
   },
   manifest: '/manifest.webmanifest',
   verification: process.env.GOOGLE_SITE_VERIFICATION
@@ -77,6 +86,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   colorScheme: 'dark',
   themeColor: '#07110b',
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

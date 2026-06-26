@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { CRAFTING_RECIPES, ITEMS, ItemCategory, type ItemKey } from '@arborisis/shared';
 import { api } from '@/lib/api';
+import { GameIcon } from '@/components/GameIcon';
 import { PageHeader } from '@/components/PageHeader';
 import { FiPackage, FiArrowRight, FiRepeat, FiTool } from 'react-icons/fi';
 
@@ -76,7 +77,9 @@ export default function InventoryPage() {
                   style={{ borderColor: `${item.rarityColor}20` }}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl leading-none">{item.icon}</span>
+                    <span className="text-2xl leading-none">
+                      <GameIcon name={item.icon} className="h-6 w-6" />
+                    </span>
                     <div className="min-w-0">
                       <p
                         className="truncate text-xs font-semibold"

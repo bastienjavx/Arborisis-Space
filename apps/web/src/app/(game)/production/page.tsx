@@ -379,7 +379,7 @@ export default function ProductionPage() {
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-2xl" aria-hidden="true">
-                          {item.icon}
+                          <GameIcon name={item.icon} className="h-6 w-6" />
                         </span>
                         <div>
                           <h3 className="text-sm text-canopy-50/90">{item.name}</h3>
@@ -457,7 +457,7 @@ export default function ProductionPage() {
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-2xl" aria-hidden="true">
-                      {item.icon}
+                      <GameIcon name={item.icon} className="h-6 w-6" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-semibold text-canopy-50/90">{item.name}</h3>

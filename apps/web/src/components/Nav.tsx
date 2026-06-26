@@ -61,6 +61,10 @@ const LINKS = [
 const PRIMARY_MOBILE_LINKS = LINKS.slice(0, 4);
 const ADMIN_LINK = { href: '/admin', label: 'Modération', icon: FiShield } as const;
 
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function Nav({ username }: { username: string }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -152,7 +156,7 @@ export function Nav({ username }: { username: string }) {
           aria-label="Navigation du jeu"
         >
           {navigationLinks.map((link) => {
-            const active = pathname === link.href;
+            const active = isActivePath(pathname, link.href);
             const Icon = link.icon;
             return (
               <Link
@@ -262,7 +266,7 @@ export function Nav({ username }: { username: string }) {
               >
                 {navigationLinks.map((link) => {
                   const Icon = link.icon;
-                  const active = pathname === link.href;
+                  const active = isActivePath(pathname, link.href);
                   return (
                     <Link
                       key={link.href}
@@ -304,7 +308,7 @@ export function Nav({ username }: { username: string }) {
         aria-label="Navigation mobile du jeu"
       >
         {PRIMARY_MOBILE_LINKS.map((link) => {
-          const active = pathname === link.href;
+          const active = isActivePath(pathname, link.href);
           const Icon = link.icon;
           return (
             <Link
@@ -320,7 +324,7 @@ export function Nav({ username }: { username: string }) {
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
-          className={`flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] transition ${PRIMARY_MOBILE_LINKS.some((link) => link.href === pathname) ? 'text-canopy-100/35' : 'text-canopy-300'}`}
+          className={`flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] transition ${PRIMARY_MOBILE_LINKS.some((link) => isActivePath(pathname, link.href)) ? 'text-canopy-100/35' : 'text-canopy-300'}`}
           aria-label="Plus de pages"
         >
           <FiMoreHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
