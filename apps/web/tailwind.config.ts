@@ -45,6 +45,9 @@ const config: Config = {
         breathe: 'breathe 4s ease-in-out infinite',
         'fade-in-up': 'fade-in-up 0.6s ease-out forwards',
         shake: 'shake 0.5s ease-in-out',
+        marquee: 'marquee 30s linear infinite',
+        'orbit-slow': 'orbit-slow 42s linear infinite',
+        'orbit-reverse': 'orbit-slow 62s linear infinite reverse',
       },
       keyframes: {
         float: {
@@ -77,6 +80,14 @@ const config: Config = {
           '0%, 100%': { transform: 'translateX(0)' },
           '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-5px)' },
           '20%, 40%, 60%, 80%': { transform: 'translateX(5px)' },
+        },
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+        'orbit-slow': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
         },
       },
     },
