@@ -74,7 +74,11 @@ export function CustomCursor() {
           translateX: '-50%',
           translateY: '-50%',
         }}
-        animate={{ width: hovering ? 48 : 28, height: hovering ? 48 : 28, opacity: hovering ? 0.6 : 0.35 }}
+        animate={{
+          width: hovering ? 48 : 28,
+          height: hovering ? 48 : 28,
+          opacity: hovering ? 0.6 : 0.35,
+        }}
         transition={{ duration: 0.22 }}
       />
     </>

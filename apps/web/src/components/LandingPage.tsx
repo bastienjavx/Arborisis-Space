@@ -67,7 +67,7 @@ const ARCHIVE_FRAMES = [
     title: 'Monde-noyau',
     label: 'Biosphère active',
     image: '/images/arborisis/arborisis-hero.png',
-    alt: "Planète organique d’Arborisis parcourue de réseaux racinaires",
+    alt: 'Planète organique d’Arborisis parcourue de réseaux racinaires',
   },
   {
     title: 'Chambre symbiotique',
@@ -348,10 +348,7 @@ export default function LandingPage() {
           </div>
 
           {/* Hero image with scroll parallax */}
-          <motion.div
-            className="absolute inset-0 z-[1]"
-            style={{ y: heroY, opacity: heroOpacity }}
-          >
+          <motion.div className="absolute inset-0 z-[1]" style={{ y: heroY, opacity: heroOpacity }}>
             <Image
               src="/images/arborisis/arborisis-hero.png"
               alt="Planète organique vivante dont les réseaux racinaires s'étendent vers ses lunes"
@@ -538,13 +535,12 @@ export default function LandingPage() {
                   Les piliers du vivant
                 </p>
                 <h2 className="text-3xl tracking-[-0.04em] sm:text-5xl">
-                  Votre empire est un{' '}
-                  <span className="italic text-canopy-300">écosystème</span>.
+                  Votre empire est un <span className="italic text-canopy-300">écosystème</span>.
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-6 text-canopy-100/40">
-                Chaque décision façonne un réseau interdépendant de ressources, d&apos;organismes
-                et de mondes à conquérir.
+                Chaque décision façonne un réseau interdépendant de ressources, d&apos;organismes et
+                de mondes à conquérir.
               </p>
             </motion.div>
 
@@ -578,9 +574,7 @@ export default function LandingPage() {
                           {item.eyebrow}
                         </span>
                       </div>
-                      <h3 className={`mt-3 font-display text-3xl ${item.accent}`}>
-                        {item.title}
-                      </h3>
+                      <h3 className={`mt-3 font-display text-3xl ${item.accent}`}>{item.title}</h3>
                       <p className="mt-3 text-sm leading-6 text-canopy-100/48">
                         {item.description}
                       </p>
@@ -776,11 +770,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Experience ── */}
-        <section
-          id="experience"
-          aria-labelledby="experience-title"
-          className="px-5 py-24 lg:px-8"
-        >
+        <section id="experience" aria-labelledby="experience-title" className="px-5 py-24 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <motion.div
               className="max-w-3xl"
@@ -919,8 +909,7 @@ export default function LandingPage() {
               Commencer l&apos;expansion
             </p>
             <h2 className="mt-5 text-4xl tracking-[-0.045em] sm:text-6xl">
-              Plantez la première{' '}
-              <span className="italic text-canopy-300">graine</span>
+              Plantez la première <span className="italic text-canopy-300">graine</span>
               <span style={{ color: 'var(--sap)' }}>.</span>
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-canopy-100/48">
