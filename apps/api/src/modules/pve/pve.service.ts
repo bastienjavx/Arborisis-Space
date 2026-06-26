@@ -478,17 +478,14 @@ export class PveService {
     planetId: string,
     ships: Record<string, number>,
   ): Promise<void> {
-    const entries = Object.entries(ships).filter(([, qty]) => qty > 0);
-    if (entries.length === 0) return;
-    const values = entries.map(
-      ([type, qty]) => Prisma.sql`(${planetId}, ${type}::text::"ShipType", ${qty})`,
-    );
-    await tx.$executeRaw`
-      INSERT INTO "planet_ships" ("planetId", "type", "quantity")
-      VALUES ${Prisma.join(values)}
-      ON CONFLICT ("planetId", "type") DO UPDATE
-      SET quantity = "planet_ships".quantity + EXCLUDED.quantity
-    `;
+    for (const [type, qty] of Object.entries(ships)) {
+      if (qty <= 0) continue;
+      await tx.planetShip.upsert({
+        where: { planetId_type: { planetId, type: type as ShipType } },
+        update: { quantity: { increment: qty } },
+        create: { planetId, type: type as ShipType, quantity: qty },
+      });
+    }
   }
 
   private isUniqueViolation(error: unknown): boolean {
