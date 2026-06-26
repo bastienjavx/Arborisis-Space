@@ -96,7 +96,8 @@ export class MoonsService {
     const config = MOON_BUILDINGS[buildingType];
     if (!config) throw new BadRequestException('Type de bâtiment lunaire invalide.');
 
-    const currentLevel = (moon.buildings as any[]).find((b) => b.buildingType === buildingType)?.level ?? 0;
+    const currentLevel =
+      (moon.buildings as any[]).find((b) => b.buildingType === buildingType)?.level ?? 0;
     if (currentLevel >= config.maxLevel) {
       throw new BadRequestException('Ce bâtiment est déjà au niveau maximum.');
     }
@@ -117,7 +118,9 @@ export class MoonsService {
       planetData.sap < cost.SAP ||
       planetData.spores < cost.SPORES
     ) {
-      throw new BadRequestException('Ressources insuffisantes pour construire ce bâtiment lunaire.');
+      throw new BadRequestException(
+        'Ressources insuffisantes pour construire ce bâtiment lunaire.',
+      );
     }
 
     await this.prisma.$transaction([
@@ -170,11 +173,21 @@ export class MoonsService {
   }
 
   private toMoonView(
-    moon: { id: string; planetId: string; name: string; maxFields: number; buildings: { buildingType: string; level: number }[] },
+    moon: {
+      id: string;
+      planetId: string;
+      name: string;
+      maxFields: number;
+      buildings: { buildingType: string; level: number }[];
+    },
     planet: { name: string; galaxy: number; system: number; position: number },
   ): MoonView {
-    const phalanxBuilding = moon.buildings.find((b) => b.buildingType === MoonBuildingType.SPORE_PHALANX);
-    const jumpGateBuilding = moon.buildings.find((b) => b.buildingType === MoonBuildingType.BIO_JUMP_GATE);
+    const phalanxBuilding = moon.buildings.find(
+      (b) => b.buildingType === MoonBuildingType.SPORE_PHALANX,
+    );
+    const jumpGateBuilding = moon.buildings.find(
+      (b) => b.buildingType === MoonBuildingType.BIO_JUMP_GATE,
+    );
 
     const buildings: MoonBuildingView[] = Object.values(MoonBuildingType).map((type) => {
       const building = moon.buildings.find((b) => b.buildingType === type);

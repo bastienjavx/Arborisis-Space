@@ -23,14 +23,20 @@ const RARITY_LABELS: Record<string, string> = {
   LEGENDARY: 'Légendaire',
 };
 
-function TalentTree({ commander, onInvest }: {
+function TalentTree({
+  commander,
+  onInvest,
+}: {
   commander: CommanderView;
   onInvest: (branch: string, nodeId: string) => void;
 }) {
   return (
     <div className="mt-4 space-y-4">
       {commander.talentBranches.map((branch) => (
-        <div key={branch.branch} className="rounded-lg border border-emerald-900/40 bg-black/20 p-3">
+        <div
+          key={branch.branch}
+          className="rounded-lg border border-emerald-900/40 bg-black/20 p-3"
+        >
           <h4 className="mb-2 text-sm font-semibold text-emerald-400">{branch.name}</h4>
           <div className="flex flex-wrap gap-2">
             {branch.nodes.map((node) => (
@@ -63,7 +69,14 @@ function TalentTree({ commander, onInvest }: {
   );
 }
 
-function CommanderCard({ commander, expanded, onExpand, onAssign, onInvest, currentPlanetId }: {
+function CommanderCard({
+  commander,
+  expanded,
+  onExpand,
+  onAssign,
+  onInvest,
+  currentPlanetId,
+}: {
   commander: CommanderView;
   expanded: boolean;
   onExpand: () => void;
@@ -93,10 +106,15 @@ function CommanderCard({ commander, expanded, onExpand, onAssign, onInvest, curr
           <div className="mt-2">
             <div className="mb-1 flex justify-between text-[10px] text-gray-500">
               <span>XP</span>
-              <span>{commander.xp} / {commander.xpToNextLevel}</span>
+              <span>
+                {commander.xp} / {commander.xpToNextLevel}
+              </span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-gray-800">
-              <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${xpPct}%` }} />
+              <div
+                className="h-full rounded-full bg-emerald-600 transition-all"
+                style={{ width: `${xpPct}%` }}
+              />
             </div>
           </div>
         </div>
@@ -107,13 +125,20 @@ function CommanderCard({ commander, expanded, onExpand, onAssign, onInvest, curr
               +{commander.talentPoints} pts talent
             </span>
           )}
-          <span className={`text-xs px-2 py-0.5 rounded-full border ${
-            commander.status === 'IDLE' ? 'border-gray-700 text-gray-400' :
-            commander.status === 'ASSIGNED_TO_PLANET' ? 'border-emerald-700 text-emerald-400' :
-            'border-blue-700 text-blue-400'
-          }`}>
-            {commander.status === 'IDLE' ? 'Inactif' :
-             commander.status === 'ASSIGNED_TO_PLANET' ? 'Sur planète' : 'En mission'}
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full border ${
+              commander.status === 'IDLE'
+                ? 'border-gray-700 text-gray-400'
+                : commander.status === 'ASSIGNED_TO_PLANET'
+                  ? 'border-emerald-700 text-emerald-400'
+                  : 'border-blue-700 text-blue-400'
+            }`}
+          >
+            {commander.status === 'IDLE'
+              ? 'Inactif'
+              : commander.status === 'ASSIGNED_TO_PLANET'
+                ? 'Sur planète'
+                : 'En mission'}
           </span>
         </div>
       </div>
@@ -129,7 +154,10 @@ function CommanderCard({ commander, expanded, onExpand, onAssign, onInvest, curr
               <p className="mb-1 text-xs font-semibold text-emerald-400">Bonus actifs</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(commander.activeBonus).map(([key, value]) => (
-                  <span key={key} className="rounded bg-emerald-900/50 px-2 py-0.5 text-xs text-emerald-300">
+                  <span
+                    key={key}
+                    className="rounded bg-emerald-900/50 px-2 py-0.5 text-xs text-emerald-300"
+                  >
                     {key}: +{Math.round(Number(value) * 100)}%
                   </span>
                 ))}
@@ -243,7 +271,7 @@ export default function CommandersPage() {
                       className={`rounded-xl border p-4 transition-all ${
                         alreadyOwned
                           ? 'border-gray-800 bg-gray-950/50 opacity-50'
-                          : RARITY_COLORS[config.rarity] ?? RARITY_COLORS.COMMON
+                          : (RARITY_COLORS[config.rarity] ?? RARITY_COLORS.COMMON)
                       } bg-gray-950`}
                     >
                       <div className="flex items-center gap-2">
@@ -261,7 +289,10 @@ export default function CommandersPage() {
                         {Object.entries(config.recruitCost)
                           .filter(([, v]) => (v ?? 0) > 0)
                           .map(([res, val]) => (
-                            <span key={res} className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-300">
+                            <span
+                              key={res}
+                              className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-300"
+                            >
                               {val?.toLocaleString()} {res}
                             </span>
                           ))}

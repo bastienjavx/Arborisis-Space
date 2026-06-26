@@ -614,14 +614,30 @@ export class PvpService {
     if (biomassDebris + mineralsDebris === 0) return;
 
     const expiresAt = new Date(Date.now() + DEBRIS_EXPIRY_HOURS * 3_600_000);
-    const existing = await tx.debrisField.findFirst({ where: { universeId, galaxy, system, position } });
+    const existing = await tx.debrisField.findFirst({
+      where: { universeId, galaxy, system, position },
+    });
     if (existing) {
       await tx.debrisField.update({
         where: { id: existing.id },
-        data: { biomass: { increment: biomassDebris }, minerals: { increment: mineralsDebris }, expiresAt },
+        data: {
+          biomass: { increment: biomassDebris },
+          minerals: { increment: mineralsDebris },
+          expiresAt,
+        },
       });
     } else {
-      await tx.debrisField.create({ data: { universeId, galaxy, system, position, biomass: biomassDebris, minerals: mineralsDebris, expiresAt } });
+      await tx.debrisField.create({
+        data: {
+          universeId,
+          galaxy,
+          system,
+          position,
+          biomass: biomassDebris,
+          minerals: mineralsDebris,
+          expiresAt,
+        },
+      });
     }
   }
 }

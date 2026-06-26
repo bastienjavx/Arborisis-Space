@@ -1009,7 +1009,7 @@ export const SHIPS: Record<ShipType, ShipConfig> = {
     type: ShipType.BIO_RECYCLER,
     name: 'Bio-recycleur',
     description:
-      'Organisme-éponge capable d\'aspirer les débris de bataille flottant dans l\'espace.',
+      "Organisme-éponge capable d'aspirer les débris de bataille flottant dans l'espace.",
     role: ShipRole.TRANSPORT,
     cost: {
       [ResourceType.BIOMASS]: 500,
@@ -2345,7 +2345,7 @@ const CONSTRUCTION_TALENTS: CommanderTalentBranchConfig = {
     },
     {
       id: 'build_queue',
-      name: 'File d\'attente avancée',
+      name: "File d'attente avancée",
       description: '+1 emplacement de file de construction.',
       maxPoints: 2,
       effectKey: 'build_queue_slots',
@@ -2427,7 +2427,7 @@ const LEADERSHIP_TALENTS: CommanderTalentBranchConfig = {
     },
     {
       id: 'lead_alliance',
-      name: 'Aura d\'alliance',
+      name: "Aura d'alliance",
       description: '+2% à toutes les productions pour les alliés dans le même secteur.',
       maxPoints: 3,
       effectKey: 'alliance_sector_bonus',
@@ -2446,13 +2446,14 @@ const LEADERSHIP_TALENTS: CommanderTalentBranchConfig = {
   ],
 };
 
-export const COMMANDER_TALENT_BRANCHES: Record<CommanderTalentBranch, CommanderTalentBranchConfig> = {
-  [CommanderTalentBranch.COMBAT]: COMBAT_TALENTS,
-  [CommanderTalentBranch.GATHERING]: GATHERING_TALENTS,
-  [CommanderTalentBranch.CONSTRUCTION]: CONSTRUCTION_TALENTS,
-  [CommanderTalentBranch.RESEARCH]: RESEARCH_TALENTS,
-  [CommanderTalentBranch.LEADERSHIP]: LEADERSHIP_TALENTS,
-};
+export const COMMANDER_TALENT_BRANCHES: Record<CommanderTalentBranch, CommanderTalentBranchConfig> =
+  {
+    [CommanderTalentBranch.COMBAT]: COMBAT_TALENTS,
+    [CommanderTalentBranch.GATHERING]: GATHERING_TALENTS,
+    [CommanderTalentBranch.CONSTRUCTION]: CONSTRUCTION_TALENTS,
+    [CommanderTalentBranch.RESEARCH]: RESEARCH_TALENTS,
+    [CommanderTalentBranch.LEADERSHIP]: LEADERSHIP_TALENTS,
+  };
 
 export const COMMANDERS: Record<CommanderType, CommanderConfig> = {
   [CommanderType.MYCO_WARLORD]: {
@@ -2470,7 +2471,7 @@ export const COMMANDERS: Record<CommanderType, CommanderConfig> = {
   [CommanderType.CHITIN_GUARDIAN]: {
     type: CommanderType.CHITIN_GUARDIAN,
     name: 'Gardien Chitinide',
-    lore: 'Colosse défensif dont l\'armure chitineuse a résisté à mille batailles.',
+    lore: "Colosse défensif dont l'armure chitineuse a résisté à mille batailles.",
     rarity: CommanderRarity.RARE,
     talentBranches: [CommanderTalentBranch.COMBAT, CommanderTalentBranch.CONSTRUCTION],
     baseBonus: { fleet_defense_pct: 0.08, build_time_reduction_pct: 0.03 },
@@ -2530,7 +2531,7 @@ export const COMMANDERS: Record<CommanderType, CommanderConfig> = {
   [CommanderType.FUNGAL_MERCHANT]: {
     type: CommanderType.FUNGAL_MERCHANT,
     name: 'Marchand Fongique',
-    lore: 'Commerçant légendaire dont les routes commerciales s\'étendent aux confins de la galaxie.',
+    lore: "Commerçant légendaire dont les routes commerciales s'étendent aux confins de la galaxie.",
     rarity: CommanderRarity.RARE,
     talentBranches: [CommanderTalentBranch.GATHERING, CommanderTalentBranch.LEADERSHIP],
     baseBonus: { market_tax_reduction: 0.1 },
@@ -2566,7 +2567,7 @@ export const COMMANDERS: Record<CommanderType, CommanderConfig> = {
   [CommanderType.SPORE_ORACLE]: {
     type: CommanderType.SPORE_ORACLE,
     name: 'Oracle Sporique',
-    lore: 'Maître de l\'espionnage dont les spores invisibles infiltrent les empires ennemis.',
+    lore: "Maître de l'espionnage dont les spores invisibles infiltrent les empires ennemis.",
     rarity: CommanderRarity.EPIC,
     talentBranches: [CommanderTalentBranch.GATHERING, CommanderTalentBranch.COMBAT],
     baseBonus: { spy_success_chance: 0.15 },
@@ -2578,7 +2579,7 @@ export const COMMANDERS: Record<CommanderType, CommanderConfig> = {
   [CommanderType.HIVE_HERALD]: {
     type: CommanderType.HIVE_HERALD,
     name: 'Héraut de la Ruche',
-    lore: 'Diplomate et stratège d\'alliance dont la présence galvanise chaque membre.',
+    lore: "Diplomate et stratège d'alliance dont la présence galvanise chaque membre.",
     rarity: CommanderRarity.RARE,
     talentBranches: [CommanderTalentBranch.LEADERSHIP, CommanderTalentBranch.CONSTRUCTION],
     baseBonus: { alliance_sector_bonus: 0.05, march_queue_slots: 1 },
@@ -2640,7 +2641,11 @@ export const MOON_BUILDINGS: Record<MoonBuildingType, MoonBuildingConfig> = {
     type: MoonBuildingType.LUNAR_CORE,
     name: 'Noyau Lunaire',
     description: 'Hub central de la lune organique. Requis pour tout autre bâtiment.',
-    baseCost: { [ResourceType.BIOMASS]: 2_000, [ResourceType.MINERALS]: 2_000, [ResourceType.SAP]: 500 },
+    baseCost: {
+      [ResourceType.BIOMASS]: 2_000,
+      [ResourceType.MINERALS]: 2_000,
+      [ResourceType.SAP]: 500,
+    },
     costFactor: 2.0,
     maxLevel: 10,
   },
@@ -2648,7 +2653,11 @@ export const MOON_BUILDINGS: Record<MoonBuildingType, MoonBuildingConfig> = {
     type: MoonBuildingType.SPORE_PHALANX,
     name: 'Phalange Sporale',
     description: 'Réseau de détection qui révèle les flottes ennemies dans des systèmes voisins.',
-    baseCost: { [ResourceType.BIOMASS]: 3_000, [ResourceType.MINERALS]: 1_500, [ResourceType.SPORES]: 500 },
+    baseCost: {
+      [ResourceType.BIOMASS]: 3_000,
+      [ResourceType.MINERALS]: 1_500,
+      [ResourceType.SPORES]: 500,
+    },
     costFactor: 2.5,
     maxLevel: 5,
     requires: { buildings: { [BuildingType.RESEARCH_NEXUS]: 5 } },
@@ -2656,7 +2665,8 @@ export const MOON_BUILDINGS: Record<MoonBuildingType, MoonBuildingConfig> = {
   [MoonBuildingType.BIO_JUMP_GATE]: {
     type: MoonBuildingType.BIO_JUMP_GATE,
     name: 'Bio-Porte de Saut',
-    description: 'Téléporte instantanément une flotte depuis cette lune vers une autre lune équipée d\'une porte.',
+    description:
+      "Téléporte instantanément une flotte depuis cette lune vers une autre lune équipée d'une porte.",
     baseCost: {
       [ResourceType.BIOMASS]: 5_000,
       [ResourceType.MINERALS]: 4_000,
@@ -2671,7 +2681,11 @@ export const MOON_BUILDINGS: Record<MoonBuildingType, MoonBuildingConfig> = {
     type: MoonBuildingType.LUNAR_NURSERY,
     name: 'Nid Lunaire',
     description: 'Produit des vaisseaux depuis la sécurité de la lune.',
-    baseCost: { [ResourceType.BIOMASS]: 2_500, [ResourceType.MINERALS]: 1_800, [ResourceType.SAP]: 800 },
+    baseCost: {
+      [ResourceType.BIOMASS]: 2_500,
+      [ResourceType.MINERALS]: 1_800,
+      [ResourceType.SAP]: 800,
+    },
     costFactor: 1.8,
     maxLevel: 8,
     requires: { research: { [ResearchType.SPORAL_PROPULSION]: 3 } },
@@ -2720,7 +2734,7 @@ export const DEFENSES: Record<DefenseType, DefenseConfig> = {
   [DefenseType.ION_CANNON]: {
     type: DefenseType.ION_CANNON,
     name: 'Canon Ionique',
-    description: 'Structure défensive polyvalente qui tire des salves d\'ions chargés.',
+    description: "Structure défensive polyvalente qui tire des salves d'ions chargés.",
     cost: { [ResourceType.BIOMASS]: 300, [ResourceType.MINERALS]: 400 },
     buildTimeSeconds: 120,
     attack: 40,
@@ -2730,7 +2744,7 @@ export const DEFENSES: Record<DefenseType, DefenseConfig> = {
   [DefenseType.SPORE_NET]: {
     type: DefenseType.SPORE_NET,
     name: 'Filet Sporale',
-    description: 'Nuage de spores collantes qui ralentit les flottes d\'assaut et les endommage.',
+    description: "Nuage de spores collantes qui ralentit les flottes d'assaut et les endommage.",
     cost: { [ResourceType.BIOMASS]: 500, [ResourceType.SAP]: 200 },
     buildTimeSeconds: 90,
     attack: 15,
@@ -2762,7 +2776,8 @@ export const DEFENSES: Record<DefenseType, DefenseConfig> = {
   [DefenseType.VOID_LANCE]: {
     type: DefenseType.VOID_LANCE,
     name: 'Lance du Vide',
-    description: 'Arme anti-capitaux qui perce les blindages lourds avec un rayon de Vide focalisé.',
+    description:
+      'Arme anti-capitaux qui perce les blindages lourds avec un rayon de Vide focalisé.',
     cost: {
       [ResourceType.BIOMASS]: 2_000,
       [ResourceType.MINERALS]: 2_500,
@@ -2781,9 +2796,14 @@ export const DEFENSES: Record<DefenseType, DefenseConfig> = {
   },
   [DefenseType.ORBITAL_THORN_BED]: {
     type: DefenseType.ORBITAL_THORN_BED,
-    name: 'Lit d\'Épines Orbitales',
-    description: 'Champ d\'épines cristallines qui inflige des dégâts à toute flotte passant en orbite.',
-    cost: { [ResourceType.BIOMASS]: 1_000, [ResourceType.MINERALS]: 1_200, [ResourceType.SAP]: 300 },
+    name: "Lit d'Épines Orbitales",
+    description:
+      "Champ d'épines cristallines qui inflige des dégâts à toute flotte passant en orbite.",
+    cost: {
+      [ResourceType.BIOMASS]: 1_000,
+      [ResourceType.MINERALS]: 1_200,
+      [ResourceType.SAP]: 300,
+    },
     buildTimeSeconds: 600,
     attack: 80,
     defense: 60,
@@ -2809,15 +2829,51 @@ export const MAX_POPULATION_PER_TERRAFORMATION = 1_000;
 
 /** Travailleurs requis par bâtiment à chaque niveau (Niv 1 → Niv max). */
 export const BUILDING_WORKER_REQUIREMENTS: Record<BuildingType, Record<WorkerTier, number>> = {
-  [BuildingType.BIOMASS_SYNTHESIZER]: { [WorkerTier.BASIC]: 5, [WorkerTier.SKILLED]: 0, [WorkerTier.EXPERT]: 0 },
-  [BuildingType.SAP_WELL]: { [WorkerTier.BASIC]: 5, [WorkerTier.SKILLED]: 0, [WorkerTier.EXPERT]: 0 },
-  [BuildingType.MINERAL_VEIN]: { [WorkerTier.BASIC]: 6, [WorkerTier.SKILLED]: 0, [WorkerTier.EXPERT]: 0 },
-  [BuildingType.SPORANGE]: { [WorkerTier.BASIC]: 4, [WorkerTier.SKILLED]: 2, [WorkerTier.EXPERT]: 0 },
-  [BuildingType.PHOTOSYNTHETIC_CANOPY]: { [WorkerTier.BASIC]: 3, [WorkerTier.SKILLED]: 1, [WorkerTier.EXPERT]: 0 },
-  [BuildingType.STORAGE_VACUOLE]: { [WorkerTier.BASIC]: 2, [WorkerTier.SKILLED]: 0, [WorkerTier.EXPERT]: 0 },
-  [BuildingType.RESEARCH_NEXUS]: { [WorkerTier.BASIC]: 2, [WorkerTier.SKILLED]: 4, [WorkerTier.EXPERT]: 2 },
-  [BuildingType.SYMBIOTIC_CORE]: { [WorkerTier.BASIC]: 3, [WorkerTier.SKILLED]: 3, [WorkerTier.EXPERT]: 2 },
-  [BuildingType.ORBITAL_NURSERY]: { [WorkerTier.BASIC]: 4, [WorkerTier.SKILLED]: 4, [WorkerTier.EXPERT]: 2 },
+  [BuildingType.BIOMASS_SYNTHESIZER]: {
+    [WorkerTier.BASIC]: 5,
+    [WorkerTier.SKILLED]: 0,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.SAP_WELL]: {
+    [WorkerTier.BASIC]: 5,
+    [WorkerTier.SKILLED]: 0,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.MINERAL_VEIN]: {
+    [WorkerTier.BASIC]: 6,
+    [WorkerTier.SKILLED]: 0,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.SPORANGE]: {
+    [WorkerTier.BASIC]: 4,
+    [WorkerTier.SKILLED]: 2,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.PHOTOSYNTHETIC_CANOPY]: {
+    [WorkerTier.BASIC]: 3,
+    [WorkerTier.SKILLED]: 1,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.STORAGE_VACUOLE]: {
+    [WorkerTier.BASIC]: 2,
+    [WorkerTier.SKILLED]: 0,
+    [WorkerTier.EXPERT]: 0,
+  },
+  [BuildingType.RESEARCH_NEXUS]: {
+    [WorkerTier.BASIC]: 2,
+    [WorkerTier.SKILLED]: 4,
+    [WorkerTier.EXPERT]: 2,
+  },
+  [BuildingType.SYMBIOTIC_CORE]: {
+    [WorkerTier.BASIC]: 3,
+    [WorkerTier.SKILLED]: 3,
+    [WorkerTier.EXPERT]: 2,
+  },
+  [BuildingType.ORBITAL_NURSERY]: {
+    [WorkerTier.BASIC]: 4,
+    [WorkerTier.SKILLED]: 4,
+    [WorkerTier.EXPERT]: 2,
+  },
 };
 
 /** Ratio d'occupation des travailleurs : travailleurs disponibles / requis.

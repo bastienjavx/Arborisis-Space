@@ -456,21 +456,21 @@ export enum DiplomaticOfferStatus {
 /** Types de commandants recrutables. */
 export enum CommanderType {
   // ── Combat ──
-  MYCO_WARLORD = 'MYCO_WARLORD',           // Mycélien offensif, maître de l'essaim
-  CHITIN_GUARDIAN = 'CHITIN_GUARDIAN',     // Défenseur blindé, boost défenses orbitales
-  VOID_REAPER = 'VOID_REAPER',             // Pillard du vide, bonus de pillage PvP
-  SPORE_STORM = 'SPORE_STORM',             // Spécialiste raids, vitesse de flotte
+  MYCO_WARLORD = 'MYCO_WARLORD', // Mycélien offensif, maître de l'essaim
+  CHITIN_GUARDIAN = 'CHITIN_GUARDIAN', // Défenseur blindé, boost défenses orbitales
+  VOID_REAPER = 'VOID_REAPER', // Pillard du vide, bonus de pillage PvP
+  SPORE_STORM = 'SPORE_STORM', // Spécialiste raids, vitesse de flotte
   // ── Économie ──
-  SYMBIONT_SAGE = 'SYMBIONT_SAGE',         // Maître de la recherche, réduit temps de recherche
-  ROOT_WEAVER = 'ROOT_WEAVER',             // Expert agricole, boost production de ressources
-  FUNGAL_MERCHANT = 'FUNGAL_MERCHANT',     // Négociant, réduit taxes marché, boost routes
-  CANOPY_ARCHITECT = 'CANOPY_ARCHITECT',  // Bâtisseur, réduit temps de construction
+  SYMBIONT_SAGE = 'SYMBIONT_SAGE', // Maître de la recherche, réduit temps de recherche
+  ROOT_WEAVER = 'ROOT_WEAVER', // Expert agricole, boost production de ressources
+  FUNGAL_MERCHANT = 'FUNGAL_MERCHANT', // Négociant, réduit taxes marché, boost routes
+  CANOPY_ARCHITECT = 'CANOPY_ARCHITECT', // Bâtisseur, réduit temps de construction
   // ── Expédition ──
-  VOID_NAVIGATOR = 'VOID_NAVIGATOR',       // Explorateur, boost résultats d'expédition
-  SPORE_ORACLE = 'SPORE_ORACLE',           // Espion légendaire, boost espionnage
+  VOID_NAVIGATOR = 'VOID_NAVIGATOR', // Explorateur, boost résultats d'expédition
+  SPORE_ORACLE = 'SPORE_ORACLE', // Espion légendaire, boost espionnage
   // ── Alliance ──
-  HIVE_HERALD = 'HIVE_HERALD',             // Leader diplomatique, bonus d'alliance
-  ANCIENT_SYMBIONT = 'ANCIENT_SYMBIONT',  // Commandant légendaire universel
+  HIVE_HERALD = 'HIVE_HERALD', // Leader diplomatique, bonus d'alliance
+  ANCIENT_SYMBIONT = 'ANCIENT_SYMBIONT', // Commandant légendaire universel
 }
 
 export const COMMANDER_TYPES = Object.values(CommanderType);
@@ -486,11 +486,11 @@ export enum CommanderRarity {
 
 /** Branches de talent d'un commandant. */
 export enum CommanderTalentBranch {
-  COMBAT = 'COMBAT',           // Attaque, défense, rapid-fire
-  GATHERING = 'GATHERING',     // Collecte de ressources, expéditions
+  COMBAT = 'COMBAT', // Attaque, défense, rapid-fire
+  GATHERING = 'GATHERING', // Collecte de ressources, expéditions
   CONSTRUCTION = 'CONSTRUCTION', // Vitesse de construction, coût des bâtiments
-  RESEARCH = 'RESEARCH',       // Vitesse de recherche, coût des recherches
-  LEADERSHIP = 'LEADERSHIP',   // Bonus d'alliance, vitesse de flotte, multi-queues
+  RESEARCH = 'RESEARCH', // Vitesse de recherche, coût des recherches
+  LEADERSHIP = 'LEADERSHIP', // Bonus d'alliance, vitesse de flotte, multi-queues
 }
 
 /** Statut d'un commandant. */
@@ -506,11 +506,11 @@ export enum CommanderStatus {
 
 /** Bâtiments construisibles sur une lune organique. */
 export enum MoonBuildingType {
-  LUNAR_CORE = 'LUNAR_CORE',               // Hub de la lune, nécessaire pour tout
-  SPORE_PHALANX = 'SPORE_PHALANX',         // Détecte les flottes ennemies en transit
-  BIO_JUMP_GATE = 'BIO_JUMP_GATE',         // Téléportation instantanée inter-lunes
-  LUNAR_NURSERY = 'LUNAR_NURSERY',         // Produit des vaisseaux depuis la lune
-  CRYSTALLINE_SILO = 'CRYSTALLINE_SILO',   // Stockage supplémentaire sur la lune
+  LUNAR_CORE = 'LUNAR_CORE', // Hub de la lune, nécessaire pour tout
+  SPORE_PHALANX = 'SPORE_PHALANX', // Détecte les flottes ennemies en transit
+  BIO_JUMP_GATE = 'BIO_JUMP_GATE', // Téléportation instantanée inter-lunes
+  LUNAR_NURSERY = 'LUNAR_NURSERY', // Produit des vaisseaux depuis la lune
+  CRYSTALLINE_SILO = 'CRYSTALLINE_SILO', // Stockage supplémentaire sur la lune
 }
 
 export const MOON_BUILDING_TYPES = Object.values(MoonBuildingType);
@@ -539,9 +539,9 @@ export enum BeaconStatus {
 
 /** Niveau de qualification des travailleurs Symbiotes. */
 export enum WorkerTier {
-  BASIC = 'BASIC',     // Bâtiments niveaux 1-4
+  BASIC = 'BASIC', // Bâtiments niveaux 1-4
   SKILLED = 'SKILLED', // Bâtiments niveaux 5-9
-  EXPERT = 'EXPERT',   // Bâtiments niveau 10+
+  EXPERT = 'EXPERT', // Bâtiments niveau 10+
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -550,11 +550,11 @@ export enum WorkerTier {
 
 /** Structures défensives orbitales fixes sur une planète. */
 export enum DefenseType {
-  ION_CANNON = 'ION_CANNON',             // Canon ionique — défense légère polyvalente
-  SPORE_NET = 'SPORE_NET',               // Filet sporale — ralentit les flottes d'assaut
-  SHIELD_MEMBRANE = 'SHIELD_MEMBRANE',   // Membrane bouclier — absorbe les premiers tirs
-  MYCELIAL_TURRET = 'MYCELIAL_TURRET',   // Tourelle mycélienne — haute cadence de tir
-  VOID_LANCE = 'VOID_LANCE',             // Lance du Vide — anti-gros vaisseaux
+  ION_CANNON = 'ION_CANNON', // Canon ionique — défense légère polyvalente
+  SPORE_NET = 'SPORE_NET', // Filet sporale — ralentit les flottes d'assaut
+  SHIELD_MEMBRANE = 'SHIELD_MEMBRANE', // Membrane bouclier — absorbe les premiers tirs
+  MYCELIAL_TURRET = 'MYCELIAL_TURRET', // Tourelle mycélienne — haute cadence de tir
+  VOID_LANCE = 'VOID_LANCE', // Lance du Vide — anti-gros vaisseaux
   ORBITAL_THORN_BED = 'ORBITAL_THORN_BED', // Lit d'épines orbitales — dégâts de zone
 }
 

@@ -442,7 +442,10 @@ export const api = {
   assignCommander: (id: string, planetId: string | null) =>
     request<CommanderView>(`/commanders/${id}/assign`, { method: 'PATCH', body: { planetId } }),
   investTalent: (id: string, branch: CommanderTalentBranch, nodeId: string) =>
-    request<CommanderView>(`/commanders/${id}/talent`, { method: 'POST', body: { branch, nodeId } }),
+    request<CommanderView>(`/commanders/${id}/talent`, {
+      method: 'POST',
+      body: { branch, nodeId },
+    }),
 
   // ── Défenses orbitales ──
   defenses: (planetId: string) => request<PlanetDefensesView>(`/planets/${planetId}/defenses`),
@@ -457,5 +460,8 @@ export const api = {
     request<DebrisFieldView[]>(`/galaxy/${galaxy}/system/${system}/debris`),
   moon: (planetId: string) => request<MoonView | null>(`/planets/${planetId}/moon`),
   buildMoonBuilding: (planetId: string, buildingType: MoonBuildingType) =>
-    request<MoonView>(`/planets/${planetId}/moon/build`, { method: 'POST', body: { buildingType } }),
+    request<MoonView>(`/planets/${planetId}/moon/build`, {
+      method: 'POST',
+      body: { buildingType },
+    }),
 };

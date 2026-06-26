@@ -49,7 +49,8 @@ export class CommandersService {
       where: { ownerId: userId, isHomeworld: true },
       include: { buildings: true },
     });
-    const coreLevel = homeworld?.buildings.find((b) => b.type === BuildingType.SYMBIOTIC_CORE)?.level ?? 0;
+    const coreLevel =
+      homeworld?.buildings.find((b) => b.type === BuildingType.SYMBIOTIC_CORE)?.level ?? 0;
     const maxActive = maxActiveCommanders(coreLevel);
 
     const commanders = await this.prisma.commander.findMany({
@@ -58,9 +59,7 @@ export class CommandersService {
       orderBy: { createdAt: 'asc' },
     });
 
-    const activeCount = commanders.filter(
-      (c) => c.status !== CommanderStatus.IDLE,
-    ).length;
+    const activeCount = commanders.filter((c) => c.status !== CommanderStatus.IDLE).length;
 
     return {
       commanders: commanders.map((c) => this.toView(c as unknown as PrismaCommander)),
@@ -118,7 +117,11 @@ export class CommandersService {
     return this.toView(created as unknown as PrismaCommander);
   }
 
-  async assignToPlanet(userId: string, commanderId: string, planetId: string | null): Promise<CommanderView> {
+  async assignToPlanet(
+    userId: string,
+    commanderId: string,
+    planetId: string | null,
+  ): Promise<CommanderView> {
     const commander = await this.assertOwnership(userId, commanderId);
     if (planetId) {
       await this.planets.assertOwnership(userId, planetId);
@@ -126,7 +129,9 @@ export class CommandersService {
     const updated = await this.prisma.commander.update({
       where: { id: commanderId },
       data: {
-        status: planetId ? (CommanderStatus.ASSIGNED_TO_PLANET as any) : (CommanderStatus.IDLE as any),
+        status: planetId
+          ? (CommanderStatus.ASSIGNED_TO_PLANET as any)
+          : (CommanderStatus.IDLE as any),
         assignedToPlanetId: planetId,
       },
       include: { talentInvestments: true },
@@ -144,7 +149,9 @@ export class CommandersService {
     const config = COMMANDERS[commander.type as CommanderType];
     if (!config) throw new BadRequestException('Commandant invalide.');
     if (!config.talentBranches.includes(branch)) {
-      throw new BadRequestException(`Branche de talent ${branch} non disponible pour ce commandant.`);
+      throw new BadRequestException(
+        `Branche de talent ${branch} non disponible pour ce commandant.`,
+      );
     }
     if (commander.talentPoints <= 0) {
       throw new BadRequestException('Aucun point de talent disponible.');
@@ -156,7 +163,9 @@ export class CommandersService {
     // Vérifier les prérequis.
     if (node.requires && node.requires.length > 0) {
       const investments = (commander as any).talentInvestments as {
-        branch: string; nodeId: string; pointsInvested: number;
+        branch: string;
+        nodeId: string;
+        pointsInvested: number;
       }[];
       for (const req of node.requires) {
         const hasReq = investments.some((inv) => inv.branch === branch && inv.nodeId === req);
@@ -253,7 +262,8 @@ export class CommandersService {
       include: { talentInvestments: true },
     });
     if (!commander) throw new NotFoundException('Commandant introuvable.');
-    if (commander.userId !== userId) throw new BadRequestException('Ce commandant ne vous appartient pas.');
+    if (commander.userId !== userId)
+      throw new BadRequestException('Ce commandant ne vous appartient pas.');
     return commander as unknown as PrismaCommander;
   }
 

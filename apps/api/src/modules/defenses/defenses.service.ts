@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   DEFENSES,
   DefenseType,
@@ -56,7 +52,9 @@ export class DefensesService {
 
     for (const [res, cost] of Object.entries(totalCost)) {
       if ((amounts[res as keyof typeof amounts] ?? 0) < cost) {
-        throw new BadRequestException(`Ressources insuffisantes pour ${quantity} ${config.name} : ${res}`);
+        throw new BadRequestException(
+          `Ressources insuffisantes pour ${quantity} ${config.name} : ${res}`,
+        );
       }
     }
 
@@ -81,8 +79,14 @@ export class DefensesService {
   }
 
   /** Récupère les défenses d'une planète pour le calcul de combat (pas de vérification d'ownership). */
-  async getDefensesForCombat(planetId: string): Promise<{ type: DefenseType; quantity: number; attack: number; defense: number; hull: number }[]> {
-    const rows = await this.prisma.orbitalDefense.findMany({ where: { planetId, quantity: { gt: 0 } } });
+  async getDefensesForCombat(
+    planetId: string,
+  ): Promise<
+    { type: DefenseType; quantity: number; attack: number; defense: number; hull: number }[]
+  > {
+    const rows = await this.prisma.orbitalDefense.findMany({
+      where: { planetId, quantity: { gt: 0 } },
+    });
     return rows.map((r) => {
       const config = DEFENSES[r.defenseType as DefenseType];
       return {

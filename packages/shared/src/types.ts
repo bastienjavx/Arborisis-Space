@@ -943,4 +943,3 @@ export interface PopulationView {
   workerSatisfaction: number;
   productionPenalty: number;
 }
-
