@@ -26,8 +26,7 @@ on:
         description: "URL healthcheck API à sonder"
         required: false
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: smoke-${{ github.ref }}
