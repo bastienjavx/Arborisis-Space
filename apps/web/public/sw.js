@@ -31,6 +31,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+  const sourceOrigin =
+    event.origin || (event.source?.url ? new URL(event.source.url).origin : null);
+  if (!sourceOrigin || sourceOrigin !== self.location.origin) return;
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 

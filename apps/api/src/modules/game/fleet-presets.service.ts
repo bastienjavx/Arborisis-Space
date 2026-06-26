@@ -34,9 +34,10 @@ export class FleetPresetsService {
     }
 
     const validShips: Partial<Record<ShipType, number>> = {};
-    for (const [key, qty] of Object.entries(dto.ships)) {
-      if (Object.values(ShipType).includes(key as ShipType) && typeof qty === 'number' && qty > 0) {
-        validShips[key as ShipType] = qty;
+    for (const shipType of Object.values(ShipType)) {
+      const qty = dto.ships[shipType];
+      if (typeof qty === 'number' && qty > 0) {
+        validShips[shipType] = qty;
       }
     }
     if (Object.keys(validShips).length === 0) {
@@ -66,13 +67,10 @@ export class FleetPresetsService {
     if (dto.name) data.name = dto.name;
     if (dto.ships) {
       const validShips: Partial<Record<ShipType, number>> = {};
-      for (const [key, qty] of Object.entries(dto.ships)) {
-        if (
-          Object.values(ShipType).includes(key as ShipType) &&
-          typeof qty === 'number' &&
-          qty > 0
-        ) {
-          validShips[key as ShipType] = qty;
+      for (const shipType of Object.values(ShipType)) {
+        const qty = dto.ships[shipType];
+        if (typeof qty === 'number' && qty > 0) {
+          validShips[shipType] = qty;
         }
       }
       data.ships = validShips;
