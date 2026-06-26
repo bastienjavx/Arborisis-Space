@@ -15,7 +15,6 @@
     "@types/react-dom": "19.2.3",
     "multer": "2.2.0",
     "qs": "6.15.3",
-    "node-emoji": "2.2.0",
     "next": {
       "postcss": "8.5.15"
     },
