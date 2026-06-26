@@ -8,7 +8,10 @@ on:
     branches: [main]
   schedule:
     # Re-scan hebdomadaire pour attraper les nouvelles règles/CVE (lundi 04:17 UTC).
-    - cron: "17 4 * * 1"
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -26,18 +29,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["javascript-typescript"]
+        language: ['javascript-typescript']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 
       - name: Initialiser CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@411bbbe57033eedfc1a82d68c01345aa96c737d7
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
 
       - name: Analyse
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@411bbbe57033eedfc1a82d68c01345aa96c737d7
         with:
-          category: "/language:${{ matrix.language }}"
+          category: '/language:${{ matrix.language }}'

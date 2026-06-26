@@ -13,7 +13,14 @@
     "react-dom": "19.2.7",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "multer": "2.2.0"
+    "multer": "2.2.0",
+    "qs": "6.15.3",
+    "next": {
+      "postcss": "8.5.15"
+    },
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "4.2.0"
+    }
   },
   "workspaces": [
     "apps/*",
@@ -39,18 +46,22 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@nestjs/common": "^11.1.27",
+    "@nestjs/core": "^11.1.27",
+    "@nestjs/platform-express": "^11.1.27",
+    "@nestjs/throttler": "^6.5.0",
     "@types/node": "^22.10.2",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
     "@typescript-eslint/parser": "^8.18.1",
     "eslint": "^8.57.1",
-    "prettier": "^3.4.2",
+    "prettier": "^3.8.5",
     "prisma": "^6.2.1",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "tsx": "^4.19.2",
-    "turbo": "^2.3.3",
-    "typescript": "^5.7.2"
+    "turbo": "^2.10.0",
+    "typescript": "^5.9.3"
   }
 }

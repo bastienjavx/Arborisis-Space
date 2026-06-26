@@ -1,62 +1,114 @@
-# Contribuer à Arborisis
+# Contributing to Arborisis / Contribuer à Arborisis
 
-Merci de contribuer ! Ce guide décrit l'organisation du code et les attentes qualité.
+**EN** and **FR** guidance for contributors.  
+Read this with [`README.md`](./README.md), [`SECURITY.md`](./SECURITY.md), and [`docs/INFRASTRUCTURE.md`](./docs/INFRASTRUCTURE.md).
 
-## Prérequis
+---
 
-- Node 22+, npm 10+, Docker.
-- Lire [`README.md`](./README.md) (démarrage) et [`SECURITY.md`](./SECURITY.md) (autorité serveur).
+## EN
 
-## Mise en route
+### Prerequisites
+
+- Node **22+**
+- npm **10+**
+- Docker (PostgreSQL + Redis must be running before tests/e2e/dev)
+
+### Setup
 
 ```bash
 cp .env.example .env
 npm install
 docker compose up -d postgres redis
-npm run db:migrate && npm run db:seed
+npm run db:migrate
+npm run db:seed
 npm run dev
 ```
 
-## Organisation
+### Repository rules
 
-- **`packages/shared`** — Source de vérité du gameplay : enums, constantes d'équilibrage,
-  **formules pures** (testées), schémas Zod. Toute mécanique chiffrée vit ici, jamais en dur
-  dans l'API ou le front.
-- **`apps/api`** — NestJS. Logique métier dans `modules/game` ; le `GameEngineService`
-  recalcule les ressources, le `FinalizationService` finalise les jobs (idempotent).
-- **`apps/web`** — Next.js. Le client **prévisualise** avec les formules partagées mais ne
-  décide rien : l'API tranche.
+1. **Server authority first**: never trust client-provided gameplay values.
+2. **Shared is the source of truth**: gameplay constants/formulas belong in `packages/shared`.
+3. **No enum drift**: keep `packages/shared/src/enums.ts` in sync with `prisma/schema.prisma`.
+4. **Zod validation everywhere**: all API inputs must use the existing validation pattern.
+5. **Idempotent finalization**: timed jobs must remain replay-safe.
 
-## Règles d'or
-
-1. **Autorité serveur** : ne jamais faire confiance à une valeur envoyée par le client.
-   Ajouter les vérifications côté API et recalculer les ressources avant toute mutation.
-2. **Équilibrage centralisé** : nouvelles valeurs → `packages/shared/src/constants.ts`,
-   avec un test si une formule est ajoutée.
-3. **Validation** : toute entrée HTTP passe par un schéma Zod (`packages/shared/src/schemas.ts`).
-4. **Idempotence** : toute finalisation de job doit pouvoir s'exécuter plusieurs fois sans effet double.
-
-## Avant d'ouvrir une PR
+### Verification before PR
 
 ```bash
+npm run build
 npm run lint
+npm run format:check
 npm run typecheck
 npm run test
-npm run test:e2e -w @arborisis/api   # DB + Redis requis
-npm run build
+npm run test:e2e -w @arborisis/api
 ```
 
-La CI (GitHub Actions) rejoue ces étapes. Une PR doit être verte.
+### Pull requests
 
-## Style
+- Keep commits atomic and descriptive.
+- Explain behavioral impact and risk areas.
+- If schema/enums changed, include migration files and mention rollout implications.
+- Never commit secrets. Keep `.env` local only.
 
-- TypeScript **strict** partout. Prettier (`npm run format`).
-- Commits clairs et atomiques. Branches : `feat/...`, `fix/...`, `chore/...`.
-- Migrations Prisma : `npm run db:migrate` puis **commiter** le dossier généré.
+### Expected security checks on PRs
 
-## Ajouter une mécanique (exemple : nouveau bâtiment)
+- `Security / Scan de secrets (gitleaks)`
+- `Security / Audit dépendances runtime`
+- `Security / Scan Trivy (repo/config)`
+- `CodeQL / Analyse CodeQL`
+- `Dependency Review / Dependency Review (HIGH + CRITICAL bloquant)`
 
-1. Ajouter la valeur à `BuildingType` (`packages/shared/src/enums.ts`) **et** à l'enum
-   Prisma (`prisma/schema.prisma`), puis migrer.
-2. Décrire le bâtiment dans `BUILDINGS` (`constants.ts`).
-3. Les formules, l'API et l'UI le prennent en charge automatiquement (itération sur les enums).
+---
+
+## FR
+
+### Prérequis
+
+- Node **22+**
+- npm **10+**
+- Docker (PostgreSQL + Redis doivent tourner avant dev/tests/e2e)
+
+### Installation
+
+```bash
+cp .env.example .env
+npm install
+docker compose up -d postgres redis
+npm run db:migrate
+npm run db:seed
+npm run dev
+```
+
+### Règles du dépôt
+
+1. **Autorité serveur** : aucune confiance dans les valeurs gameplay venant du client.
+2. **`packages/shared` = source de vérité** : constantes/formules gameplay centralisées.
+3. **Synchronisation des enums** : aligner `shared/enums.ts` et `prisma/schema.prisma`.
+4. **Validation Zod systématique** : suivre le pattern existant sur toutes les entrées API.
+5. **Idempotence des jobs** : finalisations temporisées rejouables sans effet double.
+
+### Vérifications avant PR
+
+```bash
+npm run build
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test
+npm run test:e2e -w @arborisis/api
+```
+
+### Pull requests
+
+- Commits atomiques, message clair.
+- Décrire l’impact fonctionnel et les zones à risque.
+- Si schema/enums évoluent, inclure les migrations et noter l’impact déploiement.
+- Ne jamais versionner de secrets.
+
+### Checks sécurité attendus sur PR
+
+- `Security / Scan de secrets (gitleaks)`
+- `Security / Audit dépendances runtime`
+- `Security / Scan Trivy (repo/config)`
+- `CodeQL / Analyse CodeQL`
+- `Dependency Review / Dependency Review (HIGH + CRITICAL bloquant)`

@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from 'nestjs-throttler-storage-redis';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { LoggerModule } from 'nestjs-pino';
 import { validateEnv, type Env } from './common/config/env';
 import { PrismaModule } from './common/prisma/prisma.module';
@@ -61,17 +61,10 @@ import { DefensesModule } from './modules/defenses/defenses.module';
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => {
-        const url = new URL(config.get('REDIS_URL', { infer: true }));
         return {
           // Stockage Redis partagé : les compteurs sont cohérents entre tous les réplicas.
           // Sans ça, chaque réplica a son propre compteur → la limite réelle est limit × numReplicas.
-          storage: new ThrottlerStorageRedisService({
-            host: url.hostname,
-            port: Number(url.port) || 6379,
-            username: url.username || undefined,
-            password: url.password || undefined,
-            db: url.pathname ? Number(url.pathname.slice(1)) || 0 : 0,
-          }),
+          storage: new ThrottlerStorageRedisService(config.get('REDIS_URL', { infer: true })),
           throttlers: [{ ttl: 60_000, limit: 100 }],
         };
       },

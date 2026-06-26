@@ -1,63 +1,69 @@
-# CLAUDE.md — Arborisis
+# CLAUDE.md — Arborisis (Repère FR)
 
-Repère pour agents/développeurs. Voir `README.md`, `CONTRIBUTING.md`, `SECURITY.md`.
+Guide court orienté agents/développeurs francophones.  
+Références principales : `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/INFRASTRUCTURE.md`.
 
-## Quoi
+---
 
-Jeu de stratégie spatiale par navigateur, multijoueur, persistant (genre OGame, identité
-propre : civilisations **organiques**). Monorepo Turborepo + npm workspaces.
+## Contexte
+
+Arborisis est un jeu de stratégie spatiale persistant (type OGame) avec identité organique.  
+Monorepo Turborepo + npm workspaces.
+
+---
 
 ## Structure
 
-- `packages/shared` — **source de vérité du gameplay** : enums, constantes d'équilibrage
-  (`constants.ts`), formules pures testées (`formulas.ts`), schémas Zod (`schemas.ts`),
-  types de transport (`types.ts`). Construit en CommonJS vers `dist/`.
-- `apps/api` — NestJS. Modules clés : `auth` (JWT cookies + argon2 + refresh rotatif),
-  `game` (`GameEngineService` = calcul lazy des ressources, `FinalizationService` =
-  finalisation idempotente, services planets/buildings/research/galaxy/colonization),
-  `queue` (BullMQ : `GameQueueService` enfile, `ProcessorsModule` consomme), `health`.
-- `apps/web` — Next.js 14 App Router, TailwindCSS sombre, TanStack Query. Client typé
-  dans `src/lib/api.ts` (+ refresh-on-401), hooks `src/lib/queries.ts`.
-- `prisma` — `schema.prisma`, `migrations/`, `seed.ts`.
+| Package           | Rôle                                                                |
+| ----------------- | ------------------------------------------------------------------- |
+| `packages/shared` | Source de vérité gameplay (enums, constantes, formules, Zod, types) |
+| `apps/api`        | API NestJS, auth, moteur de jeu, BullMQ                             |
+| `apps/web`        | Front Next.js, proxy `/api`, scènes 3D                              |
+| `prisma`          | Schéma, migrations, seed                                            |
 
-## Commandes
+---
+
+## Setup local
 
 ```bash
+cp .env.example .env
 npm install
-docker compose up -d postgres redis      # données locales
-npm run db:migrate && npm run db:seed
-npm run dev                               # api (4000) + web (3000)
-
-npm run build | lint | typecheck | test
-npm run test:e2e -w @arborisis/api        # DB + Redis requis
+docker compose up -d postgres redis
+npm run db:migrate
+npm run db:seed
+npm run dev
 ```
 
-Compte démo (seed) : `demo@arborisis.test` / `arborisis-demo`.
-API préfixée `/api` ; health : `GET /api/health`.
+**Important :** PostgreSQL et Redis doivent être démarrés avant dev/tests/e2e.
 
-## Principes non négociables
+---
 
-- **Autorité serveur** : le client n'envoie que des intentions. Ressources recalculées
-  serveur (`GameEngineService.settlePlanet`) avant toute lecture/mutation ; jamais de
-  valeur cliente de confiance. Voir `SECURITY.md`.
-- **Équilibrage uniquement dans `packages/shared/constants.ts`** (réutilisé front + back).
-- **Jobs temporisés idempotents** : BullMQ + finalisation paresseuse + balayage au boot.
-- **Validation Zod** sur toute entrée. **Strict TypeScript** partout.
+## Invariants techniques
 
-## Pièges connus
+1. **Autorité serveur** : le client n’envoie que des intentions.
+2. **Équilibrage centralisé** dans `packages/shared/src/constants.ts`.
+3. **Enums synchronisés** entre `shared/enums.ts` et `prisma/schema.prisma`.
+4. **Validation Zod stricte** sur toutes les entrées API.
+5. **Idempotence** des finalisations BullMQ.
 
-- `apps/api` : `incremental: false` dans `tsconfig.json` — nécessaire car `nest build`
-  supprime `dist/` ; avec l'incrémental, des fichiers non modifiés n'étaient pas ré-émis
-  (ex. `common/`). Ne pas réactiver sans déplacer `.tsbuildinfo` dans `dist/`.
-- Les enums Prisma (`schema.prisma`) **dupliquent** ceux de `shared/enums.ts` :
-  garder synchronisés (toute nouvelle valeur → migration).
-- Validation par `ZodValidationPipe` au niveau des routes (pas de `ValidationPipe` global :
-  `class-validator` n'est volontairement pas installé).
-- `NEXT_PUBLIC_API_URL` est inliné au **build** du front.
-- Migrations/seed prod : **release phase** (`preDeployCommand` dans `railway.toml`), pas dans
-  `docker/entrypoint.sh` (qui ne fait que démarrer l'API). Le seed doit rester idempotent.
-- Service web Railway : régler le **chemin de config** sur `/railway.web.toml` (sinon il hérite
-  de `railway.toml` côté API et crashe sur `DATABASE_URL` absent).
-- Auto-scaling univers : à `UNIVERSE_PROVISION_THRESHOLD` un node API est dupliqué via Railway.
-  Les inscriptions choisissent l'univers `ACTIVE` non plein le plus ancien
-  (`UniverseService.pickAvailableUniverse`), jamais l'univers `default` en dur.
+---
+
+## Vérification (ordre CI)
+
+```bash
+npm run build
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test
+npm run test:e2e -w @arborisis/api
+```
+
+---
+
+## Railway (essentiel)
+
+- API : `railway.toml`
+- Web : `railway.web.toml` (à sélectionner explicitement dans Railway)
+- Release phase API : migrations + seed via `preDeployCommand`
+- Le web parle à l’API via `API_INTERNAL_URL` (réseau privé Railway)
