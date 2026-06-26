@@ -89,7 +89,7 @@ npm run test -w @arborisis/api -- --testNamePattern="SpecificTest"  # Run one te
 
 ### Next.js API Proxy
 
-- **`/api` routes in Next.js proxy to NestJS** via `API_INTERNAL_URL` (server-to-server).
+- **`/api` routes in Next.js proxy to NestJS**: Meta routes (auth, universes, health) use `API_INTERNAL_URL`. Other routes use the selected universe's `internalApiUrl` from the universe cookie (server-side only).
 - **`NEXT_PUBLIC_*` variables used by client code are inlined at BUILD TIME**, not runtime. If you use a `NEXT_PUBLIC_*` variable in client code and change it in `.env`, you must rebuild the web app.
 - During development (`npm run dev`), Next.js automatically proxies to the running NestJS API.
 
@@ -154,7 +154,7 @@ npm run test:e2e -w @arborisis/api
 1. **API Service** (`railway.toml`, `docker/api.Dockerfile`)
    - Entry: `src/main.ts` via `nest build`
    - Environment: `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `WEB_ORIGIN`, `NODE_ENV=production`
-   - Pre-deploy: Runs `prisma migrate deploy` on startup
+   - Pre-deploy: Release-phase `preDeployCommand` runs `prisma migrate deploy` and `prisma db seed` (uses `DIRECT_DATABASE_URL`)
    - Not public; only accessible via internal Railway network
 
 2. **Web Service** (`railway.web.toml`, `docker/web.Dockerfile`)
@@ -165,9 +165,9 @@ npm run test:e2e -w @arborisis/api
 
 ### Environment Variables
 
-- **API:** Requires `DATABASE_URL`, `REDIS_URL`, `JWT_*_SECRET`, `WEB_ORIGIN`, `NODE_ENV`
+- **API:** Requires `DATABASE_URL`, `REDIS_URL`, `JWT_*_SECRET`, `WEB_ORIGIN`, `NODE_ENV`. During release phase, also uses `DIRECT_DATABASE_URL` for migrations/seed.
 - **Web:** Requires `API_INTERNAL_URL` for internal API calls; no database access needed
-- Seed script runs as part of API startup (via pre-deploy command in `railway.toml`)
+- Migrations and seed script run as part of the release phase (via `preDeployCommand` in `railway.toml`), not app runtime startup
 
 ### Auto-Scaling (Universe Provisioning)
 
