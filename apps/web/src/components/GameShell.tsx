@@ -14,6 +14,7 @@ import { NearMissBanner } from '@/components/NearMissBanner';
 import { OrganicBackgroundInner } from '@/components/OrganicBackgroundInner';
 import { PlanetProvider } from '@/components/PlanetContext';
 import { useMe } from '@/lib/queries';
+import { fadeUp, organicEase } from '@/lib/motion';
 
 export function GameShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -47,14 +48,25 @@ export function GameShell({ children }: { children: React.ReactNode }) {
       <AbsenceSummaryModal />
       <EngagementFeedback />
       <div className="relative z-10 min-h-screen pb-24 lg:pl-[15rem] lg:pt-[5rem] lg:pb-0">
-        <main className="mx-auto max-w-[96rem] px-4 py-5 sm:px-6 sm:py-7 xl:px-9">
-          <div className="mb-5">
+        <motion.main
+          className="mx-auto max-w-[96rem] px-4 py-5 sm:px-6 sm:py-7 xl:px-9"
+          initial="hidden"
+          animate="visible"
+          variants={fadeUp}
+          transition={{ duration: 0.45, ease: organicEase }}
+        >
+          <motion.div
+            className="mb-5"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.35, ease: organicEase }}
+          >
             <AttackWarningBanner />
             <EventBanner />
             <NearMissBanner />
-          </div>
+          </motion.div>
           {children}
-        </main>
+        </motion.main>
       </div>
     </PlanetProvider>
   );

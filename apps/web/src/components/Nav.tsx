@@ -32,6 +32,7 @@ import {
 } from 'react-icons/fi';
 import { api } from '@/lib/api';
 import { useMe, useExpeditionReports } from '@/lib/queries';
+import { fadeUp, organicEase, staggerChildren } from '@/lib/motion';
 import { usePlanetSelection } from './PlanetContext';
 
 const LINKS = [
@@ -122,7 +123,7 @@ export function Nav({ username }: { username: string }) {
       <motion.aside
         initial={{ x: -40, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.55, ease: organicEase }}
         className="fixed inset-y-0 left-0 z-40 hidden w-[15rem] flex-col overflow-hidden border-r border-canopy-700/20 bg-bark-950/95 px-3 py-5 backdrop-blur-2xl lg:flex"
       >
         <div className="pointer-events-none absolute inset-0 opacity-[0.08]">
@@ -157,36 +158,43 @@ export function Nav({ username }: { username: string }) {
           className="relative mt-5 flex-1 space-y-1 overflow-y-auto pr-1"
           aria-label="Navigation du jeu"
         >
-          {navigationLinks.map((link) => {
+          {navigationLinks.map((link, index) => {
             const active = isActivePath(pathname, link.href);
             const Icon = link.icon;
             return (
-              <Link
+              <motion.div
                 key={link.href}
-                href={link.href}
-                className={`group relative flex items-center gap-3 overflow-hidden rounded-lg border px-3 py-2.5 text-sm transition ${
-                  active
-                    ? 'border-canopy-300/25 bg-canopy-500/10 text-canopy-50 shadow-[inset_0_0_24px_rgba(126,236,174,0.04)]'
-                    : 'border-transparent text-canopy-100/48 hover:border-canopy-700/15 hover:bg-canopy-700/10 hover:text-canopy-100/85'
-                }`}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.08 + index * 0.015, ease: organicEase }}
               >
-                {active && (
-                  <motion.span
-                    layoutId="game-nav-indicator"
-                    className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-canopy-400 shadow-[0_0_12px_rgba(63,217,137,0.7)]"
+                <Link
+                  href={link.href}
+                  className={`group relative flex items-center gap-3 overflow-hidden rounded-lg border px-3 py-2.5 text-sm transition ${
+                    active
+                      ? 'border-canopy-300/25 bg-canopy-500/10 text-canopy-50 shadow-[inset_0_0_24px_rgba(126,236,174,0.04)]'
+                      : 'border-transparent text-canopy-100/48 hover:border-canopy-700/15 hover:bg-canopy-700/10 hover:text-canopy-100/85'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="game-nav-indicator"
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                      className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-canopy-400 shadow-[0_0_12px_rgba(63,217,137,0.7)]"
+                    />
+                  )}
+                  <Icon
+                    className={`h-[18px] w-[18px] ${active ? 'text-canopy-300' : 'text-canopy-100/35 group-hover:text-canopy-300/70'}`}
+                    aria-hidden="true"
                   />
-                )}
-                <Icon
-                  className={`h-[18px] w-[18px] ${active ? 'text-canopy-300' : 'text-canopy-100/35 group-hover:text-canopy-300/70'}`}
-                  aria-hidden="true"
-                />
-                <span className="flex-1">{link.label}</span>
-                {link.href === '/reports' && unreadCount > 0 && (
-                  <span className="min-w-[1.25rem] rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-5 text-white">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </Link>
+                  <span className="flex-1">{link.label}</span>
+                  {link.href === '/reports' && unreadCount > 0 && (
+                    <span className="min-w-[1.25rem] rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-5 text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </Link>
+              </motion.div>
             );
           })}
         </nav>
@@ -245,6 +253,7 @@ export function Nav({ username }: { username: string }) {
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 24, opacity: 0 }}
+              transition={{ duration: 0.32, ease: organicEase }}
               onClick={(event) => event.stopPropagation()}
               className="mx-auto flex h-full max-w-lg flex-col overflow-hidden rounded-2xl border border-canopy-700/25 bg-bark-950"
             >
@@ -266,29 +275,38 @@ export function Nav({ username }: { username: string }) {
                 className="grid flex-1 grid-cols-2 gap-2 overflow-y-auto p-4"
                 aria-label="Toutes les pages du jeu"
               >
-                {navigationLinks.map((link) => {
-                  const Icon = link.icon;
-                  const active = isActivePath(pathname, link.href);
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={`flex min-h-16 items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${
-                        active
-                          ? 'border-canopy-300/30 bg-canopy-500/10 text-canopy-50'
-                          : 'border-canopy-700/15 text-canopy-100/55 hover:bg-canopy-500/[0.035]'
-                      }`}
-                    >
-                      <Icon className="h-5 w-5 text-canopy-300/65" aria-hidden="true" />
-                      <span className="flex-1">{link.label}</span>
-                      {link.href === '/reports' && unreadCount > 0 && (
-                        <span className="min-w-[1.25rem] rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-5 text-white">
-                          {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
+                <motion.div
+                  className="contents"
+                  initial="hidden"
+                  animate="visible"
+                  variants={staggerChildren(0.025, 0.08)}
+                >
+                  {navigationLinks.map((link) => {
+                    const Icon = link.icon;
+                    const active = isActivePath(pathname, link.href);
+                    return (
+                      <motion.div key={link.href} variants={fadeUp}>
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className={`flex min-h-16 items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${
+                            active
+                              ? 'border-canopy-300/30 bg-canopy-500/10 text-canopy-50'
+                              : 'border-canopy-700/15 text-canopy-100/55 hover:bg-canopy-500/[0.035]'
+                          }`}
+                        >
+                          <Icon className="h-5 w-5 text-canopy-300/65" aria-hidden="true" />
+                          <span className="flex-1">{link.label}</span>
+                          {link.href === '/reports' && unreadCount > 0 && (
+                            <span className="min-w-[1.25rem] rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-5 text-white">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
+                        </Link>
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
               </nav>
               <div className="border-t border-canopy-700/15 p-4">
                 <button
@@ -305,7 +323,10 @@ export function Nav({ username }: { username: string }) {
         )}
       </AnimatePresence>
 
-      <nav
+      <motion.nav
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.12, duration: 0.38, ease: organicEase }}
         className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-canopy-700/20 bg-bark-950/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-2xl lg:hidden"
         aria-label="Navigation mobile du jeu"
       >
@@ -332,7 +353,7 @@ export function Nav({ username }: { username: string }) {
           <FiMoreHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
           <span>Plus</span>
         </button>
-      </nav>
+      </motion.nav>
     </>
   );
 }

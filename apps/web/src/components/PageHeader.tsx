@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
+import { fadeUp, organicEase } from '@/lib/motion';
 
 interface PageHeaderProps {
   title: ReactNode;
@@ -13,9 +14,10 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, children, delay = 0 }: PageHeaderProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay }}
+      initial="hidden"
+      animate="visible"
+      variants={fadeUp}
+      transition={{ duration: 0.5, delay, ease: organicEase }}
       className="relative border-b border-canopy-700/20 px-1 pb-5 pt-1 lg:flex lg:items-end lg:justify-between lg:gap-6 lg:px-2 lg:pb-6"
     >
       <div className="relative min-w-0">
