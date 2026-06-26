@@ -11,6 +11,7 @@ async function bootstrap(): Promise<void> {
 
   app.useLogger(app.get(Logger));
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  app.getHttpAdapter().getInstance().set('query parser', 'extended');
   const config = app.get(ConfigService<Env, true>);
 
   app.use(helmet());
