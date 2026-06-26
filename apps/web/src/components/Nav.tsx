@@ -31,6 +31,7 @@ import {
   FiX,
 } from 'react-icons/fi';
 import { api } from '@/lib/api';
+import { broadcastLogout } from '@/lib/session';
 import { useMe, useExpeditionReports } from '@/lib/queries';
 import { fadeUp, organicEase, staggerChildren } from '@/lib/motion';
 import { usePlanetSelection } from './PlanetContext';
@@ -86,6 +87,7 @@ export function Nav({ username }: { username: string }) {
 
   async function logout() {
     await api.logout().catch(() => undefined);
+    broadcastLogout();
     qc.clear();
     router.replace('/login');
   }
