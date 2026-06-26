@@ -22,7 +22,7 @@ npm run db:seed                           # Demo: demo@arborisis.test / arborisi
 npm run dev                               # Starts API (port 4000) + web (port 3000)
 ```
 
-**⚠️ Critical:** Docker services (PostgreSQL + Redis) must be running **before** dev server, tests, or e2e tests. Always verify `docker ps` includes `arborisis-postgres` and `arborisis-redis` before proceeding.
+**⚠️ Critical:** Docker services (PostgreSQL + Redis) must be running **before** dev server, tests, or e2e tests. Always verify with `docker compose ps` that both `postgres` and `redis` services are healthy before proceeding.
 
 ## Build, Test & Verification
 
@@ -37,7 +37,7 @@ npm run test:e2e -w @arborisis/api   # E2E tests (requires DB + Redis)
 
 # Quick checks during development
 npm run build               # Fastest overall build
-npm run lint -- apps/web    # Lint one workspace
+npm run lint -w @arborisis/web  # Lint web workspace (uses next/core-web-vitals config)
 npm run format              # Auto-fix formatting with Prettier
 npm run test -- --testNamePattern="SpecificTest"  # Run one test
 ```
@@ -142,7 +142,7 @@ npm run typecheck
   ↓
 npm run test
   ↓
-npm run test:e2e
+npm run test:e2e -w @arborisis/api
 ```
 
 **If you modify the schema, migrations, or shared code, be aware CI runs in this specific order.**
@@ -171,7 +171,7 @@ npm run test:e2e
 
 ### Auto-Scaling (Universe Provisioning)
 
-- When an active universe reaches `UNIVERSE_PROVISION_THRESHOLD` players, a new API node is auto-provisioned.
+- When an active universe reaches `UNIVERSE_PROVISION_THRESHOLD` fraction of `maxPlayers` (default 0.9 = 90%), a new API node is auto-provisioned.
 - New user registrations are assigned to the oldest non-full `ACTIVE` universe via `UniverseService.pickAvailableUniverse`.
 - **Never hardcode the "default" universe**; always let the service pick an available one.
 
@@ -182,8 +182,8 @@ npm run test:e2e
 | `packages/shared/src/constants.ts`         | All balance and gameplay constants          | Changes here affect both front and back; requires rebuild + testing |
 | `packages/shared/src/enums.ts`             | Game enums (research, building types, etc.) | Must mirror `prisma/schema.prisma`; new values need migrations      |
 | `packages/shared/src/formulas.ts`          | Pure gameplay formulas (tested)             | Import only; do not duplicate logic elsewhere                       |
-| `apps/api/src/game/GameEngineService.ts`   | Lazy resource settlement & authority        | Server-side recalculation of all player resources before mutations  |
-| `apps/api/src/game/FinalizationService.ts` | Idempotent job finalization                 | Processes BullMQ jobs; designed to be retried safely                |
+| `apps/api/src/modules/game/game-engine.service.ts`   | Lazy resource settlement & authority        | Server-side recalculation of all player resources before mutations  |
+| `apps/api/src/modules/game/finalization.service.ts` | Idempotent job finalization                 | Processes BullMQ jobs; designed to be retried safely                |
 | `apps/web/src/lib/api.ts`                  | Typed API client with auto-refresh          | Handles 401 → refresh → retry automatically                         |
 | `prisma/schema.prisma`                     | Database schema + Prisma enums              | Enums must match `shared/enums.ts`                                  |
 | `.env.example`                             | Environment template                        | Always keep in sync with required secrets                           |
@@ -209,7 +209,7 @@ npm run test:e2e
 4. **Hardcoding balance values** — Always use `packages/shared/src/constants.ts`.
 5. **Trusting client values** — Always recalculate server-side before mutations.
 6. **Breaking incremental TypeScript** — Do not enable `incremental: true` in `apps/api` without relocating `.tsbuildinfo`.
-7. **Running linters on web** — Use `npm run lint -- apps/web` only; web has its own config.
+7. **Running linters on web** — Use `npm run lint -w @arborisis/web` to lint the web workspace; it has its own ESLint config extending next/core-web-vitals.
 8. **Mixing Railway configs** — Web service must use `railway.web.toml`, not `railway.toml`.
 
 ---
