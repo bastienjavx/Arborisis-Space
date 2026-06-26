@@ -1,4 +1,4 @@
-name: Copilot Code Review
+name: AI Code Review
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     types: [opened, synchronize]
 
 concurrency:
-  group: copilot-review-${{ github.ref }}
+  group: code-review-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -14,8 +14,8 @@ permissions:
   contents: read
 
 jobs:
-  copilot-review:
-    name: GitHub Copilot Code Review
+  code-review:
+    name: AI-Powered Code Review
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Review PR with GitHub Copilot
-        uses: github/copilot-code-review-gpt4@v1
+      - name: Run CodeRabbit Review
+        uses: coderabbitai/github-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
