@@ -17,7 +17,11 @@ export function PwaEnhancer() {
   const [updateReady, setUpdateReady] = useState(false);
 
   useEffect(() => {
-    setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
+    try {
+      setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
+    } catch {
+      setDismissed(false);
+    }
     setStandalone(
       window.matchMedia('(display-mode: standalone)').matches ||
         Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone),
@@ -46,7 +50,10 @@ export function PwaEnhancer() {
       })
       .catch(() => undefined);
 
-    const onControllerChange = () => window.location.reload();
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    const onControllerChange = () => {
+      if (hadController) window.location.reload();
+    };
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
 
     return () => {
@@ -77,13 +84,15 @@ export function PwaEnhancer() {
   async function installApp() {
     if (!deferredPrompt) return;
     await deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
-    if (choice.outcome === 'accepted') setDeferredPrompt(null);
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
   }
 
   function dismiss() {
     setDismissed(true);
-    localStorage.setItem(DISMISS_KEY, '1');
+    try {
+      localStorage.setItem(DISMISS_KEY, '1');
+    } catch {}
   }
 
   function applyUpdate() {
@@ -91,7 +100,7 @@ export function PwaEnhancer() {
   }
 
   const showInstall = !standalone && !!deferredPrompt && !dismissed;
-  const showUpdate = updateReady && !dismissed;
+  const showUpdate = updateReady;
 
   if (!showInstall && !showUpdate) return null;
 
@@ -113,7 +122,7 @@ export function PwaEnhancer() {
           </button>
           <button
             type="button"
-            onClick={dismiss}
+            onClick={showUpdate ? () => setUpdateReady(false) : dismiss}
             className="btn btn-ghost min-h-9 px-3 py-1.5 text-xs"
           >
             Plus tard

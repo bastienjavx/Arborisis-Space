@@ -14,7 +14,6 @@ const APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(APP_SHELL)));
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -55,7 +54,14 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => {
           const cached = await caches.match(request);
           if (cached) return cached;
-          return caches.match('/play');
+          return (
+            (await caches.match('/play')) ??
+            new Response('Offline', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            })
+          );
         }),
     );
     return;
@@ -63,15 +69,16 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(request).then((cached) => {
-      const networkFetch = fetch(request)
+      if (cached) return cached;
+      return fetch(request)
         .then((response) => {
           const copy = response.clone();
           caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
           return response;
         })
-        .catch(() => cached);
-
-      return cached ?? networkFetch;
+        .catch(() => {
+          throw new Error('Network request failed and no cached response is available.');
+        });
     }),
   );
 });
