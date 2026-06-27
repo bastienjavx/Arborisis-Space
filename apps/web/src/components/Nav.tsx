@@ -33,7 +33,6 @@ import {
 } from 'react-icons/fi';
 import { api } from '@/lib/api';
 import { broadcastLogout } from '@/lib/session';
-import { useExpeditionReports } from '@/lib/queries';
 import { fadeUp, organicEase, staggerChildren } from '@/lib/motion';
 import { usePlanetSelection } from './PlanetContext';
 
@@ -74,8 +73,6 @@ export function Nav({ user }: { user: AuthUser }) {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
-  const { data: expeditionReports } = useExpeditionReports();
-  const unreadCount = expeditionReports?.filter((r) => !r.isRead).length ?? 0;
   const { planets, selectedId, select } = usePlanetSelection();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigationLinks =
@@ -190,11 +187,6 @@ export function Nav({ user }: { user: AuthUser }) {
                     aria-hidden="true"
                   />
                   <span className="flex-1">{link.label}</span>
-                  {link.href === '/reports' && unreadCount > 0 && (
-                    <span className="min-w-[1.25rem] rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-5 text-white">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
                 </Link>
               </motion.div>
             );
@@ -299,11 +291,6 @@ export function Nav({ user }: { user: AuthUser }) {
                         >
                           <Icon className="h-5 w-5 text-canopy-300/65" aria-hidden="true" />
                           <span className="flex-1">{link.label}</span>
-                          {link.href === '/reports' && unreadCount > 0 && (
-                            <span className="min-w-[1.25rem] rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-5 text-white">
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </span>
-                          )}
                         </Link>
                       </motion.div>
                     );

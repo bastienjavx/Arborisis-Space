@@ -19,7 +19,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { usePlanetSelection } from '@/components/PlanetContext';
-import { ResourceBar } from '@/components/ResourceBar';
+import { MobileResourceBar } from '@/components/MobileResourceBar';
 import { ResourceCost } from '@/components/ResourceCost';
 import { QuantityControl } from '@/components/QuantityControl';
 import { WikiPopover } from '@/components/WikiPopover';
@@ -126,7 +126,7 @@ export default function FleetsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <ResourceBar resources={planet.resources} className="lg:hidden" />
+        <MobileResourceBar resources={planet.resources} />
       </motion.div>
 
       {/* Fleet presets */}

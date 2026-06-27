@@ -11,7 +11,7 @@ import { EventBanner } from '@/components/EventBanner';
 import { GameTopBar } from '@/components/GameTopBar';
 import { Nav } from '@/components/Nav';
 import { NearMissBanner } from '@/components/NearMissBanner';
-import { OrganicBackgroundInner } from '@/components/OrganicBackgroundInner';
+import OrganicBackground from '@/components/OrganicBackground';
 import { PlanetProvider } from '@/components/PlanetContext';
 import { TickerProvider } from '@/components/TickerContext';
 import { useMe } from '@/lib/queries';
@@ -85,7 +85,7 @@ export function GameShell({ children }: { children: React.ReactNode }) {
   return (
     <TickerProvider>
       <PlanetProvider>
-        <OrganicBackgroundInner />
+        <OrganicBackground />
         <div className="pointer-events-none fixed inset-0 z-0 bg-bark-950/80 shadow-[inset_0_0_180px_rgba(0,0,0,0.7)]" />
         <Nav user={user} />
         <GameTopBar />
