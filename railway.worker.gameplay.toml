@@ -29,7 +29,7 @@ watchPatterns = [
 ]
 
 [deploy]
-startCommand = "SERVICE_ROLE=worker WORKER_ROLE=gameplay node apps/api/dist/worker.js"
+startCommand = "sh -c 'SERVICE_ROLE=worker WORKER_ROLE=gameplay node apps/api/dist/worker.js'"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
