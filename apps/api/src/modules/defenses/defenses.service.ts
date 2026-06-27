@@ -1,12 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { DefenseType as PrismaDefenseType } from '@prisma/client';
 import {
   DEFENSES,
+  ResourceType,
   DefenseType,
+  type UnmetRequirement,
   type OrbitalDefenseView,
   type PlanetDefensesView,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { GameEngineService } from '../game/game-engine.service';
+import { GameEngineService, type SettledPlanet } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
 
 @Injectable()
@@ -19,7 +22,9 @@ export class DefensesService {
 
   async getDefenses(userId: string, planetId: string): Promise<PlanetDefensesView> {
     await this.planets.assertOwnership(userId, planetId);
-    return this.getDefensesView(planetId, {});
+    const settled = await this.engine.settlePlanet(planetId);
+    const { amounts } = this.engine.buildResourceState(settled);
+    return this.getDefensesView(planetId, settled, amounts);
   }
 
   async build(
@@ -42,12 +47,16 @@ export class DefensesService {
 
     const settled = await this.engine.settlePlanet(planetId);
     const { amounts } = this.engine.buildResourceState(settled);
+    const unmet = this.checkRequirements(config.requires, settled);
+    if (unmet.length > 0) {
+      throw new BadRequestException('Prérequis de défense non satisfaits.');
+    }
 
-    const totalCost = {
-      BIOMASS: (config.cost.BIOMASS ?? 0) * quantity,
-      SAP: (config.cost.SAP ?? 0) * quantity,
-      MINERALS: (config.cost.MINERALS ?? 0) * quantity,
-      SPORES: (config.cost.SPORES ?? 0) * quantity,
+    const totalCost: Record<ResourceType, number> = {
+      [ResourceType.BIOMASS]: (config.cost[ResourceType.BIOMASS] ?? 0) * quantity,
+      [ResourceType.SAP]: (config.cost[ResourceType.SAP] ?? 0) * quantity,
+      [ResourceType.MINERALS]: (config.cost[ResourceType.MINERALS] ?? 0) * quantity,
+      [ResourceType.SPORES]: (config.cost[ResourceType.SPORES] ?? 0) * quantity,
     };
 
     for (const [res, cost] of Object.entries(totalCost)) {
@@ -57,6 +66,8 @@ export class DefensesService {
         );
       }
     }
+
+    const prismaDefenseType = defenseType as unknown as PrismaDefenseType;
 
     await this.prisma.$transaction([
       this.prisma.planet.update({
@@ -69,13 +80,15 @@ export class DefensesService {
         },
       }),
       this.prisma.orbitalDefense.upsert({
-        where: { planetId_defenseType: { planetId, defenseType: defenseType as any } },
+        where: { planetId_defenseType: { planetId, defenseType: prismaDefenseType } },
         update: { quantity: { increment: quantity } },
-        create: { planetId, defenseType: defenseType as any, quantity },
+        create: { planetId, defenseType: prismaDefenseType, quantity },
       }),
     ]);
 
-    return this.getDefensesView(planetId, amounts);
+    const updatedSettled = await this.engine.settlePlanet(planetId);
+    const updatedResources = this.engine.buildResourceState(updatedSettled);
+    return this.getDefensesView(planetId, updatedSettled, updatedResources.amounts);
   }
 
   /** Récupère les défenses d'une planète pour le calcul de combat (pas de vérification d'ownership). */
@@ -104,13 +117,14 @@ export class DefensesService {
     await Promise.all(
       Object.entries(losses).map(async ([type, lost]) => {
         if (!lost || lost <= 0) return;
+        const defenseType = type as unknown as PrismaDefenseType;
         const row = await this.prisma.orbitalDefense.findUnique({
-          where: { planetId_defenseType: { planetId, defenseType: type as any } },
+          where: { planetId_defenseType: { planetId, defenseType } },
         });
         if (!row) return;
         const newQty = Math.max(0, row.quantity - lost);
         await this.prisma.orbitalDefense.update({
-          where: { planetId_defenseType: { planetId, defenseType: type as any } },
+          where: { planetId_defenseType: { planetId, defenseType } },
           data: { quantity: newQty },
         });
       }),
@@ -119,21 +133,23 @@ export class DefensesService {
 
   private async getDefensesView(
     planetId: string,
-    amounts: Record<string, number>,
+    settled: SettledPlanet,
+    amounts: Record<ResourceType, number>,
   ): Promise<PlanetDefensesView> {
     const rows = await this.prisma.orbitalDefense.findMany({ where: { planetId } });
     let totalAttack = 0;
     let totalDefense = 0;
 
     const defenses: OrbitalDefenseView[] = Object.values(DefenseType).map((type) => {
-      const row = rows.find((r) => r.defenseType === (type as any));
+      const row = rows.find((r) => r.defenseType === (type as unknown as PrismaDefenseType));
       const config = DEFENSES[type];
       const quantity = row?.quantity ?? 0;
       totalAttack += config.attack * quantity;
       totalDefense += config.defense * quantity;
+      const unmet = this.checkRequirements(config.requires, settled);
 
       const canAfford = Object.entries(config.cost).every(
-        ([res, cost]) => (amounts[res] ?? 0) >= (cost ?? 0),
+        ([res, cost]) => (amounts[res as ResourceType] ?? 0) >= (cost ?? 0),
       );
 
       return {
@@ -146,11 +162,45 @@ export class DefensesService {
         hull: config.hull,
         cost: config.cost,
         buildTimeSeconds: config.buildTimeSeconds,
-        canAfford,
-        unmet: [],
+        canAfford: unmet.length === 0 && canAfford,
+        unmet,
       };
     });
 
     return { defenses, totalAttack, totalDefense, isBuilding: false };
+  }
+
+  private checkRequirements(
+    requires: (typeof DEFENSES)[DefenseType]['requires'],
+    settled: SettledPlanet,
+  ): UnmetRequirement[] {
+    const unmet: UnmetRequirement[] = [];
+    if (!requires) return unmet;
+
+    for (const [type, requiredLevel] of Object.entries(requires.buildings ?? {})) {
+      const currentLevel = settled.buildings[type as keyof typeof settled.buildings] ?? 0;
+      if (currentLevel < requiredLevel) {
+        unmet.push({
+          kind: 'building',
+          type: type as UnmetRequirement['type'],
+          requiredLevel,
+          currentLevel,
+        });
+      }
+    }
+
+    for (const [type, requiredLevel] of Object.entries(requires.research ?? {})) {
+      const currentLevel = settled.research[type as keyof typeof settled.research] ?? 0;
+      if (currentLevel < requiredLevel) {
+        unmet.push({
+          kind: 'research',
+          type: type as UnmetRequirement['type'],
+          requiredLevel,
+          currentLevel,
+        });
+      }
+    }
+
+    return unmet;
   }
 }

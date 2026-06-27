@@ -98,6 +98,7 @@ export class GameQueueService {
       SPAWN_NPC_JOB,
       { universeId },
       {
+        jobId: `spawn-npc-${universeId}`,
         delay: delayMs,
         removeOnComplete: true,
         removeOnFail: 10,
@@ -200,7 +201,10 @@ export class GameQueueService {
 
     // S'assure qu'un job de spawn NPC est toujours planifié.
     const eventJobs = await this.eventQueue.getJobs(['delayed', 'wait']);
-    const hasSpawnJob = eventJobs.some((job) => job.name === SPAWN_NPC_JOB);
+    const universeId = await this.resolveUniverseId();
+    const hasSpawnJob = eventJobs.some(
+      (job) => job.name === SPAWN_NPC_JOB && job.data?.universeId === universeId,
+    );
     if (!hasSpawnJob) {
       await this.scheduleNextNpcSpawn(0);
     }

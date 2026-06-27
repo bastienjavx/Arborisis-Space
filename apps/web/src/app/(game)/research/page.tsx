@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
-import { ResourceBar } from '@/components/ResourceBar';
+import { MobileResourceBar } from '@/components/MobileResourceBar';
 import { ResourceCost } from '@/components/ResourceCost';
 import { WikiPopover } from '@/components/WikiPopover';
 import { codexId } from '@/lib/codex';
@@ -79,7 +79,7 @@ export default function ResearchPage() {
         <span>Ressources : {planet.name}</span>
       </div>
 
-      <ResourceBar resources={planet.resources} className="lg:hidden" />
+      <MobileResourceBar resources={planet.resources} />
 
       <AnimatePresence>
         {data.activeJob && (

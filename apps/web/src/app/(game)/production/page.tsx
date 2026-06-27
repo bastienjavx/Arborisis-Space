@@ -27,7 +27,7 @@ import { AnimatedButton } from '@/components/AnimatedButton';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
-import { ResourceBar } from '@/components/ResourceBar';
+import { MobileResourceBar } from '@/components/MobileResourceBar';
 import { StatCard } from '@/components/StatCard';
 import { ApiError } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
@@ -221,7 +221,7 @@ export default function ProductionPage() {
         </div>
       </PageHeader>
 
-      <ResourceBar resources={planet.resources} className="lg:hidden" />
+      <MobileResourceBar resources={planet.resources} />
 
       <div className="inline-flex rounded-lg border border-canopy-700/20 bg-bark-900/70 p-1">
         <button

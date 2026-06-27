@@ -3,7 +3,6 @@ import { GameModule } from '../game/game.module';
 import { FinalizationService } from '../game/finalization.service';
 import { PveModule } from '../pve/pve.module';
 import { PveService } from '../pve/pve.service';
-import { NpcSpawnerService } from '../pve/npc-spawner.service';
 import { PvpModule } from '../pvp/pvp.module';
 import { PvpService } from '../pvp/pvp.service';
 import { QueueModule } from './queue.module';
@@ -75,7 +74,6 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     private readonly expeditions: ExpeditionsService,
     private readonly pve: PveService,
     private readonly pvp: PvpService,
-    private readonly npcSpawner: NpcSpawnerService,
     private readonly seasons: SeasonsService,
     private readonly crafting: CraftingService,
     private readonly productionLines: ProductionLinesService,
@@ -95,8 +93,6 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     await this.market.sweepExpiredOrders();
     await this.queues.reconcilePending();
     await this.queues.scheduleNextEvent().catch(() => void 0);
-    await this.npcSpawner.spawnBatch().catch(() => void 0);
-    await this.queues.scheduleNextNpcSpawn(0).catch(() => void 0);
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
         this.logger.error(error, 'Échec du cycle de réconciliation.'),

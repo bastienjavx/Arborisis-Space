@@ -1,5 +1,11 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { DefenseType, type AuthUser, type PlanetDefensesView } from '@arborisis/shared';
+import {
+  buildDefenseSchema,
+  type AuthUser,
+  type BuildDefenseDto,
+  type PlanetDefensesView,
+} from '@arborisis/shared';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DefensesService } from './defenses.service';
 
@@ -19,9 +25,8 @@ export class DefensesController {
   build(
     @CurrentUser() user: AuthUser,
     @Param('planetId') planetId: string,
-    @Body('defenseType') defenseType: DefenseType,
-    @Body('quantity') quantity: number,
+    @Body(new ZodValidationPipe(buildDefenseSchema)) dto: BuildDefenseDto,
   ): Promise<PlanetDefensesView> {
-    return this.defenses.build(user.id, planetId, defenseType, Number(quantity));
+    return this.defenses.build(user.id, planetId, dto.defenseType, dto.quantity);
   }
 }

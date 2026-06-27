@@ -56,21 +56,31 @@ export class NpcSpawnerService {
         [ResourceType.SPORES]: Math.round(difficulty * 50 * cfg.rewardMultiplier),
       };
       const expiresAt = new Date(now.getTime() + cfg.expiryHours * 3_600_000);
+      const data = {
+        universeId,
+        type: type as import('@prisma/client').NpcEncounterType,
+        galaxy,
+        system,
+        position,
+        difficulty,
+        health,
+        maxHealth: health,
+        rewards,
+        expiresAt,
+      };
+
+      const reused = await this.prisma.npcEncounter.updateMany({
+        where: { universeId, galaxy, system, position, expiresAt: { lte: now } },
+        data,
+      });
+      if (reused.count > 0) {
+        spawned++;
+        continue;
+      }
 
       try {
         await this.prisma.npcEncounter.create({
-          data: {
-            universeId,
-            type: type as import('@prisma/client').NpcEncounterType,
-            galaxy,
-            system,
-            position,
-            difficulty,
-            health,
-            maxHealth: health,
-            rewards,
-            expiresAt,
-          },
+          data,
         });
         spawned++;
       } catch (e) {

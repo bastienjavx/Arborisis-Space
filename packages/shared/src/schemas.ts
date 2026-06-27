@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   BuildingType,
   ChatScope,
+  DefenseType,
   ItemKey,
   MarketOrderSide,
   PlanetSpecialization,
@@ -159,6 +160,12 @@ export const produceShipsSchema = z.object({
   quantity: z.number().int().min(1).max(100),
 });
 export type ProduceShipsDto = z.infer<typeof produceShipsSchema>;
+
+export const buildDefenseSchema = z.object({
+  defenseType: z.nativeEnum(DefenseType),
+  quantity: z.number().int().min(1).max(10_000),
+});
+export type BuildDefenseDto = z.infer<typeof buildDefenseSchema>;
 
 export const EXPEDITION_SHIP_TYPES = [
   ShipType.SPORAL_SCOUT,
