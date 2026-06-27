@@ -1,4 +1,6 @@
 import { Logger, Module, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { NpcModule } from '../npc/npc.module';
+import { MycosynthService } from '../npc/mycosynth.service';
 import { CraftingModule } from '../crafting/crafting.module';
 import { CraftingService } from '../crafting/crafting.service';
 import { FinalizationService } from '../game/finalization.service';
@@ -25,6 +27,7 @@ import { QueueModule } from './queue.module';
     GameModule,
     PveModule,
     PvpModule,
+    NpcModule,
     CraftingModule,
     ProductionLinesModule,
     TradeRoutesModule,
@@ -48,6 +51,7 @@ export class MaintenanceModule implements OnApplicationBootstrap, OnApplicationS
     private readonly productionLines: ProductionLinesService,
     private readonly tradeRoutes: TradeRoutesService,
     private readonly market: MarketService,
+    private readonly mycosynth: MycosynthService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -61,6 +65,10 @@ export class MaintenanceModule implements OnApplicationBootstrap, OnApplicationS
       )
       .catch(() => void 0);
     await this.queues.scheduleNextNpcSpawn(0, true).catch(() => void 0);
+    await this.queues
+      .runWithDistributedLock('mycosynth:bootstrap:lock', 60_000, () => this.mycosynth.ensureExists())
+      .catch(() => void 0);
+    await this.queues.scheduleNextMycosynthTick(0, true).catch(() => void 0);
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
         this.logger.error(error, 'Échec du cycle de réconciliation.'),

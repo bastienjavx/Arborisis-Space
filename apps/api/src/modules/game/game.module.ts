@@ -110,6 +110,11 @@ import { TransferService } from './transfer.service';
     DailyQuestsService,
     EngagementService,
     EngagementHookService,
+    BuildingsService,
+    ResearchService,
+    ShipsService,
+    ColonizationService,
+    GalaxyService,
   ],
 })
 export class GameModule {}

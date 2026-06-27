@@ -10,7 +10,10 @@ import {
   FINALIZE_JOB,
   GAME_EVENT_QUEUE,
   MARKET_EXPIRY_QUEUE,
+  MYCOSYNTH_TICK_INTERVAL_MS,
+  MYCOSYNTH_TICK_JOB,
   NOTIFICATIONS_QUEUE,
+  NPC_QUEUE,
   PRODUCTION_LINE_QUEUE,
   PVE_QUEUE,
   PVP_QUEUE,
@@ -54,6 +57,7 @@ export class GameQueueService {
     @InjectQueue(PRODUCTION_LINE_QUEUE) private readonly productionLine: Queue,
     @InjectQueue(TRADE_ROUTE_QUEUE) private readonly tradeRoute: Queue,
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notificationsQueue: Queue,
+    @InjectQueue(NPC_QUEUE) private readonly npcQueue: Queue,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -97,6 +101,29 @@ export class GameQueueService {
       { universeId },
       delayMs,
       `event-${universeId}-${dueSlot}`,
+    );
+  }
+
+  async scheduleNextMycosynthTick(
+    delayMs = MYCOSYNTH_TICK_INTERVAL_MS,
+    singleton = false,
+  ): Promise<void> {
+    const universeId = await this.resolveUniverseId();
+    const singletonId = `mycosynth-tick-${universeId}`;
+    if (singleton) {
+      const existing = await this.npcQueue.getJob(singletonId);
+      const state = existing ? await existing.getState() : null;
+      if (existing && (state === 'delayed' || state === 'waiting')) return;
+      await this.safeAddToQueue(this.npcQueue, MYCOSYNTH_TICK_JOB, { universeId }, delayMs, singletonId);
+      return;
+    }
+    const dueSlot = Math.floor((Date.now() + delayMs) / MYCOSYNTH_TICK_INTERVAL_MS);
+    await this.safeAddToQueue(
+      this.npcQueue,
+      MYCOSYNTH_TICK_JOB,
+      { universeId },
+      delayMs,
+      `${singletonId}-${dueSlot}`,
     );
   }
 
@@ -356,8 +383,18 @@ export class GameQueueService {
     delayMs: number,
     jobId?: string,
   ): Promise<void> {
+    await this.safeAddToQueue(this.eventQueue, name, data, delayMs, jobId);
+  }
+
+  private async safeAddToQueue(
+    queue: Queue,
+    name: string,
+    data: unknown,
+    delayMs: number,
+    jobId?: string,
+  ): Promise<void> {
     try {
-      await this.eventQueue.add(name, data, {
+      await queue.add(name, data, {
         ...(jobId ? { jobId } : {}),
         delay: delayMs,
         removeOnComplete: true,
@@ -367,8 +404,8 @@ export class GameQueueService {
       });
     } catch (error) {
       this.logger.debug(
-        { err: error, name, jobId },
-        'Job événement déjà planifié ou erreur de duplication.',
+        { err: error, queue: queue.name, name, jobId },
+        'Job déjà planifié ou erreur de duplication.',
       );
     }
   }
