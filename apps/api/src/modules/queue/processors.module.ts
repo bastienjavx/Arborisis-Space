@@ -20,6 +20,7 @@ import { CraftingProcessor } from './processors/crafting.processor';
 import { ProductionLineProcessor } from './processors/production-line.processor';
 import { TradeRouteProcessor } from './processors/trade-route.processor';
 import { MarketExpiryProcessor } from './processors/market-expiry.processor';
+import { NotificationsProcessor } from './processors/notifications.processor';
 import { GameQueueService } from './game-queue.service';
 import { ExpeditionsService } from '../game/expeditions.service';
 import { SeasonsService } from '../game/seasons.service';
@@ -62,6 +63,7 @@ import { MarketService } from '../market/market.service';
     ProductionLineProcessor,
     TradeRouteProcessor,
     MarketExpiryProcessor,
+    NotificationsProcessor,
   ],
 })
 export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -87,14 +89,13 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     await this.queues.runWithDistributedLock('processors:bootstrap:lock', 120_000, () =>
       this.runSweeps(),
     );
-    await this.queues.reconcilePending();
     await this.queues.scheduleNextEvent().catch(() => void 0);
     await this.queues
       .runWithDistributedLock('npc:bootstrap:spawn:lock', 60_000, () =>
         this.npcSpawner.spawnBatch(),
       )
       .catch(() => void 0);
-    await this.queues.scheduleNextNpcSpawn(0).catch(() => void 0);
+    await this.queues.scheduleNextNpcSpawn(0, true).catch(() => void 0);
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
         this.logger.error(error, 'Échec du cycle de réconciliation.'),
@@ -111,24 +112,36 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     if (this.reconciling) return;
     this.reconciling = true;
     try {
-      await this.queues.runWithDistributedLock('processors:reconcile:lock', 55_000, async () => {
-        await this.runSweeps();
-        await this.queues.reconcilePending();
-      });
+      await this.queues.runWithDistributedLock('processors:reconcile:lock', 55_000, () =>
+        this.runSweeps(),
+      );
     } finally {
       this.reconciling = false;
     }
   }
 
   private async runSweeps(): Promise<void> {
-    await this.finalization.sweepAllDue();
-    await this.expeditions.sweepAllDue();
-    await this.pve.sweepAllDue();
-    await this.pvp.sweepAllDue();
-    await this.seasons.sweepAllDue();
-    await this.crafting.sweepAllDue();
-    await this.productionLines.sweepDueLines();
-    await this.tradeRoutes.sweepDueRoutes();
-    await this.market.sweepExpiredOrders();
+    const sweeps: { name: string; fn: () => Promise<unknown> }[] = [
+      { name: 'finalization', fn: () => this.finalization.sweepAllDue() },
+      { name: 'expeditions', fn: () => this.expeditions.sweepAllDue() },
+      { name: 'pve', fn: () => this.pve.sweepAllDue() },
+      { name: 'pvp', fn: () => this.pvp.sweepAllDue() },
+      { name: 'seasons', fn: () => this.seasons.sweepAllDue() },
+      { name: 'crafting', fn: () => this.crafting.sweepAllDue() },
+      { name: 'productionLines', fn: () => this.productionLines.sweepDueLines() },
+      { name: 'tradeRoutes', fn: () => this.tradeRoutes.sweepDueRoutes() },
+      { name: 'market', fn: () => this.market.sweepExpiredOrders() },
+      { name: 'reconcilePending', fn: () => this.queues.reconcilePending() },
+    ];
+
+    await Promise.all(
+      sweeps.map(async ({ name, fn }) => {
+        try {
+          await fn();
+        } catch (error) {
+          this.logger.error(error, `Échec du balayage ${name}.`);
+        }
+      }),
+    );
   }
 }

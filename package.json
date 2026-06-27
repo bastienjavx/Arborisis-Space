@@ -46,7 +46,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "argon2": "^0.44.0"
+    "argon2": "^0.44.0",
+    "zod": "3.24.2"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.27",

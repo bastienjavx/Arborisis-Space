@@ -11,7 +11,7 @@ import {
 import { useState } from 'react';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { usePlanetSelection } from '@/components/PlanetContext';
-import { ResourceBar } from '@/components/ResourceBar';
+import { MobileResourceBar } from '@/components/MobileResourceBar';
 import {
   keys,
   useExpeditions,
@@ -155,7 +155,7 @@ export default function PlayPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <ResourceBar resources={planet.resources} className="lg:hidden" />
+        <MobileResourceBar resources={planet.resources} />
       </motion.div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(25rem,0.8fr)_minmax(32rem,1.2fr)]">

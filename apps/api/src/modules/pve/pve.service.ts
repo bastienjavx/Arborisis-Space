@@ -31,8 +31,9 @@ import {
   type PveResultView,
   type ShipCounts,
 } from '@arborisis/shared';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { withConcurrencyLimit } from '../../common/utils/concurrency';
 import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
 import { GameQueueService } from '../queue/game-queue.service';
@@ -71,7 +72,7 @@ export class PveService {
 
     let mission;
     try {
-      mission = await this.prisma.serializable(async (tx) => {
+      mission = await this.prisma.optimistic(async (tx) => {
         const active = await tx.pveMission.findFirst({
           where: {
             sourcePlanetId: dto.planetId,
@@ -99,7 +100,10 @@ export class PveService {
         if (!hasCombatShip)
           throw new BadRequestException('Au moins un vaisseau de combat est requis.');
 
-        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { race: true },
+        });
         const race = user.race as RaceType;
         const travelSeconds = pveTravelTimeSeconds(
           { galaxy: source.galaxy, system: source.system },
@@ -117,15 +121,7 @@ export class PveService {
         const combatEndsAt = new Date(travelArrivesAt.getTime() + combatSeconds * 1_000);
         const returnsAt = new Date(combatEndsAt.getTime() + travelSeconds * 1_000);
 
-        for (const type of SHIP_TYPES) {
-          const qty = ships[type] ?? 0;
-          if (qty > 0) {
-            await tx.planetShip.update({
-              where: { planetId_type: { planetId: dto.planetId, type } },
-              data: { quantity: { decrement: qty } },
-            });
-          }
-        }
+        await this.decrementShips(tx, dto.planetId, ships);
 
         return tx.pveMission.create({
           data: {
@@ -203,15 +199,29 @@ export class PveService {
         ],
       },
     });
-    for (const mission of due) await this.advanceMission(mission.id, now);
+    await withConcurrencyLimit(due, 10, (mission) => this.advanceMission(mission.id, now));
   }
 
   async advanceMission(id: string, now = new Date()): Promise<void> {
     let scheduleNext: { phase: string; at: Date } | undefined;
-    const state = await this.prisma.serializable(async (tx) => {
+    const state = await this.prisma.optimistic(async (tx) => {
       const mission = await tx.pveMission.findUnique({
         where: { id },
-        include: { encounter: true, sourcePlanet: true, user: true },
+        select: {
+          id: true,
+          userId: true,
+          phase: true,
+          ships: true,
+          sourcePlanetId: true,
+          encounterId: true,
+          travelArrivesAt: true,
+          combatEndsAt: true,
+          returnsAt: true,
+          result: true,
+          encounter: true,
+          sourcePlanet: { select: { galaxy: true, system: true, position: true } },
+          user: { select: { race: true } },
+        },
       });
       if (!mission || mission.phase === PveMissionPhase.COMPLETED) return 'done' as const;
 
@@ -279,27 +289,24 @@ export class PveService {
       }
 
       await tx.planet.update({
-        where: { id: mission.sourcePlanetId },
+        where: { id: mission.sourcePlanetId, version: settled.planet.version },
         data: {
           biomass: { increment: accepted[ResourceType.BIOMASS] },
           sap: { increment: accepted[ResourceType.SAP] },
           minerals: { increment: accepted[ResourceType.MINERALS] },
           spores: { increment: accepted[ResourceType.SPORES] },
+          version: { increment: 1 },
         },
       });
 
+      const survivors: Record<string, number> = {};
       for (const type of SHIP_TYPES) {
         const sent = ships[type] ?? 0;
         const lost = result.lostShips[type] ?? 0;
-        const survivors = Math.max(0, sent - lost);
-        if (survivors > 0) {
-          await tx.planetShip.upsert({
-            where: { planetId_type: { planetId: mission.sourcePlanetId, type } },
-            update: { quantity: { increment: survivors } },
-            create: { planetId: mission.sourcePlanetId, type, quantity: survivors },
-          });
-        }
+        const count = Math.max(0, sent - lost);
+        if (count > 0) survivors[type] = count;
       }
+      await this.upsertShips(tx, mission.sourcePlanetId, survivors);
 
       // Drops d'objets selon la table de drop de l'anomalie
       if (result.outcome === PveOutcome.VICTORY) {
@@ -440,6 +447,46 @@ export class PveService {
       if (typeof v === 'number') rewards[resource] = v;
     }
     return rewards;
+  }
+
+  private async decrementShips(
+    tx: Prisma.TransactionClient,
+    planetId: string,
+    ships: Record<string, number>,
+  ): Promise<void> {
+    const entries = Object.entries(ships).filter(([, qty]) => qty > 0);
+    if (entries.length === 0) return;
+    const typeArray = Prisma.sql`ARRAY[${Prisma.join(
+      entries.map(([type]) => Prisma.sql`${type}::text`),
+      ', ',
+    )}]`;
+    const qtyArray = Prisma.sql`ARRAY[${Prisma.join(
+      entries.map(([, qty]) => Prisma.sql`${qty}::int`),
+      ', ',
+    )}]`;
+    await tx.$executeRaw`
+      UPDATE "planet_ships" ps
+      SET quantity = ps.quantity - d.qty
+      FROM unnest(${typeArray}::text[], ${qtyArray}::int[]) AS d(type, qty)
+      WHERE ps."planetId" = ${planetId}
+        AND ps."type"::text = d.type
+        AND ps.quantity >= d.qty
+    `;
+  }
+
+  private async upsertShips(
+    tx: Prisma.TransactionClient,
+    planetId: string,
+    ships: Record<string, number>,
+  ): Promise<void> {
+    for (const [type, qty] of Object.entries(ships)) {
+      if (qty <= 0) continue;
+      await tx.planetShip.upsert({
+        where: { planetId_type: { planetId, type: type as ShipType } },
+        update: { quantity: { increment: qty } },
+        create: { planetId, type: type as ShipType, quantity: qty },
+      });
+    }
   }
 
   private isUniqueViolation(error: unknown): boolean {

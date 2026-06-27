@@ -1,19 +1,32 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { COMMANDERS, CommanderType, type CommanderView } from '@arborisis/shared';
-import { api } from '@/lib/api';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  COMMANDERS,
+  CommanderTalentBranch,
+  CommanderType,
+  type CommanderView,
+} from '@arborisis/shared';
+import { api, ApiError } from '@/lib/api';
+import { formatNumber } from '@/lib/format';
+import { COMMANDER_VISUALS } from '@/lib/gameVisualAssets';
+import { AnimatedButton } from '@/components/AnimatedButton';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
-
-const RARITY_COLORS: Record<string, string> = {
-  COMMON: 'text-gray-400 border-gray-600',
-  UNCOMMON: 'text-green-400 border-green-600',
-  RARE: 'text-blue-400 border-blue-600',
-  EPIC: 'text-purple-400 border-purple-600',
-  LEGENDARY: 'text-amber-400 border-amber-600',
-};
+import { ResourceCost } from '@/components/ResourceCost';
+import { StatCard } from '@/components/StatCard';
+import {
+  FiActivity,
+  FiChevronDown,
+  FiMapPin,
+  FiShield,
+  FiStar,
+  FiUser,
+  FiZap,
+} from 'react-icons/fi';
+import type { IconType } from 'react-icons';
 
 const RARITY_LABELS: Record<string, string> = {
   COMMON: 'Commun',
@@ -23,40 +36,63 @@ const RARITY_LABELS: Record<string, string> = {
   LEGENDARY: 'Légendaire',
 };
 
+const RARITY_CLASSES: Record<string, string> = {
+  COMMON: 'border-canopy-700/20 text-canopy-100/55',
+  UNCOMMON: 'border-canopy-500/25 text-canopy-300',
+  RARE: 'border-spore-500/25 text-spore-400',
+  EPIC: 'border-sap-400/25 text-sap-400',
+  LEGENDARY: 'border-sap-400/40 text-sap-400 shadow-[inset_0_0_30px_rgba(245,201,107,0.05)]',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  IDLE: 'Inactif',
+  ASSIGNED_TO_PLANET: 'Sur planète',
+  ON_FLEET: 'En flotte',
+  ON_MISSION: 'En mission',
+};
+
 function TalentTree({
   commander,
   onInvest,
+  disabled,
 }: {
   commander: CommanderView;
-  onInvest: (branch: string, nodeId: string) => void;
+  onInvest: (branch: CommanderTalentBranch, nodeId: string) => void;
+  disabled: boolean;
 }) {
   return (
-    <div className="mt-4 space-y-4">
+    <div className="space-y-3">
       {commander.talentBranches.map((branch) => (
         <div
           key={branch.branch}
-          className="rounded-lg border border-emerald-900/40 bg-black/20 p-3"
+          className="rounded-lg border border-canopy-700/15 bg-bark-950/35 p-3"
         >
-          <h4 className="mb-2 text-sm font-semibold text-emerald-400">{branch.name}</h4>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h4 className="text-sm text-canopy-100/80">{branch.name}</h4>
+            <span className="text-[10px] uppercase tracking-[0.16em] text-canopy-100/30">
+              Talents
+            </span>
+          </div>
           <div className="flex flex-wrap gap-2">
             {branch.nodes.map((node) => (
               <button
                 key={node.id}
+                type="button"
                 onClick={() => node.available && onInvest(branch.branch, node.id)}
-                disabled={!node.available}
+                disabled={!node.available || disabled}
                 title={`${node.description} (+${node.effectValue * node.pointsInvested} ${node.effectKey})`}
                 className={[
-                  'relative rounded px-3 py-1.5 text-xs font-medium transition-all',
+                  'inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed',
                   node.unlocked
-                    ? 'border border-emerald-500 bg-emerald-900/50 text-emerald-300'
+                    ? 'border-canopy-400/35 bg-canopy-500/10 text-canopy-200'
                     : node.available
-                      ? 'border border-emerald-700 bg-emerald-950/50 text-emerald-400 hover:bg-emerald-900/30'
-                      : 'border border-gray-800 bg-gray-950/50 text-gray-600 cursor-not-allowed',
+                      ? 'border-canopy-700/30 text-canopy-300 hover:bg-canopy-700/15'
+                      : 'border-canopy-700/10 text-canopy-100/28',
                 ].join(' ')}
               >
                 {node.name}
                 {node.pointsInvested > 0 && (
-                  <span className="ml-1 rounded bg-emerald-600 px-1 py-0.5 text-[10px]">
+                  <span className="rounded bg-canopy-500/15 px-1.5 py-0.5 text-[10px] text-canopy-100/70">
                     {node.pointsInvested}/{node.maxPoints}
                   </span>
                 )}
@@ -76,86 +112,102 @@ function CommanderCard({
   onAssign,
   onInvest,
   currentPlanetId,
+  busy,
 }: {
   commander: CommanderView;
   expanded: boolean;
   onExpand: () => void;
   onAssign: (planetId: string | null) => void;
-  onInvest: (branch: string, nodeId: string) => void;
+  onInvest: (branch: CommanderTalentBranch, nodeId: string) => void;
   currentPlanetId?: string;
+  busy: boolean;
 }) {
-  const xpPct = Math.min(100, (commander.xp / commander.xpToNextLevel) * 100);
-  const rarityClasses = RARITY_COLORS[commander.rarity] ?? RARITY_COLORS.COMMON;
+  const xpPct = Math.min(100, Math.round((commander.xp / commander.xpToNextLevel) * 100));
+  const rarityClass = RARITY_CLASSES[commander.rarity] ?? RARITY_CLASSES.COMMON;
+  const stats: { label: string; value: number; Icon: IconType }[] = [
+    { label: 'Attaque', value: commander.stats.attack, Icon: FiZap },
+    { label: 'Défense', value: commander.stats.defense, Icon: FiShield },
+    { label: 'Vitesse', value: commander.stats.speed, Icon: FiActivity },
+    { label: 'Commandement', value: commander.stats.leadership, Icon: FiStar },
+  ];
 
   return (
-    <div className={`rounded-xl border ${rarityClasses} bg-gray-950 p-4 transition-all`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 cursor-pointer" onClick={onExpand}>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{'🧬'}</span>
-            <div>
-              <h3 className="font-bold text-white">{commander.name}</h3>
-              <span className={`text-xs ${rarityClasses.split(' ')[0]}`}>
-                {RARITY_LABELS[commander.rarity]} · Niv. {commander.level}
-              </span>
-            </div>
+    <article className={`mycelium-panel overflow-hidden border ${rarityClass}`}>
+      <button
+        type="button"
+        onClick={onExpand}
+        className="flex w-full items-start gap-4 px-5 py-4 text-left transition hover:bg-canopy-500/[0.025]"
+        aria-expanded={expanded}
+      >
+        <GameAssetImage
+          asset={COMMANDER_VISUALS[commander.type]}
+          className="h-12 w-12 rounded-lg"
+          fallbackIcon="brain"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h3 className="truncate text-sm text-canopy-50/90">{commander.name}</h3>
+            <span className={`text-xs ${rarityClass.split(' ')[1] ?? 'text-canopy-100/55'}`}>
+              {RARITY_LABELS[commander.rarity]} · Niv. {commander.level}
+            </span>
           </div>
-
-          {/* XP Bar */}
-          <div className="mt-2">
-            <div className="mb-1 flex justify-between text-[10px] text-gray-500">
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">{commander.lore}</p>
+          <div className="mt-3">
+            <div className="mb-1 flex justify-between text-[10px] text-canopy-100/35">
               <span>XP</span>
               <span>
-                {commander.xp} / {commander.xpToNextLevel}
+                {formatNumber(commander.xp)} / {formatNumber(commander.xpToNextLevel)}
               </span>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-gray-800">
-              <div
-                className="h-full rounded-full bg-emerald-600 transition-all"
+            <div className="h-1.5 overflow-hidden rounded-full bg-bark-950">
+              <span
+                className="block h-full rounded-full bg-canopy-500"
                 style={{ width: `${xpPct}%` }}
               />
             </div>
           </div>
         </div>
-
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex shrink-0 flex-col items-end gap-2">
           {commander.talentPoints > 0 && (
-            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-black">
-              +{commander.talentPoints} pts talent
+            <span className="rounded-full border border-sap-400/25 bg-sap-400/10 px-2 py-0.5 text-xs text-sap-400">
+              +{commander.talentPoints}
             </span>
           )}
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full border ${
-              commander.status === 'IDLE'
-                ? 'border-gray-700 text-gray-400'
-                : commander.status === 'ASSIGNED_TO_PLANET'
-                  ? 'border-emerald-700 text-emerald-400'
-                  : 'border-blue-700 text-blue-400'
-            }`}
-          >
-            {commander.status === 'IDLE'
-              ? 'Inactif'
-              : commander.status === 'ASSIGNED_TO_PLANET'
-                ? 'Sur planète'
-                : 'En mission'}
+          <span className="rounded-full border border-canopy-700/20 px-2 py-0.5 text-xs text-canopy-100/45">
+            {STATUS_LABELS[commander.status] ?? commander.status}
           </span>
+          <FiChevronDown
+            className={`h-4 w-4 text-canopy-100/35 transition ${expanded ? 'rotate-180' : ''}`}
+            aria-hidden="true"
+          />
         </div>
-      </div>
+      </button>
 
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-gray-800 pt-3">
-          {/* Lore */}
-          <p className="text-xs italic text-gray-400">{commander.lore}</p>
+        <div className="space-y-4 border-t border-canopy-700/15 px-5 py-4">
+          <div className="grid gap-2 sm:grid-cols-4">
+            {stats.map(({ label, value, Icon }) => (
+              <div
+                key={label}
+                className="rounded-lg border border-canopy-700/12 bg-bark-950/35 px-3 py-2"
+              >
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-canopy-100/30">
+                  <Icon className="h-3 w-3" aria-hidden="true" />
+                  {label}
+                </div>
+                <p className="mt-1 text-sm text-canopy-100/80">{formatNumber(value)}</p>
+              </div>
+            ))}
+          </div>
 
-          {/* Bonus actifs */}
           {Object.keys(commander.activeBonus).length > 0 && (
-            <div className="rounded-lg bg-emerald-950/30 p-2">
-              <p className="mb-1 text-xs font-semibold text-emerald-400">Bonus actifs</p>
+            <div className="rounded-lg border border-canopy-700/15 bg-canopy-500/[0.035] p-3">
+              <p className="mb-2 text-xs font-medium text-canopy-300">Bonus actifs</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(commander.activeBonus).map(([key, value]) => (
                   <span
                     key={key}
-                    className="rounded bg-emerald-900/50 px-2 py-0.5 text-xs text-emerald-300"
+                    className="rounded-lg border border-canopy-700/15 bg-bark-950/45 px-2 py-1 text-xs text-canopy-100/70"
                   >
                     {key}: +{Math.round(Number(value) * 100)}%
                   </span>
@@ -164,33 +216,36 @@ function CommanderCard({
             </div>
           )}
 
-          {/* Assigner à la planète */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             {currentPlanetId && commander.assignedToPlanetId !== currentPlanetId && (
-              <button
+              <AnimatedButton
+                variant="ghost"
                 onClick={() => onAssign(currentPlanetId)}
-                className="flex-1 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+                disabled={busy}
+                className="flex-1"
               >
+                <FiMapPin className="h-3.5 w-3.5" aria-hidden="true" />
                 Assigner ici
-              </button>
+              </AnimatedButton>
             )}
             {commander.assignedToPlanetId && (
-              <button
+              <AnimatedButton
+                variant="ghost"
                 onClick={() => onAssign(null)}
-                className="flex-1 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-400 hover:bg-gray-800"
+                disabled={busy}
+                className="flex-1 text-canopy-100/55"
               >
                 Retirer
-              </button>
+              </AnimatedButton>
             )}
           </div>
 
-          {/* Arbre de talents */}
           {commander.talentBranches.length > 0 && (
-            <TalentTree commander={commander} onInvest={onInvest} />
+            <TalentTree commander={commander} onInvest={onInvest} disabled={busy} />
           )}
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -198,6 +253,7 @@ export default function CommandersPage() {
   const qc = useQueryClient();
   const { selectedId: selectedPlanetId } = usePlanetSelection();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [error, setError] = useState<string>();
 
   const { data, isLoading } = useQuery({
     queryKey: ['commanders'],
@@ -206,116 +262,178 @@ export default function CommandersPage() {
 
   const recruit = useMutation({
     mutationFn: (type: CommanderType) => api.recruitCommander(type),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['commanders'] }),
+    onSuccess: () => {
+      setError(undefined);
+      void qc.invalidateQueries({ queryKey: ['commanders'] });
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : 'Recrutement impossible.'),
   });
 
   const assign = useMutation({
     mutationFn: ({ id, planetId }: { id: string; planetId: string | null }) =>
       api.assignCommander(id, planetId),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['commanders'] }),
+    onSuccess: () => {
+      setError(undefined);
+      void qc.invalidateQueries({ queryKey: ['commanders'] });
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : 'Assignation impossible.'),
   });
 
   const invest = useMutation({
-    mutationFn: ({ id, branch, nodeId }: { id: string; branch: string; nodeId: string }) =>
-      api.investTalent(id, branch as any, nodeId),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['commanders'] }),
+    mutationFn: ({
+      id,
+      branch,
+      nodeId,
+    }: {
+      id: string;
+      branch: CommanderTalentBranch;
+      nodeId: string;
+    }) => api.investTalent(id, branch, nodeId),
+    onSuccess: () => {
+      setError(undefined);
+      void qc.invalidateQueries({ queryKey: ['commanders'] });
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : 'Talent indisponible.'),
   });
 
-  const ownedTypes = new Set(data?.commanders.map((c) => c.type) ?? []);
+  const ownedTypes = useMemo(
+    () => new Set(data?.commanders.map((commander) => commander.type) ?? []),
+    [data?.commanders],
+  );
+  const activeCount = useMemo(
+    () => data?.commanders.filter((commander) => commander.status !== 'IDLE').length ?? 0,
+    [data?.commanders],
+  );
+  const busy = recruit.isPending || assign.isPending || invest.isPending;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <PageHeader title="Commandants" subtitle="Recrutez et développez vos symbiotes d'élite" />
-
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-          </div>
-        ) : (
+    <div className="space-y-5">
+      <PageHeader
+        title={
           <>
-            {/* Commandants recrutés */}
-            {data && data.commanders.length > 0 && (
-              <section className="mb-8">
-                <h2 className="mb-4 text-lg font-semibold text-emerald-400">
-                  Mes Commandants ({data.commanders.length} / {data.maxActive} actifs max)
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {data.commanders.map((c) => (
-                    <CommanderCard
-                      key={c.id}
-                      commander={c}
-                      expanded={expandedId === c.id}
-                      onExpand={() => setExpandedId(expandedId === c.id ? null : c.id)}
-                      onAssign={(planetId) => assign.mutate({ id: c.id, planetId })}
-                      onInvest={(branch, nodeId) => invest.mutate({ id: c.id, branch, nodeId })}
-                      currentPlanetId={selectedPlanetId ?? undefined}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Recrutement */}
-            <section>
-              <h2 className="mb-4 text-lg font-semibold text-white">Recruter un Commandant</h2>
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                {Object.values(CommanderType).map((type) => {
-                  const config = COMMANDERS[type];
-                  if (!config) return null;
-                  const alreadyOwned = ownedTypes.has(type);
-                  return (
-                    <div
-                      key={type}
-                      className={`rounded-xl border p-4 transition-all ${
-                        alreadyOwned
-                          ? 'border-gray-800 bg-gray-950/50 opacity-50'
-                          : (RARITY_COLORS[config.rarity] ?? RARITY_COLORS.COMMON)
-                      } bg-gray-950`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">{'🧬'}</span>
-                        <div>
-                          <h3 className="text-sm font-bold text-white">{config.name}</h3>
-                          <span className="text-xs text-gray-400">
-                            {RARITY_LABELS[config.rarity]}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-xs text-gray-400 line-clamp-2">{config.lore}</p>
-
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        {Object.entries(config.recruitCost)
-                          .filter(([, v]) => (v ?? 0) > 0)
-                          .map(([res, val]) => (
-                            <span
-                              key={res}
-                              className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-300"
-                            >
-                              {val?.toLocaleString()} {res}
-                            </span>
-                          ))}
-                      </div>
-
-                      <button
-                        onClick={() => recruit.mutate(type)}
-                        disabled={alreadyOwned || recruit.isPending}
-                        className={`mt-3 w-full rounded-lg py-1.5 text-xs font-medium transition-all ${
-                          alreadyOwned
-                            ? 'cursor-not-allowed bg-gray-800 text-gray-600'
-                            : 'bg-emerald-700 text-white hover:bg-emerald-600 active:scale-95'
-                        }`}
-                      >
-                        {alreadyOwned ? 'Déjà recruté' : 'Recruter'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+            Commandants <span className="italic text-canopy-300">symbiotiques</span>
           </>
-        )}
-      </div>
+        }
+        subtitle="Recrutez, assignez et développez vos symbiotes d'élite sans quitter la console impériale."
+      >
+        <StatCard
+          label="Recrutés"
+          value={`${data?.commanders.length ?? 0} / 12`}
+          icon={<FiUser aria-hidden="true" />}
+          color="green"
+        />
+        <StatCard
+          label="Actifs"
+          value={`${activeCount} / ${data?.maxActive ?? 0}`}
+          icon={<FiActivity aria-hidden="true" />}
+          color="purple"
+          delay={0.05}
+        />
+      </PageHeader>
+
+      {error && (
+        <p className="rounded-lg border border-red-500/20 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+          {error}
+        </p>
+      )}
+
+      {isLoading ? (
+        <p className="text-canopy-100/50">Synchronisation des commandants…</p>
+      ) : (
+        <>
+          <section className="mycelium-panel overflow-hidden">
+            <div className="flex items-center gap-2.5 border-b border-canopy-700/15 px-5 py-4">
+              <span
+                className="h-1.5 w-1.5 rotate-45 bg-canopy-400/70"
+                style={{ boxShadow: '0 0 10px rgba(63,217,137,0.5)' }}
+                aria-hidden="true"
+              />
+              <h2 className="section-title">État-major</h2>
+            </div>
+            {data && data.commanders.length > 0 ? (
+              <div className="grid gap-4 p-5 xl:grid-cols-2">
+                {data.commanders.map((commander) => (
+                  <CommanderCard
+                    key={commander.id}
+                    commander={commander}
+                    expanded={expandedId === commander.id}
+                    onExpand={() =>
+                      setExpandedId(expandedId === commander.id ? null : commander.id)
+                    }
+                    onAssign={(planetId) => assign.mutate({ id: commander.id, planetId })}
+                    onInvest={(branch, nodeId) =>
+                      invest.mutate({ id: commander.id, branch, nodeId })
+                    }
+                    currentPlanetId={selectedPlanetId ?? undefined}
+                    busy={busy}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="px-5 py-10 text-sm text-canopy-100/45">
+                Aucun commandant recruté. Le catalogue ci-dessous permet d'ouvrir le premier lien
+                symbiotique.
+              </div>
+            )}
+          </section>
+
+          <section className="mycelium-panel overflow-hidden">
+            <div className="flex items-center gap-2.5 border-b border-canopy-700/15 px-5 py-4">
+              <span
+                className="h-1.5 w-1.5 rotate-45 bg-sap-400/70"
+                style={{ boxShadow: '0 0 10px rgba(245,201,107,0.45)' }}
+                aria-hidden="true"
+              />
+              <h2 className="section-title">Recrutement</h2>
+            </div>
+            <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
+              {Object.values(CommanderType).map((type) => {
+                const config = COMMANDERS[type];
+                if (!config) return null;
+                const alreadyOwned = ownedTypes.has(type);
+                const rarityClass = RARITY_CLASSES[config.rarity] ?? RARITY_CLASSES.COMMON;
+                return (
+                  <article
+                    key={type}
+                    className={`rounded-lg border bg-bark-950/35 p-4 transition ${
+                      alreadyOwned ? 'border-canopy-700/10 opacity-55' : rarityClass
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <GameAssetImage
+                        asset={COMMANDER_VISUALS[type]}
+                        className="h-10 w-10 rounded-lg"
+                        fallbackIcon="brain"
+                      />
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm text-canopy-50/90">{config.name}</h3>
+                        <p className="mt-0.5 text-xs text-canopy-100/40">
+                          {RARITY_LABELS[config.rarity]}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-3 line-clamp-3 text-xs leading-5 text-canopy-100/38">
+                      {config.lore}
+                    </p>
+                    <div className="mt-3">
+                      <ResourceCost cost={config.recruitCost} />
+                    </div>
+                    <AnimatedButton
+                      variant={alreadyOwned ? 'ghost' : 'primary'}
+                      onClick={() => recruit.mutate(type)}
+                      disabled={alreadyOwned || recruit.isPending}
+                      loading={recruit.isPending && recruit.variables === type}
+                      className="mt-4 w-full"
+                    >
+                      {alreadyOwned ? 'Déjà recruté' : 'Recruter'}
+                    </AnimatedButton>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }

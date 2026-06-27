@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { ITEMS, type MarketSummaryView, type ItemKey } from '@arborisis/shared';
-import { api } from '@/lib/api';
-import { GameIcon } from '@/components/GameIcon';
+import { ITEMS, ItemRarity, type MarketSummaryView } from '@arborisis/shared';
+import { useMarketSummaries } from '@/lib/queries';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { PageHeader } from '@/components/PageHeader';
+import { ITEM_VISUALS } from '@/lib/gameVisualAssets';
 import { FiTrendingUp, FiTrendingDown, FiMinus, FiArrowRight } from 'react-icons/fi';
 
 function PriceChange({ change }: { change: number | null }) {
@@ -31,29 +31,37 @@ function PriceChange({ change }: { change: number | null }) {
   );
 }
 
-const RARITY_ORDER = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY'];
+const RARITY_ORDER = [
+  ItemRarity.COMMON,
+  ItemRarity.UNCOMMON,
+  ItemRarity.RARE,
+  ItemRarity.EPIC,
+  ItemRarity.LEGENDARY,
+];
+
+const RARITY_LABELS: Record<ItemRarity, string> = {
+  [ItemRarity.COMMON]: 'Commun',
+  [ItemRarity.UNCOMMON]: 'Peu commun',
+  [ItemRarity.RARE]: 'Rare',
+  [ItemRarity.EPIC]: 'Épique',
+  [ItemRarity.LEGENDARY]: 'Légendaire',
+};
 
 export default function MarketPage() {
-  const { data: summaries, isLoading } = useQuery({
-    queryKey: ['market', 'summaries'],
-    queryFn: () => api.marketSummaries(),
-    refetchInterval: 15_000,
-  });
+  const { data: summaries, isError, isLoading } = useMarketSummaries();
 
-  const grouped = summaries
-    ? Object.values(ITEMS).reduce(
-        (acc, item) => {
-          const summary = summaries.find((s) => s.itemKey === item.key);
-          if (!acc[item.rarity]) acc[item.rarity] = [];
-          acc[item.rarity].push({ item, summary });
-          return acc;
-        },
-        {} as Record<
-          string,
-          { item: (typeof ITEMS)[ItemKey]; summary: MarketSummaryView | undefined }[]
-        >,
-      )
-    : {};
+  const grouped = Object.values(ITEMS).reduce(
+    (acc, item) => {
+      const summary = summaries?.find((s) => s.itemKey === item.key);
+      if (!acc[item.rarity]) acc[item.rarity] = [];
+      acc[item.rarity].push({ item, summary });
+      return acc;
+    },
+    {} as Record<
+      ItemRarity,
+      { item: (typeof ITEMS)[keyof typeof ITEMS]; summary: MarketSummaryView | undefined }[]
+    >,
+  );
 
   return (
     <div className="space-y-6">
@@ -62,12 +70,10 @@ export default function MarketPage() {
         subtitle="Échangez des objets à des prix fixés par les joueurs. Liquidités 100% organiques."
       />
 
-      {isLoading && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-bark-800/50" />
-          ))}
-        </div>
+      {isError && (
+        <p className="rounded-lg border border-sap-400/20 bg-bark-900/60 px-4 py-3 text-sm text-sap-400/80">
+          Les cours du marché sont momentanément indisponibles. Le catalogue reste accessible.
+        </p>
       )}
 
       {RARITY_ORDER.map((rarity) => {
@@ -79,15 +85,7 @@ export default function MarketPage() {
               className="mb-3 text-xs font-bold uppercase tracking-widest"
               style={{ color: ITEMS[items[0].item.key].rarityColor }}
             >
-              {rarity === 'COMMON'
-                ? 'Commun'
-                : rarity === 'UNCOMMON'
-                  ? 'Peu commun'
-                  : rarity === 'RARE'
-                    ? 'Rare'
-                    : rarity === 'EPIC'
-                      ? 'Épique'
-                      : 'Légendaire'}
+              {RARITY_LABELS[rarity]}
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {items.map(({ item, summary }) => (
@@ -98,9 +96,11 @@ export default function MarketPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl leading-none">
-                        <GameIcon name={item.icon} className="h-6 w-6" />
-                      </span>
+                      <GameAssetImage
+                        asset={ITEM_VISUALS[item.key]}
+                        className="h-10 w-10 rounded-lg"
+                        fallbackIcon={item.icon}
+                      />
                       <div>
                         <p className="text-sm font-semibold text-canopy-100">{item.name}</p>
                         <p className="text-[10px] text-canopy-100/40">
@@ -118,31 +118,46 @@ export default function MarketPage() {
                     <div>
                       <p className="text-canopy-100/40">Dernier</p>
                       <p className="font-mono font-semibold text-canopy-100">
-                        {summary?.lastPrice != null
-                          ? `${summary.lastPrice.toLocaleString()} B`
-                          : '—'}
+                        {isLoading
+                          ? '...'
+                          : summary?.lastPrice != null
+                            ? `${summary.lastPrice.toLocaleString()} B`
+                            : '—'}
                       </p>
                     </div>
                     <div>
                       <p className="text-canopy-100/40">24h</p>
-                      <PriceChange change={summary?.change24h ?? null} />
+                      {isLoading ? (
+                        <span className="text-canopy-100/40">...</span>
+                      ) : (
+                        <PriceChange change={summary?.change24h ?? null} />
+                      )}
                     </div>
                     <div>
                       <p className="text-canopy-100/40">Meilleur achat</p>
                       <p className="font-mono text-emerald-400">
-                        {summary?.bestBid != null ? `${summary.bestBid.toLocaleString()}` : '—'}
+                        {isLoading
+                          ? '...'
+                          : summary?.bestBid != null
+                            ? `${summary.bestBid.toLocaleString()}`
+                            : '—'}
                       </p>
                     </div>
                     <div>
                       <p className="text-canopy-100/40">Meilleure vente</p>
                       <p className="font-mono text-red-400">
-                        {summary?.bestAsk != null ? `${summary.bestAsk.toLocaleString()}` : '—'}
+                        {isLoading
+                          ? '...'
+                          : summary?.bestAsk != null
+                            ? `${summary.bestAsk.toLocaleString()}`
+                            : '—'}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-1 text-[10px] text-canopy-100/30">
-                    Volume 24h : {summary?.volume24h.toLocaleString() ?? 0} unités
+                    Volume 24h : {isLoading ? '...' : (summary?.volume24h.toLocaleString() ?? 0)}{' '}
+                    unités
                   </div>
                 </Link>
               ))}

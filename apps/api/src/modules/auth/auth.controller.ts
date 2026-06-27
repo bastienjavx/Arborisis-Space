@@ -16,7 +16,7 @@ import type { Env } from '../../common/config/env';
 import { AuthService, type TokenPair } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
-import { ACCESS_COOKIE, REFRESH_COOKIE } from './strategies/jwt.strategy';
+import { ACCESS_COOKIE, AUTH_EXPIRES_COOKIE, REFRESH_COOKIE } from './strategies/jwt.strategy';
 import type { AuthenticatedUser } from './strategies/jwt.strategy';
 
 @Controller('auth')
@@ -200,6 +200,7 @@ export class AuthController {
   private setAuthCookies(res: Response, tokens: TokenPair): void {
     const accessTtl = this.config.get('JWT_ACCESS_TTL', { infer: true });
     const refreshTtl = this.config.get('JWT_REFRESH_TTL', { infer: true });
+    const accessExpiresAt = Date.now() + accessTtl * 1000;
     res.cookie(ACCESS_COOKIE, tokens.accessToken, {
       ...this.baseCookieOptions(),
       maxAge: accessTtl * 1000,
@@ -209,10 +210,17 @@ export class AuthController {
       maxAge: refreshTtl * 1000,
       path: '/api/auth/refresh',
     });
+    // Cookie lisible côté client pour planifier les rafraîchissements proactifs.
+    res.cookie(AUTH_EXPIRES_COOKIE, String(accessExpiresAt), {
+      ...this.baseCookieOptions(),
+      httpOnly: false,
+      maxAge: accessTtl * 1000,
+    });
   }
 
   private clearAuthCookies(res: Response): void {
     res.clearCookie(ACCESS_COOKIE, this.baseCookieOptions());
     res.clearCookie(REFRESH_COOKIE, { ...this.baseCookieOptions(), path: '/api/auth/refresh' });
+    res.clearCookie(AUTH_EXPIRES_COOKIE, this.baseCookieOptions());
   }
 }

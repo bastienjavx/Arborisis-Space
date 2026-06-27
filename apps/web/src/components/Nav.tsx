@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import type { AuthUser } from '@arborisis/shared';
 import { UserRole } from '@arborisis/shared';
 import {
   FiAward,
@@ -31,7 +32,7 @@ import {
   FiX,
 } from 'react-icons/fi';
 import { api } from '@/lib/api';
-import { useMe, useExpeditionReports } from '@/lib/queries';
+import { broadcastLogout } from '@/lib/session';
 import { fadeUp, organicEase, staggerChildren } from '@/lib/motion';
 import { usePlanetSelection } from './PlanetContext';
 
@@ -68,17 +69,14 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Nav({ username }: { username: string }) {
+export function Nav({ user }: { user: AuthUser }) {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
-  const { data: user } = useMe();
-  const { data: expeditionReports } = useExpeditionReports();
-  const unreadCount = expeditionReports?.filter((r) => !r.isRead).length ?? 0;
   const { planets, selectedId, select } = usePlanetSelection();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigationLinks =
-    user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR
+    user.role === UserRole.ADMIN || user.role === UserRole.MODERATOR
       ? [...LINKS, ADMIN_LINK]
       : LINKS;
 
@@ -86,6 +84,7 @@ export function Nav({ username }: { username: string }) {
 
   async function logout() {
     await api.logout().catch(() => undefined);
+    broadcastLogout();
     qc.clear();
     router.replace('/login');
   }
@@ -188,11 +187,6 @@ export function Nav({ username }: { username: string }) {
                     aria-hidden="true"
                   />
                   <span className="flex-1">{link.label}</span>
-                  {link.href === '/reports' && unreadCount > 0 && (
-                    <span className="min-w-[1.25rem] rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-5 text-white">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
                 </Link>
               </motion.div>
             );
@@ -208,7 +202,7 @@ export function Nav({ username }: { username: string }) {
               Stratège
             </span>
             <span className="mt-1 block truncate text-sm text-canopy-100/75">
-              {user?.displayName || username}
+              {user.displayName || user.username}
             </span>
           </Link>
           <button
@@ -297,11 +291,6 @@ export function Nav({ username }: { username: string }) {
                         >
                           <Icon className="h-5 w-5 text-canopy-300/65" aria-hidden="true" />
                           <span className="flex-1">{link.label}</span>
-                          {link.href === '/reports' && unreadCount > 0 && (
-                            <span className="min-w-[1.25rem] rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-5 text-white">
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </span>
-                          )}
                         </Link>
                       </motion.div>
                     );

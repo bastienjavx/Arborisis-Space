@@ -1,17 +1,30 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { PlanetSummary } from '@arborisis/shared';
 import { usePlanets } from '@/lib/queries';
+import { emitSubscribePlanet, emitUnsubscribePlanet } from '@/lib/socket';
 
-interface PlanetContextValue {
+interface PlanetState {
   planets: PlanetSummary[];
   selectedId: string | undefined;
-  select: (id: string) => void;
   isLoading: boolean;
 }
 
-const PlanetCtx = createContext<PlanetContextValue | null>(null);
+interface PlanetContextValue extends PlanetState {
+  select: (id: string) => void;
+}
+
+const PlanetStateCtx = createContext<PlanetState | null>(null);
+const PlanetDispatchCtx = createContext<((id: string) => void) | null>(null);
 
 export function PlanetProvider({ children }: { children: ReactNode }) {
   const { data: planets, isLoading } = usePlanets();
@@ -23,16 +36,33 @@ export function PlanetProvider({ children }: { children: ReactNode }) {
     }
   }, [planets, selectedId]);
 
-  const value = useMemo<PlanetContextValue>(
-    () => ({ planets: planets ?? [], selectedId, select: setSelectedId, isLoading }),
+  useEffect(() => {
+    if (!selectedId) return;
+    emitSubscribePlanet(selectedId);
+    return () => {
+      emitUnsubscribePlanet(selectedId);
+    };
+  }, [selectedId]);
+
+  const select = useCallback((id: string) => setSelectedId(id), []);
+
+  const state = useMemo<PlanetState>(
+    () => ({ planets: planets ?? [], selectedId, isLoading }),
     [planets, selectedId, isLoading],
   );
 
-  return <PlanetCtx.Provider value={value}>{children}</PlanetCtx.Provider>;
+  return (
+    <PlanetDispatchCtx.Provider value={select}>
+      <PlanetStateCtx.Provider value={state}>{children}</PlanetStateCtx.Provider>
+    </PlanetDispatchCtx.Provider>
+  );
 }
 
 export function usePlanetSelection(): PlanetContextValue {
-  const ctx = useContext(PlanetCtx);
-  if (!ctx) throw new Error('usePlanetSelection doit être utilisé dans PlanetProvider');
-  return ctx;
+  const state = useContext(PlanetStateCtx);
+  const select = useContext(PlanetDispatchCtx);
+  if (!state || !select) {
+    throw new Error('usePlanetSelection doit être utilisé dans PlanetProvider');
+  }
+  return { ...state, select };
 }

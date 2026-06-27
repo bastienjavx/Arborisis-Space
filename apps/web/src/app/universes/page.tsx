@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { api } from '@/lib/api-server';
 import { UniverseStatus } from '@arborisis/shared';
 import { AnimatedCard } from '@/components/AnimatedCard';
 import { StaggerContainer, StaggerItem } from '@/components/StaggerContainer';

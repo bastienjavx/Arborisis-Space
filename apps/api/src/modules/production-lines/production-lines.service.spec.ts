@@ -11,7 +11,7 @@ type MockPrisma = {
     update: jest.Mock;
     updateMany: jest.Mock;
   };
-  serializable: jest.Mock;
+  optimistic: jest.Mock;
   planet: {
     findUniqueOrThrow: jest.Mock;
     update: jest.Mock;
@@ -26,7 +26,9 @@ function makeService(
     prisma?: Partial<MockPrisma>;
     engine?: Record<string, unknown>;
     planets?: Record<string, unknown>;
+    gameQueue?: Record<string, unknown>;
     queue?: Record<string, unknown>;
+    events?: Record<string, unknown>;
   } = {},
 ) {
   let prisma: MockPrisma;
@@ -39,7 +41,7 @@ function makeService(
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    serializable: jest.fn((work: (tx: MockPrisma) => unknown) => work(prisma)),
+    optimistic: jest.fn((work: (tx: MockPrisma) => unknown) => work(prisma)),
     planet: {
       findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
@@ -51,18 +53,24 @@ function makeService(
   prisma = { ...prisma, ...overrides.prisma };
   const engine = { settlePlanet: jest.fn(), ...overrides.engine };
   const planets = { assertOwnership: jest.fn(), ...overrides.planets };
+  const gameQueue = { removeProductionLineJob: jest.fn(), ...overrides.gameQueue };
   const queue = { add: jest.fn(), ...overrides.queue };
+  const events = { emitToUser: jest.fn(), emitToPlanet: jest.fn(), ...overrides.events };
 
   return {
     prisma,
     engine,
     planets,
+    gameQueue,
     queue,
+    events,
     service: new ProductionLinesService(
       prisma as never,
       engine as never,
       planets as never,
+      gameQueue as never,
       queue as never,
+      events as never,
     ),
   };
 }
@@ -116,16 +124,18 @@ describe('ProductionLinesService', () => {
       sap: 1_000,
       minerals: 1_000,
       spores: 1_000,
+      version: 7,
     });
 
     await service.runLine(line.id, now);
 
     expect(engine.settlePlanet).toHaveBeenCalledWith(line.planetId);
     expect(prisma.planet.update).toHaveBeenCalledWith({
-      where: { id: line.planetId },
+      where: { id: line.planetId, version: 7 },
       data: expect.objectContaining({
         biomass: { decrement: recipe.inputs[ResourceType.BIOMASS] },
         sap: { decrement: recipe.inputs[ResourceType.SAP] },
+        version: { increment: 1 },
       }),
     });
     expect(prisma.playerInventorySlot.upsert).toHaveBeenCalledWith(

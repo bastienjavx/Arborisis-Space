@@ -7,6 +7,7 @@ import {
   EXPEDITION_QUEUE,
   GAME_EVENT_QUEUE,
   MARKET_EXPIRY_QUEUE,
+  NOTIFICATIONS_QUEUE,
   PRODUCTION_LINE_QUEUE,
   PROVISIONING_QUEUE,
   PVE_QUEUE,
@@ -38,6 +39,7 @@ import { GameQueueService } from './game-queue.service';
       { name: PRODUCTION_LINE_QUEUE },
       { name: TRADE_ROUTE_QUEUE },
       { name: MARKET_EXPIRY_QUEUE },
+      { name: NOTIFICATIONS_QUEUE },
       {
         name: PROVISIONING_QUEUE,
         defaultJobOptions: {

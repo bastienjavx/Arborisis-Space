@@ -1,29 +1,69 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DefenseType } from '@arborisis/shared';
-import { useState } from 'react';
-import { api } from '@/lib/api';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  BUILDINGS,
+  RESEARCHES,
+  DefenseType,
+  RESOURCE_TYPES,
+  type ResourceBundle,
+} from '@arborisis/shared';
+import { api, ApiError } from '@/lib/api';
+import { formatDuration, formatNumber } from '@/lib/format';
+import { keys, usePlanetDetail } from '@/lib/queries';
+import { DEFENSE_VISUALS } from '@/lib/gameVisualAssets';
+import { AnimatedButton } from '@/components/AnimatedButton';
+import { GameAssetImage } from '@/components/GameAssetImage';
+import { MobileResourceBar } from '@/components/MobileResourceBar';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
-import { FiShield, FiZap } from 'react-icons/fi';
+import { ResourceCost } from '@/components/ResourceCost';
+import { StatCard } from '@/components/StatCard';
+import { FiClock, FiLock, FiShield, FiZap } from 'react-icons/fi';
 
-const DEFENSE_ICONS: Partial<Record<DefenseType, string>> = {
-  [DefenseType.ION_CANNON]: '⚡',
-  [DefenseType.SPORE_NET]: '🕸️',
-  [DefenseType.SHIELD_MEMBRANE]: '🛡️',
-  [DefenseType.MYCELIAL_TURRET]: '🔫',
-  [DefenseType.VOID_LANCE]: '🌑',
-};
+function multiplyCost(cost: ResourceBundle, quantity: number): ResourceBundle {
+  const total: ResourceBundle = {};
+  for (const resource of RESOURCE_TYPES) {
+    const amount = cost[resource] ?? 0;
+    if (amount > 0) total[resource] = amount * quantity;
+  }
+  return total;
+}
+
+function maxAffordable(cost: ResourceBundle, have: ResourceBundle | undefined): number {
+  if (!have) return 0;
+  let max = Number.POSITIVE_INFINITY;
+  for (const resource of RESOURCE_TYPES) {
+    const amount = cost[resource] ?? 0;
+    if (amount <= 0) continue;
+    max = Math.min(max, Math.floor((have[resource] ?? 0) / amount));
+  }
+  return Number.isFinite(max) ? Math.max(0, max) : 10_000;
+}
+
+function requirementLabel(requirement: {
+  kind: 'building' | 'research';
+  type: string;
+  requiredLevel: number;
+}) {
+  const name =
+    requirement.kind === 'building'
+      ? BUILDINGS[requirement.type as keyof typeof BUILDINGS]?.name
+      : RESEARCHES[requirement.type as keyof typeof RESEARCHES]?.name;
+  return `${name ?? requirement.type} niv. ${requirement.requiredLevel}`;
+}
 
 export default function DefensesPage() {
   const qc = useQueryClient();
   const { selectedId: selectedPlanetId } = usePlanetSelection();
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const { data: planet } = usePlanetDetail(selectedPlanetId);
+  const [quantities, setQuantities] = useState<Partial<Record<DefenseType, number>>>({});
+  const [error, setError] = useState<string>();
 
   const { data, isLoading } = useQuery({
     queryKey: ['defenses', selectedPlanetId],
-    queryFn: () => (selectedPlanetId ? api.defenses(selectedPlanetId) : null),
+    queryFn: () => api.defenses(selectedPlanetId!),
     enabled: !!selectedPlanetId,
   });
 
@@ -31,142 +71,220 @@ export default function DefensesPage() {
     mutationFn: ({ defenseType, quantity }: { defenseType: DefenseType; quantity: number }) =>
       api.buildDefense(selectedPlanetId!, defenseType, quantity),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['defenses', selectedPlanetId] });
+      setError(undefined);
       setQuantities({});
+      void qc.invalidateQueries({ queryKey: ['defenses', selectedPlanetId] });
+      if (selectedPlanetId) void qc.invalidateQueries({ queryKey: keys.planet(selectedPlanetId) });
     },
+    onError: (e) => setError(e instanceof ApiError ? e.message : 'Construction impossible.'),
   });
+
+  const totalOwned = useMemo(
+    () => (data?.defenses ?? []).reduce((sum, defense) => sum + defense.quantity, 0),
+    [data?.defenses],
+  );
 
   if (!selectedPlanetId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <p className="text-gray-400">Sélectionnez une planète pour gérer ses défenses.</p>
+      <div className="grid min-h-[40vh] place-items-center text-canopy-100/50">
+        Sélectionnez une planète pour gérer ses défenses.
       </div>
     );
   }
 
+  if (isLoading || !data || !planet) {
+    return <p className="text-canopy-100/50">Chargement des défenses…</p>;
+  }
+
+  const amounts = planet.resources.amounts;
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="space-y-5">
       <PageHeader
-        title="Défenses Orbitales"
-        subtitle="Fortifiez vos planètes avec des structures défensives permanentes"
-      />
+        title={
+          <>
+            Défenses <span className="italic text-canopy-300">orbitales</span>
+          </>
+        }
+        subtitle="Fortifiez vos planètes avec des structures permanentes et lisibles avant chaque engagement."
+      >
+        <StatCard
+          label="Unités"
+          value={formatNumber(totalOwned)}
+          hint="Défenses construites"
+          icon={<FiShield aria-hidden="true" />}
+          color="green"
+        />
+        <StatCard
+          label="Attaque"
+          value={formatNumber(data.totalAttack)}
+          icon={<FiZap aria-hidden="true" />}
+          color="red"
+          delay={0.05}
+        />
+        <StatCard
+          label="Défense"
+          value={formatNumber(data.totalDefense)}
+          icon={<FiShield aria-hidden="true" />}
+          color="purple"
+          delay={0.1}
+        />
+      </PageHeader>
 
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        {/* Résumé */}
-        {data && (
-          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-4">
-              <div className="flex items-center gap-2 text-red-400">
-                <FiZap />
-                <span className="text-sm font-medium">Attaque totale</span>
-              </div>
-              <p className="mt-1 text-2xl font-bold text-white">
-                {data.totalAttack.toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-xl border border-blue-900/40 bg-blue-950/20 p-4">
-              <div className="flex items-center gap-2 text-blue-400">
-                <FiShield />
-                <span className="text-sm font-medium">Défense totale</span>
-              </div>
-              <p className="mt-1 text-2xl font-bold text-white">
-                {data.totalDefense.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        )}
+      <MobileResourceBar resources={planet.resources} />
 
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {(data?.defenses ?? []).map((defense) => {
-              const qty = quantities[defense.type] ?? 1;
-              return (
-                <div
-                  key={defense.type}
-                  className={`rounded-xl border p-4 transition-all ${
-                    defense.quantity > 0
-                      ? 'border-emerald-900/60 bg-emerald-950/20'
-                      : 'border-gray-800 bg-gray-950'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{DEFENSE_ICONS[defense.type] ?? '🔰'}</span>
-                      <div>
-                        <h3 className="font-semibold text-white">{defense.name}</h3>
-                        <span className="text-xs text-gray-400">
-                          {defense.quantity > 0
-                            ? `${defense.quantity.toLocaleString()} unités`
-                            : 'Aucune'}
-                        </span>
+      {error && (
+        <p className="rounded-lg border border-red-500/20 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+          {error}
+        </p>
+      )}
+
+      <section className="mycelium-panel overflow-hidden">
+        <div className="flex items-center gap-2.5 border-b border-canopy-700/15 px-5 py-4">
+          <span
+            className="h-1.5 w-1.5 rotate-45 bg-canopy-400/70"
+            style={{ boxShadow: '0 0 10px rgba(63,217,137,0.5)' }}
+            aria-hidden="true"
+          />
+          <h2 className="section-title">Catalogue défensif</h2>
+        </div>
+
+        <div className="overflow-x-auto">
+          <div className="xl:min-w-[76rem]">
+            <div className="hidden grid-cols-[minmax(16rem,1.25fr)_5rem_minmax(11rem,1fr)_7rem_7rem_minmax(10rem,0.85fr)_9rem] gap-4 border-b border-canopy-700/15 bg-canopy-500/[0.025] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-canopy-100/32 xl:grid">
+              <span>Défense</span>
+              <span>Stock</span>
+              <span>Coût</span>
+              <span>Temps</span>
+              <span>Max</span>
+              <span>Quantité</span>
+              <span className="text-right">Action</span>
+            </div>
+
+            <div className="divide-y divide-canopy-700/10">
+              {data.defenses.map((defense) => {
+                const requested = quantities[defense.type] ?? 1;
+                const max = Math.min(10_000, maxAffordable(defense.cost, amounts));
+                const locked = defense.unmet.length > 0;
+                const clamped = Math.min(10_000, Math.max(1, requested));
+                const totalCost = multiplyCost(defense.cost, clamped);
+                const canAffordQuantity = !locked && clamped <= max;
+                const loading = build.isPending && build.variables?.defenseType === defense.type;
+
+                return (
+                  <article
+                    key={defense.type}
+                    className={`grid gap-4 px-5 py-4 transition hover:bg-canopy-500/[0.025] xl:grid-cols-[minmax(16rem,1.25fr)_5rem_minmax(11rem,1fr)_7rem_7rem_minmax(10rem,0.85fr)_9rem] xl:items-center ${
+                      locked ? 'opacity-60' : ''
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <GameAssetImage
+                        asset={DEFENSE_VISUALS[defense.type]}
+                        className="h-12 w-12 rounded-lg"
+                        fallbackIcon="shield"
+                      />
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm text-canopy-50/90">{defense.name}</h3>
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">
+                          {defense.description}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-canopy-100/38">
+                          <span>Att. {formatNumber(defense.attack)}</span>
+                          <span>Déf. {formatNumber(defense.defense)}</span>
+                          <span>Coque {formatNumber(defense.hull)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <p className="mt-2 text-xs text-gray-400 line-clamp-2">{defense.description}</p>
+                    <div className="flex items-center justify-between xl:block">
+                      <span className="text-[10px] uppercase tracking-[0.12em] text-canopy-100/30 xl:hidden">
+                        Stock
+                      </span>
+                      <span className="font-display text-2xl text-canopy-100/85">
+                        {formatNumber(defense.quantity)}
+                      </span>
+                    </div>
 
-                  {/* Stats */}
-                  <div className="mt-3 flex gap-3 text-xs">
-                    <span className="flex items-center gap-1 text-red-400">
-                      <FiZap size={10} /> {defense.attack}
-                    </span>
-                    <span className="flex items-center gap-1 text-blue-400">
-                      <FiShield size={10} /> {defense.defense}
-                    </span>
-                    <span className="text-gray-500">Coque: {defense.hull}</span>
-                  </div>
+                    <div>
+                      <span className="mb-2 block text-[10px] uppercase tracking-[0.12em] text-canopy-100/30 xl:hidden">
+                        Coût
+                      </span>
+                      <ResourceCost cost={totalCost} have={amounts} />
+                    </div>
 
-                  {/* Coût */}
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {Object.entries(defense.cost)
-                      .filter(([, v]) => (v ?? 0) > 0)
-                      .map(([res, val]) => (
-                        <span
-                          key={res}
-                          className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-300"
+                    <div className="flex items-center gap-2 text-xs text-canopy-100/50">
+                      <FiClock className="h-4 w-4 text-canopy-300/50" aria-hidden="true" />
+                      {formatDuration(defense.buildTimeSeconds * clamped)}
+                    </div>
+
+                    <div className="text-xs text-canopy-100/50">
+                      <span className="mr-2 text-[10px] uppercase tracking-[0.12em] text-canopy-100/30 xl:hidden">
+                        Max
+                      </span>
+                      {locked ? 'Verrouillé' : formatNumber(max)}
+                    </div>
+
+                    <div className="space-y-1">
+                      <input
+                        type="number"
+                        min={1}
+                        max={10_000}
+                        value={requested}
+                        onChange={(event) =>
+                          setQuantities((prev) => ({
+                            ...prev,
+                            [defense.type]: Math.min(
+                              10_000,
+                              Math.max(1, Number.parseInt(event.target.value, 10) || 1),
+                            ),
+                          }))
+                        }
+                        className="input min-h-9 py-1.5 text-xs"
+                        aria-label={`Quantité de ${defense.name}`}
+                      />
+                      {!locked && max > 0 && requested > max && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setQuantities((prev) => ({
+                              ...prev,
+                              [defense.type]: max,
+                            }))
+                          }
+                          className="text-[10px] text-canopy-300/75 transition hover:text-canopy-200"
                         >
-                          {(val ?? 0) * qty} {res}
-                        </span>
-                      ))}
-                  </div>
+                          Ajuster à {formatNumber(max)}
+                        </button>
+                      )}
+                      {locked && (
+                        <p className="text-[10px] leading-4 text-red-300/75">
+                          {defense.unmet.map(requirementLabel).join(', ')}
+                        </p>
+                      )}
+                    </div>
 
-                  {/* Quantité + bouton */}
-                  <div className="mt-3 flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={10000}
-                      value={qty}
-                      onChange={(e) =>
-                        setQuantities((prev) => ({
-                          ...prev,
-                          [defense.type]: Math.max(1, parseInt(e.target.value) || 1),
-                        }))
-                      }
-                      className="w-20 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-white"
-                    />
-                    <button
-                      onClick={() => build.mutate({ defenseType: defense.type, quantity: qty })}
-                      disabled={build.isPending || !defense.canAfford}
-                      className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition-all ${
-                        defense.canAfford
-                          ? 'bg-emerald-700 text-white hover:bg-emerald-600 active:scale-95'
-                          : 'cursor-not-allowed bg-gray-800 text-gray-600'
-                      }`}
+                    <AnimatedButton
+                      variant="ghost"
+                      onClick={() => {
+                        setError(undefined);
+                        build.mutate({ defenseType: defense.type, quantity: clamped });
+                      }}
+                      disabled={build.isPending || !canAffordQuantity}
+                      loading={loading}
+                      className="whitespace-nowrap xl:w-40"
+                      ariaLabel={`Construire ${defense.name}`}
                     >
-                      {defense.canAfford ? 'Construire' : 'Ressources insuffisantes'}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                      {locked && <FiLock className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {locked ? 'Verrouillé' : canAffordQuantity ? 'Construire' : 'Ressources'}
+                    </AnimatedButton>
+                  </article>
+                );
+              })}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

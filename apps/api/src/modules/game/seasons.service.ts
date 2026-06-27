@@ -51,7 +51,7 @@ export class SeasonsService {
   }
 
   async claim(userId: string, now = new Date()): Promise<SeasonOverview> {
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       const rewards = await tx.seasonReward.findMany({ where: { userId, claimedAt: null } });
       if (rewards.length === 0) return;
       const user = await tx.user.findUniqueOrThrow({

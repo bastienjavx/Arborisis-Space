@@ -15,6 +15,7 @@ import {
   type CodexEntry,
 } from '@/lib/codex';
 import { PageHeader } from '@/components/PageHeader';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { ResourceCost } from '@/components/ResourceCost';
 
 type Filter = 'all' | CodexCategoryKey;
@@ -111,14 +112,22 @@ function EntryCard({ entry, onOpen }: { entry: CodexEntry; onOpen: () => void })
       className="group flex h-full flex-col rounded-xl border border-canopy-700/15 bg-bark-950/40 p-4 text-left transition hover:border-canopy-700/35 hover:bg-canopy-500/[0.03]"
     >
       <div className="flex items-center gap-3">
-        <span
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border transition ${accent.node} ${accent.glowHover}`}
-        >
-          <entry.Icon
-            className={`h-5 w-5 ${entry.iconClassName ?? accent.text}`}
-            aria-hidden="true"
+        {entry.visualAsset ? (
+          <GameAssetImage
+            asset={entry.visualAsset}
+            className="h-10 w-10 rounded-lg"
+            iconClassName={`h-5 w-5 ${entry.iconClassName ?? accent.text}`}
           />
-        </span>
+        ) : (
+          <span
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg border transition ${accent.node} ${accent.glowHover}`}
+          >
+            <entry.Icon
+              className={`h-5 w-5 ${entry.iconClassName ?? accent.text}`}
+              aria-hidden="true"
+            />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-display text-base leading-tight text-canopy-50/90">
             {entry.name}
@@ -168,14 +177,22 @@ function EntryDetail({ entry, onClose }: { entry: CodexEntry; onClose: () => voi
       aria-label={entry.name}
     >
       <div className="flex items-start gap-4 border-b border-canopy-700/15 px-6 py-5">
-        <span
-          className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border ${accent.node} ${accent.glow}`}
-        >
-          <entry.Icon
-            className={`h-6 w-6 ${entry.iconClassName ?? accent.text}`}
-            aria-hidden="true"
+        {entry.visualAsset ? (
+          <GameAssetImage
+            asset={entry.visualAsset}
+            className="h-12 w-12 rounded-xl"
+            iconClassName={`h-6 w-6 ${entry.iconClassName ?? accent.text}`}
           />
-        </span>
+        ) : (
+          <span
+            className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border ${accent.node} ${accent.glow}`}
+          >
+            <entry.Icon
+              className={`h-6 w-6 ${entry.iconClassName ?? accent.text}`}
+              aria-hidden="true"
+            />
+          </span>
+        )}
         <div className="min-w-0 flex-1 pt-0.5">
           <span className="text-[10px] uppercase tracking-[0.18em] text-canopy-100/35">
             {entry.categoryLabel}
