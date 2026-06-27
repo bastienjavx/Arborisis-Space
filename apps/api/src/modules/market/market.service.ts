@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { ItemKey as PrismaItemKey, OhlcvInterval } from '@prisma/client';
+import { ItemKey as PrismaItemKey, OhlcvInterval, Prisma } from '@prisma/client';
 import {
   CRAFTING_RECIPES,
   ITEMS,
@@ -18,7 +19,9 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
+import { GameQueueService } from '../queue/game-queue.service';
 import { MARKET_EXPIRY_QUEUE, EXPIRE_MARKET_ORDER_JOB } from '../queue/queue.constants';
+import { EventsGateway } from '../events/events.gateway';
 
 // Re-export for convenience
 export { CRAFTING_RECIPES, ITEMS };
@@ -39,59 +42,98 @@ export class MarketService {
     private readonly prisma: PrismaService,
     private readonly engine: GameEngineService,
     private readonly planets: PlanetsService,
+    private readonly gameQueue: GameQueueService,
     @InjectQueue(MARKET_EXPIRY_QUEUE) private readonly expiryQueue: Queue,
+    private readonly events: EventsGateway,
   ) {}
 
   async getMarketSummaries(universeId: string): Promise<MarketSummaryView[]> {
-    const results: MarketSummaryView[] = [];
+    const now = new Date();
+    const dayAgo = new Date(now.getTime() - 86_400_000);
+    const twoDaysAgo = new Date(now.getTime() - 2 * 86_400_000);
 
-    for (const key of Object.values(ItemKey)) {
-      const now = new Date();
-      const dayAgo = new Date(now.getTime() - 86_400_000);
+    const [bestRows, lastTradeRows, volumeRows] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ item_key: string; side: string; price_per_unit: number }>>`
+        WITH ranked AS (
+          SELECT item_key, side, price_per_unit,
+            ROW_NUMBER() OVER (
+              PARTITION BY item_key, side
+              ORDER BY
+                CASE WHEN side = 'BUY' THEN price_per_unit END DESC,
+                CASE WHEN side = 'SELL' THEN price_per_unit END ASC,
+                created_at ASC
+            ) as rn
+          FROM market_orders
+          WHERE universe_id = ${universeId}
+            AND status IN ('OPEN', 'PARTIALLY_FILLED')
+        )
+        SELECT item_key, side, price_per_unit
+        FROM ranked
+        WHERE rn = 1
+      `,
+      this.prisma.$queryRaw<
+        Array<{ item_key: string; latest_price: number | null; older_price: number | null }>
+      >`
+        WITH latest_per_item AS (
+          SELECT item_key, price,
+            ROW_NUMBER() OVER (PARTITION BY item_key ORDER BY executed_at DESC) as rn
+          FROM market_trades
+          WHERE universe_id = ${universeId}
+        ),
+        older_per_item AS (
+          SELECT item_key, price,
+            ROW_NUMBER() OVER (PARTITION BY item_key ORDER BY executed_at DESC) as rn
+          FROM market_trades
+          WHERE universe_id = ${universeId}
+            AND executed_at < ${dayAgo}
+            AND executed_at >= ${twoDaysAgo}
+        )
+        SELECT l.item_key, l.price as latest_price, o.price as older_price
+        FROM latest_per_item l
+        LEFT JOIN older_per_item o ON l.item_key = o.item_key AND o.rn = 1
+        WHERE l.rn = 1
+      `,
+      this.prisma.marketTrade.groupBy({
+        by: ['itemKey'],
+        where: { universeId, executedAt: { gte: dayAgo } },
+        _sum: { quantity: true },
+      }),
+    ]);
 
-      const [bestBidRow, bestAskRow, lastTrade, trades24h] = await Promise.all([
-        this.prisma.marketOrder.findFirst({
-          where: {
-            universeId,
-            itemKey: key,
-            side: MarketOrderSide.BUY,
-            status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
-          },
-          orderBy: { pricePerUnit: 'desc' },
-        }),
-        this.prisma.marketOrder.findFirst({
-          where: {
-            universeId,
-            itemKey: key,
-            side: MarketOrderSide.SELL,
-            status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
-          },
-          orderBy: { pricePerUnit: 'asc' },
-        }),
-        this.prisma.marketTrade.findFirst({
-          where: { universeId, itemKey: key },
-          orderBy: { executedAt: 'desc' },
-        }),
-        this.prisma.marketTrade.findMany({
-          where: { universeId, itemKey: key, executedAt: { gte: dayAgo } },
-          select: { price: true, quantity: true },
-        }),
-      ]);
-
-      const volume24h = trades24h.reduce((sum, t) => sum + t.quantity, 0);
-      const change24h = await this.compute24hChange(universeId, key);
-
-      results.push({
-        itemKey: key as ItemKey,
-        lastPrice: lastTrade?.price ?? null,
-        change24h,
-        volume24h,
-        bestBid: bestBidRow?.pricePerUnit ?? null,
-        bestAsk: bestAskRow?.pricePerUnit ?? null,
-      });
+    const bestByItem = new Map<string, { bestBid: number | null; bestAsk: number | null }>();
+    for (const row of bestRows) {
+      const current = bestByItem.get(row.item_key) ?? { bestBid: null, bestAsk: null };
+      if (row.side === 'BUY') current.bestBid = row.price_per_unit;
+      else if (row.side === 'SELL') current.bestAsk = row.price_per_unit;
+      bestByItem.set(row.item_key, current);
     }
 
-    return results;
+    const lastTradeByItem = new Map<string, { latest: number | null; older: number | null }>();
+    for (const row of lastTradeRows) {
+      lastTradeByItem.set(row.item_key, { latest: row.latest_price, older: row.older_price });
+    }
+
+    const volumeByItem = new Map<string, number>();
+    for (const row of volumeRows) {
+      volumeByItem.set(row.itemKey, row._sum.quantity ?? 0);
+    }
+
+    return Object.values(ItemKey).map((key) => {
+      const best = bestByItem.get(key) ?? { bestBid: null, bestAsk: null };
+      const trade = lastTradeByItem.get(key) ?? { latest: null, older: null };
+      const change24h =
+        trade.latest !== null && trade.older !== null
+          ? ((trade.latest - trade.older) / trade.older) * 100
+          : null;
+      return {
+        itemKey: key as ItemKey,
+        lastPrice: trade.latest,
+        change24h,
+        volume24h: volumeByItem.get(key) ?? 0,
+        bestBid: best.bestBid,
+        bestAsk: best.bestAsk,
+      };
+    });
   }
 
   async getOrderBook(universeId: string, itemKey: ItemKey): Promise<OrderBookView> {
@@ -249,7 +291,7 @@ export class MarketService {
 
     if (dto.side === MarketOrderSide.BUY) {
       const escrow = dto.pricePerUnit * dto.quantity;
-      const order = await this.prisma.serializable(async (tx) => {
+      const order = await this.prisma.optimistic(async (tx) => {
         const freshPlanet = await tx.planet.findUniqueOrThrow({ where: { id: planet.id } });
         if (freshPlanet.biomass < escrow) {
           throw new BadRequestException(
@@ -257,10 +299,11 @@ export class MarketService {
           );
         }
         await tx.planet.update({
-          where: { id: planet.id },
+          where: { id: planet.id, version: freshPlanet.version },
           data: {
             biomass: { decrement: escrow },
             lastResourceUpdate: settled.planet.lastResourceUpdate,
+            version: { increment: 1 },
           },
         });
 
@@ -282,6 +325,7 @@ export class MarketService {
 
       await this.scheduleExpiry(order.id, order.expiresAt!);
       await this.tryMatch(universeId, dto.itemKey, order.id);
+      this.events.emitToUser(userId, 'planet:updated', { planetId: dto.sourcePlanetId });
 
       const fresh = await this.prisma.marketOrder.findUniqueOrThrow({
         where: { id: order.id },
@@ -289,7 +333,7 @@ export class MarketService {
       });
       return this.toOrderView(fresh, userId);
     } else {
-      const order = await this.prisma.serializable(async (tx) => {
+      const order = await this.prisma.optimistic(async (tx) => {
         const debit = await tx.playerInventorySlot.updateMany({
           where: {
             userId,
@@ -342,7 +386,7 @@ export class MarketService {
   }
 
   async cancelOrder(userId: string, orderId: string): Promise<void> {
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       const order = await tx.marketOrder.findUnique({ where: { id: orderId } });
       if (!order) throw new NotFoundException('Ordre introuvable.');
       if (order.userId !== userId)
@@ -362,10 +406,12 @@ export class MarketService {
       if (order.side === MarketOrderSide.BUY && order.escrowBiomass > 0) {
         const remaining = order.quantity - order.filledQuantity;
         const refund = remaining * order.pricePerUnit;
+        const settled = await this.engine.settlePlanet(order.sourcePlanetId, new Date(), tx);
         await tx.planet.update({
-          where: { id: order.sourcePlanetId },
-          data: { biomass: { increment: refund } },
+          where: { id: order.sourcePlanetId, version: settled.planet.version },
+          data: { biomass: { increment: refund }, version: { increment: 1 } },
         });
+        this.events.emitToUser(userId, 'planet:updated', { planetId: order.sourcePlanetId });
       } else if (order.side === MarketOrderSide.SELL) {
         const remaining = order.quantity - order.filledQuantity;
         if (remaining > 0) {
@@ -388,58 +434,58 @@ export class MarketService {
         }
       }
     });
+    await this.gameQueue.removeMarketExpiryJob(orderId).catch(() => void 0);
   }
 
   /** Moteur de matching : tente d'exécuter l'ordre contre le carnet existant. */
   private async tryMatch(universeId: string, itemKey: ItemKey, newOrderId: string): Promise<void> {
-    const order = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
+    let order = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
     if (
       !order ||
       !ACTIVE_ORDER_STATUSES.includes(order.status as (typeof ACTIVE_ORDER_STATUSES)[number])
     )
       return;
 
-    let fresh = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
-    while (
-      fresh &&
-      ACTIVE_ORDER_STATUSES.includes(fresh.status as (typeof ACTIVE_ORDER_STATUSES)[number]) &&
-      fresh.quantity - fresh.filledQuantity > 0
-    ) {
-      const remaining = fresh.quantity - fresh.filledQuantity;
+    const opposingOrders =
+      order.side === MarketOrderSide.BUY
+        ? await this.prisma.marketOrder.findMany({
+            where: {
+              universeId,
+              itemKey: itemKey as PrismaItemKey,
+              side: MarketOrderSide.SELL,
+              status: { in: [...ACTIVE_ORDER_STATUSES] },
+              pricePerUnit: { lte: order.pricePerUnit },
+              userId: { not: order.userId },
+            },
+            orderBy: [{ pricePerUnit: 'asc' }, { createdAt: 'asc' }],
+          })
+        : await this.prisma.marketOrder.findMany({
+            where: {
+              universeId,
+              itemKey: itemKey as PrismaItemKey,
+              side: MarketOrderSide.BUY,
+              status: { in: [...ACTIVE_ORDER_STATUSES] },
+              pricePerUnit: { gte: order.pricePerUnit },
+              userId: { not: order.userId },
+            },
+            orderBy: [{ pricePerUnit: 'desc' }, { createdAt: 'asc' }],
+          });
 
-      // Chercher le meilleur ordre opposé
-      const opposing =
-        fresh.side === MarketOrderSide.BUY
-          ? await this.prisma.marketOrder.findFirst({
-              where: {
-                universeId,
-                itemKey: itemKey as PrismaItemKey,
-                side: MarketOrderSide.SELL,
-                status: { in: [...ACTIVE_ORDER_STATUSES] },
-                pricePerUnit: { lte: fresh.pricePerUnit },
-                userId: { not: fresh.userId },
-              },
-              orderBy: { pricePerUnit: 'asc' },
-            })
-          : await this.prisma.marketOrder.findFirst({
-              where: {
-                universeId,
-                itemKey: itemKey as PrismaItemKey,
-                side: MarketOrderSide.BUY,
-                status: { in: [...ACTIVE_ORDER_STATUSES] },
-                pricePerUnit: { gte: fresh.pricePerUnit },
-                userId: { not: fresh.userId },
-              },
-              orderBy: { pricePerUnit: 'desc' },
-            });
+    for (const opposing of opposingOrders) {
+      order = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
+      if (
+        !order ||
+        !ACTIVE_ORDER_STATUSES.includes(order.status as (typeof ACTIVE_ORDER_STATUSES)[number]) ||
+        order.quantity - order.filledQuantity <= 0
+      )
+        break;
 
-      if (!opposing) break;
-
+      const remaining = order.quantity - order.filledQuantity;
       const execQty = Math.min(remaining, opposing.quantity - opposing.filledQuantity);
       const execPrice = opposing.pricePerUnit; // maker price
 
-      const buyOrder = fresh.side === MarketOrderSide.BUY ? fresh : opposing;
-      const sellOrder = fresh.side === MarketOrderSide.SELL ? fresh : opposing;
+      const buyOrder = order.side === MarketOrderSide.BUY ? order : opposing;
+      const sellOrder = order.side === MarketOrderSide.SELL ? order : opposing;
 
       await this.executeTrade({
         universeId,
@@ -449,8 +495,6 @@ export class MarketService {
         execQty,
         execPrice,
       });
-
-      fresh = await this.prisma.marketOrder.findUnique({ where: { id: newOrderId } });
     }
   }
 
@@ -477,7 +521,7 @@ export class MarketService {
   }): Promise<void> {
     const { universeId, itemKey, buyOrder, sellOrder, execQty, execPrice } = params;
 
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       // Vérifier à nouveau les quantités restantes
       const [freshBuy, freshSell] = await Promise.all([
         tx.marketOrder.findUniqueOrThrow({ where: { id: buyOrder.id } }),
@@ -530,19 +574,25 @@ export class MarketService {
         },
       });
 
+      // Récupère les versions des planètes concernées via un settle serveur-authoritative.
+      const [buyerPlanet, sellerPlanet] = await Promise.all([
+        this.engine.settlePlanet(buyOrder.sourcePlanetId, new Date(), tx),
+        this.engine.settlePlanet(sellOrder.sourcePlanetId, new Date(), tx),
+      ]);
+
       // Remboursement différentiel si acheteur a payé plus que execPrice
       const overpay = (freshBuy.pricePerUnit - execPrice) * qty;
       if (overpay > 0) {
         await tx.planet.update({
-          where: { id: buyOrder.sourcePlanetId },
-          data: { biomass: { increment: overpay } },
+          where: { id: buyOrder.sourcePlanetId, version: buyerPlanet.planet.version },
+          data: { biomass: { increment: overpay }, version: { increment: 1 } },
         });
       }
 
       // Vendeur reçoit la Biomasse
       await tx.planet.update({
-        where: { id: sellOrder.sourcePlanetId },
-        data: { biomass: { increment: totalBiomass } },
+        where: { id: sellOrder.sourcePlanetId, version: sellerPlanet.planet.version },
+        data: { biomass: { increment: totalBiomass }, version: { increment: 1 } },
       });
 
       const newBuyFilled = freshBuy.filledQuantity + qty;
@@ -586,66 +636,37 @@ export class MarketService {
 
       // Mettre à jour ou créer la bougie OHLCV courante
       await this.updateCandles(tx, universeId, itemKey, execPrice, qty);
+      this.events.emitToUser(buyOrder.userId, 'planet:updated', {
+        planetId: buyOrder.sourcePlanetId,
+      });
+      this.events.emitToUser(sellOrder.userId, 'planet:updated', {
+        planetId: sellOrder.sourcePlanetId,
+      });
     });
   }
 
   private async updateCandles(
-    tx: Parameters<Parameters<PrismaService['serializable']>[0]>[0],
+    tx: Prisma.TransactionClient,
     universeId: string,
     itemKey: ItemKey,
     price: number,
     qty: number,
   ): Promise<void> {
     const now = new Date();
-    const intervals = Object.values(CANDLE_INTERVALS);
 
-    for (const { name, ms } of intervals) {
+    for (const { name, ms } of Object.values(CANDLE_INTERVALS)) {
       const openTime = new Date(Math.floor(now.getTime() / ms) * ms);
-      await tx.ohlcvCandle.upsert({
-        where: {
-          universeId_itemKey_interval_openTime: {
-            universeId,
-            itemKey: itemKey as PrismaItemKey,
-            interval: name,
-            openTime,
-          },
-        },
-        create: {
-          universeId,
-          itemKey: itemKey as PrismaItemKey,
-          interval: name,
-          openTime,
-          open: price,
-          high: price,
-          low: price,
-          close: price,
-          volume: qty,
-        },
-        update: {
-          close: price,
-          volume: { increment: qty },
-        },
-      });
-      await tx.ohlcvCandle.updateMany({
-        where: {
-          universeId,
-          itemKey: itemKey as PrismaItemKey,
-          interval: name,
-          openTime,
-          high: { lt: price },
-        },
-        data: { high: price },
-      });
-      await tx.ohlcvCandle.updateMany({
-        where: {
-          universeId,
-          itemKey: itemKey as PrismaItemKey,
-          interval: name,
-          openTime,
-          low: { gt: price },
-        },
-        data: { low: price },
-      });
+      const candleId = randomUUID();
+      await tx.$queryRaw`
+        INSERT INTO ohlcv_candles (id, universe_id, item_key, "interval", open_time, open, high, low, close, volume)
+        VALUES (${candleId}, ${universeId}, ${itemKey as PrismaItemKey}, ${name}, ${openTime}, ${price}, ${price}, ${price}, ${price}, ${qty})
+        ON CONFLICT (universe_id, item_key, "interval", open_time)
+        DO UPDATE SET
+          high = GREATEST(ohlcv_candles.high, EXCLUDED.high),
+          low = LEAST(ohlcv_candles.low, EXCLUDED.low),
+          close = EXCLUDED.close,
+          volume = ohlcv_candles.volume + EXCLUDED.volume
+      `;
     }
   }
 
@@ -654,7 +675,7 @@ export class MarketService {
     await this.expiryQueue.add(
       EXPIRE_MARKET_ORDER_JOB,
       { orderId },
-      { jobId: `expire-${orderId}`, delay, removeOnComplete: true, removeOnFail: 10 },
+      { jobId: `expire:${orderId}`, delay, removeOnComplete: true, removeOnFail: 10 },
     );
   }
 

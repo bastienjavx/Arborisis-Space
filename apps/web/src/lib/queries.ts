@@ -22,6 +22,7 @@ import type {
   EmpireOverview,
   FleetPresetView,
   IncomingAttackView,
+  ItemKey,
   ModerateUserDto,
   NotificationView,
   PlanetDetail,
@@ -43,7 +44,7 @@ import type {
   UpdateProductionLineDto,
 } from '@arborisis/shared';
 import { ChatScope } from '@arborisis/shared';
-import { api } from './api';
+import { api, ApiError } from './api';
 
 export const keys = {
   me: ['me'] as const,
@@ -88,14 +89,29 @@ export const keys = {
   adminUsers: (search: string) => ['admin-users', search] as const,
   moderationActions: ['moderation-actions'] as const,
   productionLines: ['production-lines'] as const,
+  marketSummaries: ['market', 'summaries'] as const,
+  marketOrderBook: (itemKey: string) => ['market', 'orderbook', itemKey] as const,
+  marketCandles: (itemKey: string, interval: string) =>
+    ['market', 'candles', itemKey, interval] as const,
+  myMarketOrders: ['market', 'my-orders'] as const,
+  inventory: ['inventory'] as const,
 };
 
 export function useMe() {
   return useQuery({
     queryKey: keys.me,
     queryFn: () => api.me().then((r) => r.user),
-    retry: false,
+    retry: (failureCount, error) => {
+      // Réessaye sur les erreurs réseau (status 0) ou 502/503 transitoires,
+      // mais pas sur les 401 définitifs.
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 5_000),
     staleTime: 60_000,
+    refetchInterval: 300_000, // Vérifie l'état de session toutes les 5 min en arrière-plan.
+    refetchOnReconnect: true,
+    networkMode: 'always',
   });
 }
 
@@ -104,7 +120,7 @@ export function useChatMessages(scope: ChatScope, peerId?: string) {
     queryKey: keys.chatMessages(scope, peerId),
     queryFn: () => api.chatMessages(scope, peerId),
     enabled: scope !== ChatScope.PRIVATE || !!peerId,
-    refetchInterval: 3_000,
+    refetchInterval: false,
   });
 }
 
@@ -148,7 +164,7 @@ export function useModerationActions(enabled = true) {
   return useQuery({
     queryKey: keys.moderationActions,
     queryFn: () => api.moderationActions(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
     enabled,
   });
 }
@@ -182,7 +198,11 @@ export function usePublicProfile(id: string | undefined) {
 }
 
 export function usePlanets() {
-  return useQuery({ queryKey: keys.planets, queryFn: () => api.planets() });
+  return useQuery({
+    queryKey: keys.planets,
+    queryFn: () => api.planets(),
+    staleTime: 30_000,
+  });
 }
 
 export function usePlanetDetail(
@@ -194,7 +214,7 @@ export function usePlanetDetail(
     queryFn: () => api.planet(id!),
     enabled: !!id,
     // Rafraîchit régulièrement pour suivre l'accumulation des ressources.
-    refetchInterval: 15_000,
+    refetchInterval: false,
     ...options,
   });
 }
@@ -204,7 +224,7 @@ export function useResearch(planetId: string | undefined) {
     queryKey: keys.research(planetId ?? 'none'),
     queryFn: () => api.research(planetId!),
     enabled: !!planetId,
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -224,7 +244,7 @@ export function useFleet(planetId: string | undefined) {
     queryKey: keys.fleet(planetId ?? 'none'),
     queryFn: () => api.fleet(planetId!),
     enabled: !!planetId,
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -232,7 +252,7 @@ export function useExpeditions() {
   return useQuery({
     queryKey: keys.expeditions,
     queryFn: () => api.expeditions(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -240,7 +260,7 @@ export function useExpeditionReports() {
   return useQuery({
     queryKey: keys.expeditionReports,
     queryFn: () => api.expeditionReports(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -248,7 +268,7 @@ export function useEncounters() {
   return useQuery({
     queryKey: keys.encounters,
     queryFn: () => api.encounters(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -256,7 +276,7 @@ export function usePveMissions() {
   return useQuery({
     queryKey: keys.pveMissions,
     queryFn: () => api.pveMissions(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -264,7 +284,7 @@ export function usePveReports() {
   return useQuery<PveReportView[]>({
     queryKey: keys.pveReports,
     queryFn: () => api.pveReports(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -272,7 +292,7 @@ export function usePvpMissions() {
   return useQuery({
     queryKey: keys.pvpMissions,
     queryFn: () => api.pvpMissions(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -280,7 +300,7 @@ export function usePvpReports() {
   return useQuery<PvpReportView[]>({
     queryKey: keys.pvpReports,
     queryFn: () => api.pvpReports(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -288,7 +308,7 @@ export function useIncomingAttacks() {
   return useQuery<IncomingAttackView[]>({
     queryKey: keys.incomingAttacks,
     queryFn: () => api.incomingAttacks(),
-    refetchInterval: 30_000,
+    refetchInterval: false,
   });
 }
 
@@ -296,7 +316,7 @@ export function useTransfers() {
   return useQuery<ResourceTransferMissionView[]>({
     queryKey: keys.transfers,
     queryFn: () => api.transfers(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -304,7 +324,7 @@ export function useProductionLines() {
   return useQuery({
     queryKey: keys.productionLines,
     queryFn: () => api.productionLines(),
-    refetchInterval: 15_000,
+    refetchInterval: false,
   });
 }
 
@@ -336,6 +356,58 @@ export function useDeleteProductionLine() {
   return useMutation({
     mutationFn: (id: string) => api.deleteProductionLine(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.productionLines }),
+  });
+}
+
+// ── Market ──
+
+export function useMarketSummaries() {
+  return useQuery({
+    queryKey: keys.marketSummaries,
+    queryFn: () => api.marketSummaries(),
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+    staleTime: 5_000,
+  });
+}
+
+export function useMarketOrderBook(itemKey: string | undefined) {
+  return useQuery({
+    queryKey: keys.marketOrderBook(itemKey ?? 'none'),
+    queryFn: () => api.marketOrderBook(itemKey as ItemKey),
+    enabled: !!itemKey,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    staleTime: 1_000,
+  });
+}
+
+export function useMarketCandles(itemKey: string | undefined, interval: string) {
+  return useQuery({
+    queryKey: keys.marketCandles(itemKey ?? 'none', interval),
+    queryFn: () => api.marketCandles(itemKey as ItemKey, interval as '1h' | '4h' | '1d'),
+    enabled: !!itemKey,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
+  });
+}
+
+export function useMyMarketOrders() {
+  return useQuery({
+    queryKey: keys.myMarketOrders,
+    queryFn: () => api.myMarketOrders(),
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
+    staleTime: 3_000,
+  });
+}
+
+export function useInventory() {
+  return useQuery({
+    queryKey: keys.inventory,
+    queryFn: () => api.inventory(),
+    staleTime: 10_000,
   });
 }
 
@@ -464,7 +536,7 @@ export function useLeaderboard() {
   return useQuery({
     queryKey: keys.leaderboard,
     queryFn: () => api.leaderboard(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -472,7 +544,7 @@ export function useAllianceLeaderboard() {
   return useQuery({
     queryKey: keys.allianceLeaderboard,
     queryFn: () => api.allianceLeaderboard(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -480,7 +552,7 @@ export function useSeasons() {
   return useQuery({
     queryKey: keys.seasons,
     queryFn: () => api.seasons(),
-    refetchInterval: 120_000,
+    refetchInterval: false,
   });
 }
 
@@ -501,7 +573,7 @@ export function useActiveEvent() {
   return useQuery({
     queryKey: keys.activeEvent,
     queryFn: () => api.activeEvent(),
-    refetchInterval: 120_000,
+    refetchInterval: false,
   });
 }
 
@@ -509,7 +581,7 @@ export function useAchievements() {
   return useQuery({
     queryKey: keys.achievements,
     queryFn: () => api.achievements(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -517,7 +589,7 @@ export function useQuests() {
   return useQuery({
     queryKey: keys.quests,
     queryFn: () => api.quests(),
-    refetchInterval: 60_000,
+    refetchInterval: false,
   });
 }
 
@@ -538,6 +610,7 @@ export function useDailyReward() {
     queryKey: keys.dailyReward,
     queryFn: () => api.dailyReward(),
     refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -562,6 +635,7 @@ export function useAbsenceSummary() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchInterval: false,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -731,7 +805,7 @@ export function useNotifications() {
   return useQuery<NotificationView[]>({
     queryKey: keys.notifications,
     queryFn: () => api.notifications(),
-    refetchInterval: 30_000,
+    refetchInterval: false,
   });
 }
 
@@ -739,7 +813,7 @@ export function useNotificationUnreadCount() {
   return useQuery<UnreadCountView>({
     queryKey: keys.notificationUnreadCount,
     queryFn: () => api.notificationUnreadCount(),
-    refetchInterval: 20_000,
+    refetchInterval: false,
   });
 }
 

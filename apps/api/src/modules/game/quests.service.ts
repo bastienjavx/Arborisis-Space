@@ -99,7 +99,7 @@ export class QuestsService {
     const metrics = await this.gatherMetrics(userId);
     const progress = this.progressFor(quest, metrics);
 
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       const existing = await tx.playerQuest.findUnique({
         where: { userId_questId: { userId, questId } },
       });

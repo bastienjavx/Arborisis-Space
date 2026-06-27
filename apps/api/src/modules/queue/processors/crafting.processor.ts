@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { CraftingService } from '../../crafting/crafting.service';
 import { CRAFTING_QUEUE, type FinalizeJobData } from '../queue.constants';
 
-@Processor(CRAFTING_QUEUE)
+@Processor(CRAFTING_QUEUE, { concurrency: 5 })
 export class CraftingProcessor extends WorkerHost {
   private readonly logger = new Logger(CraftingProcessor.name);
 

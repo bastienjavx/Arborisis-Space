@@ -8,7 +8,7 @@ import { GameQueueService } from '../game-queue.service';
 import { GAME_EVENT_QUEUE, SPAWN_NPC_JOB, TRIGGER_EVENT_JOB } from '../queue.constants';
 import { runWithUniverse } from './run-with-universe';
 
-@Processor(GAME_EVENT_QUEUE)
+@Processor(GAME_EVENT_QUEUE, { concurrency: 2 })
 export class EventProcessor extends WorkerHost {
   private readonly logger = new Logger(EventProcessor.name);
 

@@ -7,6 +7,7 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
 import { LoggerModule } from 'nestjs-pino';
 import { validateEnv, type Env } from './common/config/env';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { RedisModule } from './common/redis/redis.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { OriginGuard } from './common/guards/origin.guard';
 import { AntiCheatModule } from './modules/anticheat/anticheat.module';
@@ -33,6 +34,7 @@ import { DiplomacyModule } from './modules/diplomacy/diplomacy.module';
 import { CommandersModule } from './modules/commanders/commanders.module';
 import { MoonsModule } from './modules/moons/moons.module';
 import { DefensesModule } from './modules/defenses/defenses.module';
+import { EventsModule } from './modules/events/events.module';
 
 @Module({
   imports: [
@@ -86,6 +88,7 @@ import { DefensesModule } from './modules/defenses/defenses.module';
         };
       },
     }),
+    RedisModule,
     PrismaModule,
     AntiCheatModule,
     HealthModule,
@@ -110,6 +113,7 @@ import { DefensesModule } from './modules/defenses/defenses.module';
     ProcessorsModule,
     ProvisioningModule,
     UniverseModule,
+    EventsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: OriginGuard },

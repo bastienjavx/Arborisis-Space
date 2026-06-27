@@ -17,6 +17,7 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { GameEngineService } from './game-engine.service';
 import { GameQueueService } from '../queue/game-queue.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class TransferService {
@@ -24,6 +25,7 @@ export class TransferService {
     private readonly prisma: PrismaService,
     private readonly engine: GameEngineService,
     private readonly queue: GameQueueService,
+    private readonly events: EventsGateway,
   ) {}
 
   async launch(userId: string, dto: TransferResourcesDto): Promise<ResourceTransferMissionView> {
@@ -65,10 +67,10 @@ export class TransferService {
     const arrivesAt = new Date(Date.now() + travelSec * 1000);
 
     // Toutes les vérifications (solde de ressources, vaisseaux disponibles) ET les
-    // débits sont effectués dans une même transaction sérialisable : deux transferts
+    // débits sont effectués dans une transaction à verrou optimiste : deux transferts
     // concurrents depuis la même planète ne peuvent plus passer le contrôle puis
     // débiter en parallèle (anti double-dépense / création de ressources).
-    const mission = await this.prisma.serializable(async (tx) => {
+    const mission = await this.prisma.optimistic(async (tx) => {
       const settled = await this.engine.settlePlanet(sourcePlanetId, new Date(), tx);
       const amounts = {
         [ResourceType.BIOMASS]: settled.planet.biomass,
@@ -92,6 +94,7 @@ export class TransferService {
         sourcePlanetId,
         resources as Partial<Record<ResourceType, number>>,
         tx,
+        settled.planet.version,
       );
       for (const [type, qty] of Object.entries(transportShips)) {
         await tx.planetShip.updateMany({
@@ -112,6 +115,8 @@ export class TransferService {
     });
 
     await this.queue.scheduleTransfer(mission.id, arrivesAt);
+    this.events.emitToUser(userId, 'planet:updated', { planetId: sourcePlanetId });
+    this.events.emitToUser(userId, 'mission:updated', { kind: 'transfer' });
 
     return this.toView(mission, source.name, target.name);
   }

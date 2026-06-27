@@ -6,7 +6,7 @@ import { PvpService } from '../../pvp/pvp.service';
 import { FINALIZE_JOB, PVP_QUEUE, type FinalizeJobData } from '../queue.constants';
 import { runWithUniverse } from './run-with-universe';
 
-@Processor(PVP_QUEUE)
+@Processor(PVP_QUEUE, { concurrency: 5 })
 export class PvpProcessor extends WorkerHost {
   private readonly logger = new Logger(PvpProcessor.name);
 
