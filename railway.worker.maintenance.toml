@@ -21,7 +21,7 @@ watchPatterns = [
 ]
 
 [deploy]
-startCommand = "SERVICE_ROLE=worker WORKER_ROLE=maintenance node apps/api/dist/worker.js"
+startCommand = "sh -c 'SERVICE_ROLE=worker WORKER_ROLE=maintenance node apps/api/dist/worker.js'"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
