@@ -1,0 +1,37 @@
+# Configuration Railway du worker gameplay BullMQ.
+#
+# Service Railway cible : worker-gameplay
+# Config-as-code path : /railway.worker.gameplay.toml
+#
+# Variables à partager avec l'API :
+#   DATABASE_URL        → référence PgBouncer.DATABASE_URL
+#   REDIS_URL           → référence du plugin Redis
+#   JWT_ACCESS_SECRET   → même valeur que api
+#   JWT_REFRESH_SECRET  → même valeur que api
+#   TOTP_ENC_KEY        → même valeur que api si activée
+#   WEB_ORIGIN          → même valeur que api
+#   NODE_ENV=production
+#   SERVICE_ROLE=worker
+#   WORKER_ROLE=gameplay
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "docker/api.Dockerfile"
+watchPatterns = [
+  "apps/api/**",
+  "packages/shared/**",
+  "prisma/**",
+  "docker/api.Dockerfile",
+  "railway.worker.gameplay.toml",
+  "package.json",
+  "package-lock.json",
+  "turbo.json",
+]
+
+[deploy]
+startCommand = "SERVICE_ROLE=worker WORKER_ROLE=gameplay node apps/api/dist/worker.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[deploy.multiRegionConfig.europe-west4-drams3a]
+numReplicas = 2

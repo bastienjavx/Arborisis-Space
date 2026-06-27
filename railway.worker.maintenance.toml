@@ -1,0 +1,29 @@
+# Configuration Railway du worker maintenance.
+#
+# Service Railway cible : worker-maintenance
+# Config-as-code path : /railway.worker.maintenance.toml
+#
+# Ce service exécute les sweeps globaux et la récupération des jobs échus. Il doit
+# rester à un seul réplica sauf changement explicite des locks distribués.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "docker/api.Dockerfile"
+watchPatterns = [
+  "apps/api/**",
+  "packages/shared/**",
+  "prisma/**",
+  "docker/api.Dockerfile",
+  "railway.worker.maintenance.toml",
+  "package.json",
+  "package-lock.json",
+  "turbo.json",
+]
+
+[deploy]
+startCommand = "SERVICE_ROLE=worker WORKER_ROLE=maintenance node apps/api/dist/worker.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[deploy.multiRegionConfig.europe-west4-drams3a]
+numReplicas = 1

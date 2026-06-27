@@ -10,8 +10,11 @@ Operational reference for Railway hosting, GitHub CI/CD, and production runbooks
 
 - Hosting: **Railway**
 - Runtime services:
-  - `api` (NestJS, `railway.toml`)
+  - `api` (NestJS HTTP only, `railway.toml`)
   - `web` (Next.js, `railway.web.toml`)
+  - `worker-gameplay` (BullMQ gameplay consumers, `railway.worker.gameplay.toml`)
+  - `worker-provisioning` (Railway universe provisioning, `railway.worker.provisioning.toml`)
+  - `worker-maintenance` (global sweeps/recovery, `railway.worker.maintenance.toml`)
   - `Postgres` + `PgBouncer`
   - `Redis`
   - `univers-N` API nodes auto-provisioned at saturation
@@ -37,9 +40,11 @@ npm run test:e2e -w @arborisis/api
 ### Critical config notes
 
 - Web service must use **`/railway.web.toml`** (config-as-code path), not root `railway.toml`.
+- Worker services must use their dedicated config-as-code files and must not inherit `railway.toml`, otherwise they would run the API release phase.
 - API requires `DATABASE_URL`, `DIRECT_DATABASE_URL`, `REDIS_URL`, `JWT_*`, `WEB_ORIGIN`.
+- Workers require `DATABASE_URL`, `REDIS_URL`, shared secrets, `SERVICE_ROLE=worker`, and the matching `WORKER_ROLE`.
 - Web requires `API_INTERNAL_URL`, `SITE_URL`, and `UNIVERSE_COOKIE_SECRET`.
-- Release phase must stay idempotent and safe for multi-replica rollouts.
+- Release phase must stay on the `api` service only; workers do not run migrations/seed.
 
 ### Operations runbook
 
@@ -56,8 +61,11 @@ npm run test:e2e -w @arborisis/api
 
 - Hébergement : **Railway**
 - Services d’exécution :
-  - `api` (NestJS, `railway.toml`)
+  - `api` (NestJS HTTP uniquement, `railway.toml`)
   - `web` (Next.js, `railway.web.toml`)
+  - `worker-gameplay` (consommateurs BullMQ gameplay, `railway.worker.gameplay.toml`)
+  - `worker-provisioning` (provisioning Railway des univers, `railway.worker.provisioning.toml`)
+  - `worker-maintenance` (sweeps globaux/récupération, `railway.worker.maintenance.toml`)
   - `Postgres` + `PgBouncer`
   - `Redis`
   - `univers-N` auto-provisionnés en cas de saturation
@@ -83,9 +91,11 @@ npm run test:e2e -w @arborisis/api
 ### Points de configuration critiques
 
 - Le service web doit cibler **`/railway.web.toml`** (config-as-code), jamais `railway.toml`.
+- Les workers doivent cibler leurs fichiers config-as-code dédiés, jamais `railway.toml`, pour ne pas exécuter la release phase API.
 - L’API exige `DATABASE_URL`, `DIRECT_DATABASE_URL`, `REDIS_URL`, `JWT_*`, `WEB_ORIGIN`.
+- Les workers exigent `DATABASE_URL`, `REDIS_URL`, les secrets partagés, `SERVICE_ROLE=worker` et le `WORKER_ROLE` correspondant.
 - Le web exige `API_INTERNAL_URL`, `SITE_URL`, `UNIVERSE_COOKIE_SECRET`.
-- La release phase doit rester idempotente pour éviter les effets de bord multi-réplicas.
+- La release phase doit rester sur le service `api` uniquement ; les workers ne lancent ni migrations ni seed.
 
 ### Runbook opérationnel
 
