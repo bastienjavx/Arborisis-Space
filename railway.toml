@@ -15,6 +15,7 @@
 #   JWT_REFRESH_SECRET    → openssl rand -base64 48   (PARTAGÉ par tous les nodes)
 #   WEB_ORIGIN            → origine publique du service web, sans slash final
 #   NODE_ENV=production
+#   SERVICE_ROLE=api      → optionnel (valeur par défaut), HTTP uniquement
 #
 # Auto-scaling (création d'un node par univers à saturation) :
 #   UNIVERSE_PROVISIONING_ENABLED=true
@@ -22,10 +23,9 @@
 #   RAILWAY_ENVIRONMENT_ID (optionnel), UNIVERSE_MAX_PLAYERS (def. 500)
 #   UNIVERSE_PROVISION_THRESHOLD (def. 0.9), UNIVERSE_PROVISION_REPLICAS (def. 2)
 #
-# IMPORTANT : les nodes provisionnés sont dupliqués depuis le service « api ». Ils
-# héritent donc de ce fichier, Y COMPRIS le `preDeployCommand`. Comme ils partagent la
-# même base, migrate+seed y sont des no-op idempotents (migrate = aucune migration en
-# attente, seed = upserts). Aucune action requise.
+# IMPORTANT : les nodes d'univers provisionnés sont des API HTTP clonées depuis
+# « api ». Les workers BullMQ doivent être des services séparés avec les fichiers
+# railway.worker.*.toml, sinon ils hériteraient à tort du `preDeployCommand`.
 
 [build]
 builder = "DOCKERFILE"
@@ -36,6 +36,9 @@ watchPatterns = [
   "prisma/**",
   "docker/api.Dockerfile",
   "railway.toml",
+  "railway.worker.gameplay.toml",
+  "railway.worker.provisioning.toml",
+  "railway.worker.maintenance.toml",
   "package.json",
   "package-lock.json",
   "turbo.json",

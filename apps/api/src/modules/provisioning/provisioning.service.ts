@@ -182,6 +182,9 @@ export class ProvisioningService {
     // l'univers provisionné. Générer des secrets aléatoires casserait l'auth (401).
     return {
       DATABASE_URL: this.config.get('DATABASE_URL', { infer: true }),
+      ...(this.config.get('DIRECT_DATABASE_URL', { infer: true })
+        ? { DIRECT_DATABASE_URL: this.config.get('DIRECT_DATABASE_URL', { infer: true })! }
+        : {}),
       REDIS_URL: this.config.get('REDIS_URL', { infer: true }),
       JWT_ACCESS_SECRET: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
       JWT_REFRESH_SECRET: this.config.get('JWT_REFRESH_SECRET', { infer: true }),

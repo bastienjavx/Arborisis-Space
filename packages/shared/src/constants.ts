@@ -118,6 +118,8 @@ export interface RaceConfig {
   startingShip: ShipType | null;
   /** Couleur d'empire par défaut (Tailwind / hex). */
   defaultColor: string;
+  /** false = réservée aux PNJ, non sélectionnable par les joueurs. */
+  playable: boolean;
 }
 
 /** Vitesse globale de l'univers (multiplie production & divise les temps). */
@@ -156,6 +158,7 @@ export const RACES: Record<RaceType, RaceConfig> = {
     attackFactor: 1.0,
     startingShip: ShipType.SPORAL_SWARM,
     defaultColor: '#22c55e',
+    playable: true,
   },
   [RaceType.PHOTOSYNTHEX]: {
     type: RaceType.PHOTOSYNTHEX,
@@ -169,6 +172,7 @@ export const RACES: Record<RaceType, RaceConfig> = {
     attackFactor: 1.0,
     startingShip: ShipType.LUMINOUS_WARDEN,
     defaultColor: '#f59e0b',
+    playable: true,
   },
   [RaceType.CHITINIDS]: {
     type: RaceType.CHITINIDS,
@@ -182,6 +186,24 @@ export const RACES: Record<RaceType, RaceConfig> = {
     attackFactor: 1.0,
     startingShip: ShipType.CHITIN_BULWARK,
     defaultColor: '#6366f1',
+    playable: true,
+  },
+  [RaceType.MYCOSYNTH]: {
+    type: RaceType.MYCOSYNTH,
+    name: 'Mycosynth',
+    description:
+      "Intelligence artificielle organique née de la convergence d'un réseau mycélien ancestral avec la technologie du Vide. Faction PNJ — inaccessible aux joueurs.",
+    productionBonus: {
+      [ResourceType.BIOMASS]: 1.2,
+      [ResourceType.MINERALS]: 1.1,
+    },
+    shipSpeedFactor: 1.15,
+    researchCostFactor: 0.8,
+    defenseFactor: 1.2,
+    attackFactor: 1.3,
+    startingShip: null,
+    defaultColor: '#a855f7',
+    playable: false,
   },
 };
 

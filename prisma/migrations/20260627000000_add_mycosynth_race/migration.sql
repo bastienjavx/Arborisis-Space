@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "RaceType" ADD VALUE 'MYCOSYNTH';

@@ -19,6 +19,7 @@ import {
   TradeRouteStatus,
   UniverseStatus,
   UserRole,
+  PLAYABLE_RACE_TYPES,
 } from './enums';
 
 export const sendChatMessageSchema = z
@@ -113,7 +114,10 @@ export const registerSchema = z.object({
   email: emailSchema,
   username: usernameSchema,
   password: passwordSchema,
-  race: z.nativeEnum(RaceType).default(RaceType.MYCELIANS),
+  race: z
+    .nativeEnum(RaceType)
+    .default(RaceType.MYCELIANS)
+    .refine((r) => PLAYABLE_RACE_TYPES.includes(r), { message: 'Race non sélectionnable.' }),
 });
 export type RegisterDto = z.infer<typeof registerSchema>;
 

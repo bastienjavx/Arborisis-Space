@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { EventsModule } from '../events/events.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { QueueModule } from '../queue/queue.module';
 import { BuildingsController } from './buildings.controller';
 import { BuildingsService } from './buildings.service';
@@ -46,7 +48,7 @@ import { TransferController } from './transfer.controller';
 import { TransferService } from './transfer.service';
 
 @Module({
-  imports: [QueueModule],
+  imports: [QueueModule, EventsModule, NotificationsModule],
   controllers: [
     PlanetsController,
     BuildingsController,
@@ -108,6 +110,11 @@ import { TransferService } from './transfer.service';
     DailyQuestsService,
     EngagementService,
     EngagementHookService,
+    BuildingsService,
+    ResearchService,
+    ShipsService,
+    ColonizationService,
+    GalaxyService,
   ],
 })
 export class GameModule {}
