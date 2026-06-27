@@ -66,7 +66,9 @@ export class MaintenanceModule implements OnApplicationBootstrap, OnApplicationS
       .catch(() => void 0);
     await this.queues.scheduleNextNpcSpawn(0, true).catch(() => void 0);
     await this.queues
-      .runWithDistributedLock('mycosynth:bootstrap:lock', 60_000, () => this.mycosynth.ensureExists())
+      .runWithDistributedLock('mycosynth:bootstrap:lock', 120_000, () =>
+        this.mycosynth.ensureAllExist(),
+      )
       .catch(() => void 0);
     await this.queues.scheduleNextMycosynthTick(0, true).catch(() => void 0);
     this.timer = setInterval(() => {

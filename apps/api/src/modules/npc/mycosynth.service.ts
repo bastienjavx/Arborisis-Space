@@ -31,9 +31,34 @@ import { FinalizationService } from '../game/finalization.service';
 import { WorldFactoryService } from '../game/world-factory.service';
 import { PvpService } from '../pvp/pvp.service';
 
-const USERNAME = 'MYCOSYNTH';
-const EMAIL = 'mycosynth@npc.internal';
-const RACE = RaceType.MYCELIANS;
+// ── Configuration des 50 bots NPC ────────────────────────────────────────────
+
+interface NpcBotConfig {
+  username: string;
+  email: string;
+  race: RaceType;
+}
+
+function buildBotConfigs(): NpcBotConfig[] {
+  const configs: NpcBotConfig[] = [];
+  const races: Array<{ race: RaceType; prefix: string; count: number }> = [
+    { race: RaceType.MYCELIANS, prefix: 'MYCO', count: 17 },
+    { race: RaceType.PHOTOSYNTHEX, prefix: 'PHOTO', count: 17 },
+    { race: RaceType.CHITINIDS, prefix: 'CHITIN', count: 16 },
+  ];
+  for (const { race, prefix, count } of races) {
+    for (let i = 1; i <= count; i++) {
+      const username = `${prefix}-${String(i).padStart(2, '0')}`;
+      configs.push({ username, email: `${username.toLowerCase()}@npc.internal`, race });
+    }
+  }
+  return configs;
+}
+
+const BOT_CONFIGS = buildBotConfigs();
+const NPC_CONCURRENCY = 5;
+
+// ── Priorités IA partagées par tous les bots ──────────────────────────────────
 
 const BUILDING_PRIORITY: Array<[BuildingType, number]> = [
   [BuildingType.PHOTOSYNTHETIC_CANOPY, 6],
@@ -82,9 +107,10 @@ const RESEARCH_PRIORITY: Array<[ResearchType, number]> = [
   [ResearchType.DEEP_SCAN, 3],
 ];
 
-// [shipType, quantity per batch]
 const SHIP_PRIORITY: Array<[ShipType, number]> = [
   [ShipType.SPORAL_SWARM, 10],
+  [ShipType.LUMINOUS_WARDEN, 10],
+  [ShipType.CHITIN_BULWARK, 10],
   [ShipType.SPORAL_DRONE, 20],
   [ShipType.ACID_BOMBER, 5],
   [ShipType.CHITIN_DESTROYER, 3],
@@ -109,41 +135,66 @@ export class MycosynthService {
     private readonly pvp: PvpService,
   ) {}
 
-  async ensureExists(): Promise<void> {
-    const existing = await this.prisma.user.findUnique({ where: { username: USERNAME } });
-    if (existing) return;
-
+  /** Crée les 50 bots NPC s'ils n'existent pas encore (idempotent). */
+  async ensureAllExist(): Promise<void> {
     const universeId = await getDefaultUniverseId(this.prisma);
-    const user = await this.prisma.user.create({
-      data: {
-        email: EMAIL,
-        username: USERNAME,
-        passwordHash: `$npc$${randomUUID()}`,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        role: 'NPC' as any,
-        race: RACE,
-        displayName: 'MYCOSYNTH',
-        universeId,
-      },
+    const existing = await this.prisma.user.findMany({
+      where: { role: 'NPC' as never },
+      select: { username: true },
     });
+    const existingNames = new Set(existing.map((u) => u.username));
 
-    await this.world.initNewPlayer(user.id, undefined, RACE);
-    this.logger.log('MYCOSYNTH initialisée — la faction prend racine.');
-  }
-
-  async tick(universeId: string): Promise<void> {
-    const npc = await this.prisma.user.findUnique({
-      where: { username: USERNAME },
-      select: { id: true },
-    });
-    if (!npc) {
-      this.logger.warn('MYCOSYNTH introuvable — tick ignoré.');
-      return;
+    let created = 0;
+    for (const cfg of BOT_CONFIGS) {
+      if (existingNames.has(cfg.username)) continue;
+      try {
+        const user = await this.prisma.user.create({
+          data: {
+            email: cfg.email,
+            username: cfg.username,
+            passwordHash: `$npc$${randomUUID()}`,
+            role: 'NPC' as never,
+            race: cfg.race,
+            displayName: cfg.username,
+            universeId,
+          },
+        });
+        await this.world.initNewPlayer(user.id, undefined, cfg.race);
+        created++;
+      } catch {
+        // Doublon probable (race condition entre réplicas) → ignorer
+      }
     }
 
-    const userId = npc.id;
-    this.logger.debug(`MYCOSYNTH tick — universe ${universeId}`);
+    if (created > 0) {
+      this.logger.log(`${created} bot(s) NPC créé(s) dans l'univers ${universeId}`);
+    }
+  }
 
+  /** Tick principal : fait réfléchir chaque bot NPC de l'univers. */
+  async tick(universeId: string): Promise<void> {
+    const bots = await this.prisma.user.findMany({
+      where: { role: 'NPC' as never },
+      select: { id: true, race: true, username: true },
+    });
+    if (bots.length === 0) return;
+
+    this.logger.debug(`MYCOSYNTH tick — ${bots.length} bots — univers ${universeId}`);
+
+    // Traitement par lots pour ne pas saturer la BDD
+    for (let i = 0; i < bots.length; i += NPC_CONCURRENCY) {
+      const batch = bots.slice(i, i + NPC_CONCURRENCY);
+      await Promise.all(
+        batch.map((bot) =>
+          this.thinkForBot(bot.id, bot.race as RaceType).catch((e: unknown) =>
+            this.logger.debug({ err: e }, `Tick ignoré pour ${bot.username}`),
+          ),
+        ),
+      );
+    }
+  }
+
+  private async thinkForBot(userId: string, race: RaceType): Promise<void> {
     const planets = await this.prisma.planet.findMany({
       where: { ownerId: userId },
       orderBy: [{ isHomeworld: 'desc' }, { createdAt: 'asc' }],
@@ -154,34 +205,18 @@ export class MycosynthService {
     const homeworld = planets[0];
     if (!homeworld) return;
 
-    // Phase 1 : économie
     for (const planet of planets) {
-      await this.tryBuild(userId, planet.id).catch((e: unknown) =>
-        this.logger.debug({ err: e }, `Construction ignorée sur ${planet.id}`),
-      );
+      await this.tryBuild(userId, planet.id).catch(() => void 0);
     }
 
-    // Phase 2 : recherche (depuis le Noyau-Monde)
-    await this.tryResearch(userId, homeworld.id).catch((e: unknown) =>
-      this.logger.debug({ err: e }, 'Recherche ignorée'),
-    );
+    await this.tryResearch(userId, homeworld.id).catch(() => void 0);
+    await this.tryColonize(userId, homeworld.id).catch(() => void 0);
 
-    // Phase 3 : expansion
-    await this.tryColonize(userId, homeworld.id).catch((e: unknown) =>
-      this.logger.debug({ err: e }, 'Colonisation ignorée'),
-    );
-
-    // Phase 4 : militaire
     for (const planet of planets) {
-      await this.tryProduceShips(userId, planet.id).catch((e: unknown) =>
-        this.logger.debug({ err: e }, `Production vaisseaux ignorée sur ${planet.id}`),
-      );
+      await this.tryProduceShips(userId, planet.id, race).catch(() => void 0);
     }
 
-    // Phase 5 : attaque
-    await this.tryAttack(userId, planets).catch((e: unknown) =>
-      this.logger.debug({ err: e }, 'Attaque ignorée'),
-    );
+    await this.tryAttack(userId, planets).catch(() => void 0);
   }
 
   private async tryBuild(userId: string, planetId: string): Promise<void> {
@@ -197,17 +232,14 @@ export class MycosynthService {
     for (const [type, targetLevel] of BUILDING_PRIORITY) {
       const current = settled.buildings[type] ?? 0;
       if (current >= targetLevel) continue;
-
-      const nextLevel = current + 1;
       if (unmetBuildingRequirements(type, settled).length > 0) continue;
-      if (!canAfford(resources.amounts, buildingCost(type, nextLevel))) continue;
+      if (!canAfford(resources.amounts, buildingCost(type, current + 1))) continue;
 
       try {
         await this.buildings.upgrade(userId, planetId, type);
-        this.logger.log(`MYCOSYNTH: ${type} → niv.${nextLevel} sur ${planetId}`);
         return;
       } catch {
-        // Race condition ou prérequis non satisfaits → essayer la suite
+        // prérequis ou race condition → suivant
       }
     }
   }
@@ -221,22 +253,23 @@ export class MycosynthService {
     await this.finalization.finalizeDueResearchForUser(userId);
     const settled = await this.engine.settlePlanet(planetId);
     const resources = this.engine.buildResourceState(settled);
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { race: true },
+    });
 
     for (const [type, maxLevel] of RESEARCH_PRIORITY) {
       const current = settled.research[type] ?? 0;
       if (current >= maxLevel) continue;
-
       if (unmetResearchRequirements(type, settled).length > 0) continue;
-
-      const nextLevel = current + 1;
-      if (!canAfford(resources.amounts, researchCost(type, nextLevel, RACE))) continue;
+      if (!canAfford(resources.amounts, researchCost(type, current + 1, user.race as RaceType)))
+        continue;
 
       try {
         await this.research.start(userId, planetId, type);
-        this.logger.log(`MYCOSYNTH: Recherche ${type} → niv.${nextLevel}`);
         return;
       } catch {
-        // Conflit ou prérequis → essayer la suite
+        // conflit ou prérequis → suivant
       }
     }
   }
@@ -257,9 +290,6 @@ export class MycosynthService {
     if (!coords) return;
 
     await this.colonization.colonize(userId, homeworldId, coords);
-    this.logger.log(
-      `MYCOSYNTH: Essaimage → G${coords.galaxy}:S${coords.system}:P${coords.position}`,
-    );
   }
 
   private async findFreeCoords(): Promise<Coordinates | null> {
@@ -269,9 +299,7 @@ export class MycosynthService {
       const system = Math.ceil(Math.random() * SYSTEMS_PER_GALAXY);
       const position = Math.ceil(Math.random() * POSITIONS_PER_SYSTEM);
       const occupied = await this.prisma.planet.findUnique({
-        where: {
-          universeId_galaxy_system_position: { universeId, galaxy, system, position },
-        },
+        where: { universeId_galaxy_system_position: { universeId, galaxy, system, position } },
         select: { id: true },
       });
       if (!occupied) return { galaxy, system, position };
@@ -279,7 +307,7 @@ export class MycosynthService {
     return null;
   }
 
-  private async tryProduceShips(userId: string, planetId: string): Promise<void> {
+  private async tryProduceShips(userId: string, planetId: string, race: RaceType): Promise<void> {
     const pending = await this.prisma.shipProductionJob.findFirst({
       where: { planetId, status: JobStatus.PENDING },
     });
@@ -294,7 +322,7 @@ export class MycosynthService {
 
     for (const [type, quantity] of SHIP_PRIORITY) {
       const cfg = SHIPS[type];
-      if (cfg.restrictedToRaces && !cfg.restrictedToRaces.includes(RACE)) continue;
+      if (cfg.restrictedToRaces && !cfg.restrictedToRaces.includes(race)) continue;
       if (nursery < cfg.requiresNurseryLevel) continue;
 
       const cost = { ...cfg.cost };
@@ -305,10 +333,9 @@ export class MycosynthService {
 
       try {
         await this.ships.produce(userId, { planetId, type, quantity });
-        this.logger.log(`MYCOSYNTH: Production ${quantity}× ${type} sur ${planetId}`);
         return;
       } catch {
-        // Conflit ou ressources insuffisantes → essayer la suite
+        // conflit ou nursery insuffisant → suivant
       }
     }
   }
@@ -318,9 +345,8 @@ export class MycosynthService {
     planets: Array<{ id: string; galaxy: number; system: number; position: number }>,
   ): Promise<void> {
     const planetIds = planets.map((p) => p.id);
-
-    // Compter les vaisseaux de combat disponibles par planète
     const combatTypes = SHIP_TYPES.filter((t) => COMBAT_ROLES.has(SHIPS[t].role));
+
     const inventory = await this.prisma.planetShip.findMany({
       where: { planetId: { in: planetIds }, type: { in: combatTypes }, quantity: { gt: 0 } },
     });
@@ -328,13 +354,11 @@ export class MycosynthService {
     const totalCombat = inventory.reduce((sum, s) => sum + s.quantity, 0);
     if (totalCombat < ATTACK_THRESHOLD) return;
 
-    // Pas de mission sortante en cours
     const activeMission = await this.prisma.pvpMission.findFirst({
       where: { userId, phase: PvpMissionPhase.OUTBOUND },
     });
     if (activeMission) return;
 
-    // Trouver la planète source (le plus de vaisseaux de combat)
     const shipsByPlanet = new Map<string, number>();
     for (const s of inventory) {
       shipsByPlanet.set(s.planetId, (shipsByPlanet.get(s.planetId) ?? 0) + s.quantity);
@@ -344,11 +368,9 @@ export class MycosynthService {
     );
     if ((shipsByPlanet.get(sourcePlanet.id) ?? 0) < ATTACK_THRESHOLD) return;
 
-    // Trouver une cible : joueur réel non-NPC
     const target = await this.findTarget(userId, sourcePlanet);
     if (!target) return;
 
-    // Construire la flotte d'attaque (75% des vaisseaux disponibles)
     const sourceShips = inventory.filter((s) => s.planetId === sourcePlanet.id);
     const fleet: Partial<Record<ShipType, number>> = {};
     for (const s of sourceShips) {
@@ -366,14 +388,12 @@ export class MycosynthService {
       targetPlanetId: target.id,
       ships: fleet as Record<ShipType, number>,
     });
-    this.logger.log(`MYCOSYNTH: Attaque lancée sur planète ${target.id} (joueur ${target.ownerId})`);
   }
 
   private async findTarget(
     npcUserId: string,
     source: { galaxy: number; system: number },
   ): Promise<{ id: string; ownerId: string } | null> {
-    // Chercher une planète ennemie dans le même système ou galaxie
     const [sameSystem, sameGalaxy] = await Promise.all([
       this.prisma.planet.findFirst({
         where: {
