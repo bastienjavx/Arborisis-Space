@@ -250,6 +250,7 @@ const RACE_LABELS: Record<RaceType, string> = {
   [RaceType.MYCELIANS]: 'Mycéliens',
   [RaceType.PHOTOSYNTHEX]: 'Photosynthex',
   [RaceType.CHITINIDS]: 'Chitinids',
+  [RaceType.MYCOSYNTH]: 'Mycosynth',
 };
 
 /** Identifiant stable d'une entrée, partagé entre l'UI de jeu et le codex. */
