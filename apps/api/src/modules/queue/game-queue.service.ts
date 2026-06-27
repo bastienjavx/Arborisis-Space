@@ -79,10 +79,12 @@ export class GameQueueService {
   async scheduleNextEvent(): Promise<void> {
     const delayMs = (4 + Math.random() * 4) * 3_600_000;
     const universeId = await this.resolveUniverseId();
+    const dueSlot = Math.floor((Date.now() + delayMs) / 3_600_000);
     await this.eventQueue.add(
       TRIGGER_EVENT_JOB,
       { universeId },
       {
+        jobId: `${TRIGGER_EVENT_JOB}:${universeId}:${dueSlot}`,
         delay: delayMs,
         removeOnComplete: true,
         removeOnFail: 10,
@@ -94,10 +96,12 @@ export class GameQueueService {
 
   async scheduleNextNpcSpawn(delayMs = NPC_SPAWN_INTERVAL_MS): Promise<void> {
     const universeId = await this.resolveUniverseId();
+    const dueSlot = Math.floor((Date.now() + delayMs) / NPC_SPAWN_INTERVAL_MS);
     await this.eventQueue.add(
       SPAWN_NPC_JOB,
       { universeId },
       {
+        jobId: `${SPAWN_NPC_JOB}:${universeId}:${dueSlot}`,
         delay: delayMs,
         removeOnComplete: true,
         removeOnFail: 10,
@@ -203,6 +207,31 @@ export class GameQueueService {
     const hasSpawnJob = eventJobs.some((job) => job.name === SPAWN_NPC_JOB);
     if (!hasSpawnJob) {
       await this.scheduleNextNpcSpawn(0);
+    }
+  }
+
+  async runWithDistributedLock<T>(
+    lockKey: string,
+    ttlMs: number,
+    task: () => Promise<T>,
+  ): Promise<T | undefined> {
+    const redis = await this.construction.client;
+    const token = `${process.pid}:${Date.now()}:${Math.random()}`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const acquired = await (redis as any).set(lockKey, token, 'NX', 'PX', ttlMs);
+    if (!acquired) return undefined;
+
+    try {
+      return await task();
+    } finally {
+      // Delete only our own lock; a slow task must not clear a newer owner.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (redis as any).eval(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+        1,
+        lockKey,
+        token,
+      );
     }
   }
 

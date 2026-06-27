@@ -3,8 +3,14 @@ import type { AuthUser } from '@arborisis/shared';
 
 /** Injecte l'utilisateur authentifié (peuplé par la stratégie JWT). */
 export const CurrentUser = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): AuthUser => {
+  (
+    data: keyof AuthUser | 'userId' | undefined,
+    ctx: ExecutionContext,
+  ): AuthUser | AuthUser[keyof AuthUser] => {
     const request = ctx.switchToHttp().getRequest();
-    return request.user;
+    const user = request.user as AuthUser;
+    if (!data) return user;
+    if (data === 'userId') return user.id;
+    return user[data];
   },
 );

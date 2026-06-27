@@ -84,18 +84,16 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    await this.finalization.sweepAllDue();
-    await this.expeditions.sweepAllDue();
-    await this.pve.sweepAllDue();
-    await this.pvp.sweepAllDue();
-    await this.seasons.sweepAllDue();
-    await this.crafting.sweepAllDue();
-    await this.productionLines.sweepDueLines();
-    await this.tradeRoutes.sweepDueRoutes();
-    await this.market.sweepExpiredOrders();
+    await this.queues.runWithDistributedLock('processors:bootstrap:lock', 120_000, () =>
+      this.runSweeps(),
+    );
     await this.queues.reconcilePending();
     await this.queues.scheduleNextEvent().catch(() => void 0);
-    await this.npcSpawner.spawnBatch().catch(() => void 0);
+    await this.queues
+      .runWithDistributedLock('npc:bootstrap:spawn:lock', 60_000, () =>
+        this.npcSpawner.spawnBatch(),
+      )
+      .catch(() => void 0);
     await this.queues.scheduleNextNpcSpawn(0).catch(() => void 0);
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
@@ -113,18 +111,24 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     if (this.reconciling) return;
     this.reconciling = true;
     try {
-      await this.finalization.sweepAllDue();
-      await this.expeditions.sweepAllDue();
-      await this.pve.sweepAllDue();
-      await this.pvp.sweepAllDue();
-      await this.seasons.sweepAllDue();
-      await this.crafting.sweepAllDue();
-      await this.productionLines.sweepDueLines();
-      await this.tradeRoutes.sweepDueRoutes();
-      await this.market.sweepExpiredOrders();
-      await this.queues.reconcilePending();
+      await this.queues.runWithDistributedLock('processors:reconcile:lock', 55_000, async () => {
+        await this.runSweeps();
+        await this.queues.reconcilePending();
+      });
     } finally {
       this.reconciling = false;
     }
+  }
+
+  private async runSweeps(): Promise<void> {
+    await this.finalization.sweepAllDue();
+    await this.expeditions.sweepAllDue();
+    await this.pve.sweepAllDue();
+    await this.pvp.sweepAllDue();
+    await this.seasons.sweepAllDue();
+    await this.crafting.sweepAllDue();
+    await this.productionLines.sweepDueLines();
+    await this.tradeRoutes.sweepDueRoutes();
+    await this.market.sweepExpiredOrders();
   }
 }
