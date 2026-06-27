@@ -151,9 +151,7 @@ function CommanderCard({
               {RARITY_LABELS[commander.rarity]} · Niv. {commander.level}
             </span>
           </div>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">
-            {commander.lore}
-          </p>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">{commander.lore}</p>
           <div className="mt-3">
             <div className="mb-1 flex justify-between text-[10px] text-canopy-100/35">
               <span>XP</span>
