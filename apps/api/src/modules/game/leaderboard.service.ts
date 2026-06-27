@@ -50,41 +50,41 @@ export class LeaderboardService {
 
     const rows = await this.prisma.$queryRaw<ScoredUserRow[]>`
       WITH building_scores AS (
-        SELECT p.owner_id AS user_id,
+        SELECT p."ownerId" AS user_id,
                COUNT(DISTINCT p.id) AS colonies,
                COALESCE(SUM(b.level) * 10, 0) AS building_score
         FROM planets p
-        LEFT JOIN planet_buildings b ON b.planet_id = p.id
-        WHERE p.universe_id = ${effectiveUniverseId}
-        GROUP BY p.owner_id
+        LEFT JOIN planet_buildings b ON b."planetId" = p.id
+        WHERE p."universeId" = ${effectiveUniverseId}
+        GROUP BY p."ownerId"
       ),
       research_scores AS (
-        SELECT rl.user_id,
+        SELECT rl."userId" AS user_id,
                COALESCE(SUM(rl.level) * 100, 0) AS research_score
         FROM research_levels rl
-        WHERE rl.user_id IN (SELECT id FROM users WHERE universe_id = ${effectiveUniverseId})
-        GROUP BY rl.user_id
+        WHERE rl."userId" IN (SELECT id FROM users WHERE "universeId" = ${effectiveUniverseId})
+        GROUP BY rl."userId"
       ),
       ship_counts AS (
-        SELECT p.owner_id AS user_id,
+        SELECT p."ownerId" AS user_id,
                COALESCE(SUM(ps.quantity), 0) AS ships
         FROM planets p
-        LEFT JOIN planet_ships ps ON ps.planet_id = p.id
-        WHERE p.universe_id = ${effectiveUniverseId}
-        GROUP BY p.owner_id
+        LEFT JOIN planet_ships ps ON ps."planetId" = p.id
+        WHERE p."universeId" = ${effectiveUniverseId}
+        GROUP BY p."ownerId"
       ),
       expedition_counts AS (
-        SELECT er.user_id,
+        SELECT er."userId" AS user_id,
                COUNT(*) AS expeditions
         FROM expedition_reports er
-        WHERE er.user_id IN (SELECT id FROM users WHERE universe_id = ${effectiveUniverseId})
-        GROUP BY er.user_id
+        WHERE er."userId" IN (SELECT id FROM users WHERE "universeId" = ${effectiveUniverseId})
+        GROUP BY er."userId"
       )
       SELECT
         u.id,
         u.username,
         u.title,
-        u.updated_at AS "updatedAt",
+        u."updatedAt" AS "updatedAt",
         COALESCE(bs.building_score, 0) AS "buildingScore",
         COALESCE(rs.research_score, 0) AS "researchScore",
         COALESCE(bs.colonies, 0) AS colonies,
@@ -93,15 +93,15 @@ export class LeaderboardService {
         a.id AS "allianceId",
         a.tag AS "allianceTag",
         a.name AS "allianceName",
-        a.banner_color AS "allianceBannerColor"
+        a."bannerColor" AS "allianceBannerColor"
       FROM users u
       LEFT JOIN building_scores bs ON bs.user_id = u.id
       LEFT JOIN research_scores rs ON rs.user_id = u.id
       LEFT JOIN ship_counts sc ON sc.user_id = u.id
       LEFT JOIN expedition_counts ec ON ec.user_id = u.id
-      LEFT JOIN alliance_members am ON am.user_id = u.id
-      LEFT JOIN alliances a ON a.id = am.alliance_id
-      WHERE u.universe_id = ${effectiveUniverseId}
+      LEFT JOIN alliance_members am ON am."userId" = u.id
+      LEFT JOIN alliances a ON a.id = am."allianceId"
+      WHERE u."universeId" = ${effectiveUniverseId}
       ORDER BY
         COALESCE(bs.building_score, 0) + COALESCE(rs.research_score, 0)
         + COALESCE(bs.colonies, 0) * 500 + COALESCE(sc.ships, 0) * 5
