@@ -11,9 +11,11 @@ import {
 } from '@arborisis/shared';
 import { api } from '@/lib/api';
 import { GameIcon } from '@/components/GameIcon';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
+import { ITEM_VISUALS } from '@/lib/gameVisualAssets';
 import { FiClock, FiZap } from 'react-icons/fi';
 
 const RESOURCE_ICONS: Record<string, string> = {
@@ -55,9 +57,11 @@ function RecipeCard({
     <div className="rounded-xl border border-canopy-700/20 bg-bark-900/60 p-4">
       {/* Output */}
       <div className="mb-4 flex items-center gap-3">
-        <span className="text-3xl leading-none">
-          <GameIcon name={output?.icon} className="h-8 w-8" />
-        </span>
+        <GameAssetImage
+          asset={output ? ITEM_VISUALS[output.key] : undefined}
+          className="h-12 w-12 rounded-lg"
+          fallbackIcon={output?.icon}
+        />
         <div>
           <p className="font-semibold text-canopy-100" style={{ color: output?.rarityColor }}>
             {output?.name}
@@ -207,9 +211,11 @@ export default function CraftingPage() {
                   key={j.id}
                   className="flex items-center gap-3 rounded-xl border border-canopy-700/15 bg-bark-900/60 px-4 py-3"
                 >
-                  <span className="text-xl">
-                    <GameIcon name={item?.icon} className="h-5 w-5" />
-                  </span>
+                  <GameAssetImage
+                    asset={item ? ITEM_VISUALS[item.key] : undefined}
+                    className="h-10 w-10 rounded-lg"
+                    fallbackIcon={item?.icon}
+                  />
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-canopy-100">
                       {item?.name} ×{j.outputQty * j.quantity}

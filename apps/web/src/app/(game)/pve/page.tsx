@@ -15,8 +15,10 @@ import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { QuantityControl } from '@/components/QuantityControl';
 import { ResourceCost } from '@/components/ResourceCost';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { ApiError } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
+import { NPC_VISUALS, SHIP_VISUALS } from '@/lib/gameVisualAssets';
 import {
   useAttackEncounter,
   useEncounters,
@@ -33,7 +35,6 @@ import {
   FiCrosshair,
   FiFilter,
   FiMinus,
-  FiShield,
 } from 'react-icons/fi';
 
 const ENCOUNTER_NAMES: Record<NpcEncounterType, string> = Object.fromEntries(
@@ -185,9 +186,11 @@ export default function PvePage() {
                         : 'border-transparent hover:bg-canopy-500/[0.025]'
                     }`}
                   >
-                    <span className="grid h-11 w-11 place-items-center rounded-full border border-red-500/25 bg-red-500/[0.045] text-red-300/75">
-                      <FiAlertTriangle className="h-5 w-5" aria-hidden="true" />
-                    </span>
+                    <GameAssetImage
+                      asset={NPC_VISUALS[encounter.type]}
+                      className="h-11 w-11 rounded-full"
+                      fallbackIcon="alertTriangle"
+                    />
                     <span className="min-w-0">
                       <span className="flex items-center gap-2">
                         <span className="block truncate font-display text-lg text-canopy-50/88">
@@ -244,26 +247,34 @@ export default function PvePage() {
               <div className="border-b border-red-500/15 bg-red-500/[0.025] px-5 py-4">
                 <span className="section-kicker text-red-300/60">Rencontre sélectionnée</span>
                 <div className="mt-2 flex items-start justify-between gap-3">
-                  <div>
-                    <span className="mb-1.5 inline-flex items-center gap-2">
-                      <h2 className="font-display text-2xl text-canopy-50/90">
-                        {ENCOUNTER_NAMES[activeEncounter.type]}
-                      </h2>
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider"
-                        style={{
-                          backgroundColor: `${NPC_ENCOUNTER_CONFIGS[activeEncounter.type].color}22`,
-                          color: NPC_ENCOUNTER_CONFIGS[activeEncounter.type].color,
-                        }}
-                      >
-                        {TIER_LABELS[NPC_ENCOUNTER_CONFIGS[activeEncounter.type].tier]}
+                  <div className="flex items-start gap-3">
+                    <GameAssetImage
+                      asset={NPC_VISUALS[activeEncounter.type]}
+                      className="h-16 w-16 rounded-xl"
+                      fallbackIcon="alertTriangle"
+                      sizes="96px"
+                    />
+                    <div>
+                      <span className="mb-1.5 inline-flex items-center gap-2">
+                        <h2 className="font-display text-2xl text-canopy-50/90">
+                          {ENCOUNTER_NAMES[activeEncounter.type]}
+                        </h2>
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider"
+                          style={{
+                            backgroundColor: `${NPC_ENCOUNTER_CONFIGS[activeEncounter.type].color}22`,
+                            color: NPC_ENCOUNTER_CONFIGS[activeEncounter.type].color,
+                          }}
+                        >
+                          {TIER_LABELS[NPC_ENCOUNTER_CONFIGS[activeEncounter.type].tier]}
+                        </span>
                       </span>
-                    </span>
-                    <p className="text-xs text-red-300/70">
-                      Niveau {activeEncounter.difficulty} · coordonnées{' '}
-                      {activeEncounter.coordinates.galaxy}:{activeEncounter.coordinates.system}:
-                      {activeEncounter.coordinates.position}
-                    </p>
+                      <p className="text-xs text-red-300/70">
+                        Niveau {activeEncounter.difficulty} · coordonnées{' '}
+                        {activeEncounter.coordinates.galaxy}:{activeEncounter.coordinates.system}:
+                        {activeEncounter.coordinates.position}
+                      </p>
+                    </div>
                   </div>
                   <span className="whitespace-nowrap text-xs text-red-300/80">
                     {formatNumber(activeEncounter.health)} /{' '}
@@ -284,7 +295,11 @@ export default function PvePage() {
                       if (!ship || available <= 0) return null;
                       return (
                         <div key={type} className="flex items-center gap-3 px-3 py-3">
-                          <FiShield className="h-4 w-4 text-canopy-300/55" aria-hidden="true" />
+                          <GameAssetImage
+                            asset={SHIP_VISUALS[type]}
+                            className="h-9 w-9 rounded-lg"
+                            fallbackIcon="rocket"
+                          />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-xs text-canopy-100/72">{ship.name}</p>
                             <p className="mt-0.5 text-[10px] text-canopy-100/30">
@@ -365,9 +380,11 @@ export default function PvePage() {
                 className="grid gap-4 px-5 py-4 sm:grid-cols-[minmax(13rem,1fr)_minmax(10rem,0.8fr)_8rem] sm:items-center"
               >
                 <div className="flex items-center gap-3">
-                  <span className="grid h-9 w-9 place-items-center rounded-full border border-red-500/20 bg-red-500/[0.035] text-red-300/65">
-                    <FiAlertTriangle className="h-4 w-4" aria-hidden="true" />
-                  </span>
+                  <GameAssetImage
+                    asset={NPC_VISUALS[mission.encounter.type]}
+                    className="h-9 w-9 rounded-full"
+                    fallbackIcon="alertTriangle"
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-sm text-canopy-100/78">
                       {ENCOUNTER_NAMES[mission.encounter.type]}
@@ -431,9 +448,11 @@ export default function PvePage() {
                   transition={{ delay: index * 0.035 }}
                   className="grid gap-3 px-5 py-3.5 sm:grid-cols-[2rem_minmax(10rem,1fr)_6rem_1fr_8rem] sm:items-center"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-full border border-red-500/25 bg-red-500/[0.04] text-red-300/65">
-                    <FiAlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                  </span>
+                  <GameAssetImage
+                    asset={NPC_VISUALS[report.encounter.type as NpcEncounterType]}
+                    className="h-8 w-8 rounded-full"
+                    fallbackIcon="alertTriangle"
+                  />
                   <span className="min-w-0">
                     <span className="block text-sm text-canopy-100/75">
                       {ENCOUNTER_NAMES_PVE[report.encounter.type as NpcEncounterType] ??

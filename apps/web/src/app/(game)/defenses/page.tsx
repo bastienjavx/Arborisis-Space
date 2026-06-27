@@ -6,15 +6,9 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
+import { GameAssetImage } from '@/components/GameAssetImage';
+import { DEFENSE_VISUALS } from '@/lib/gameVisualAssets';
 import { FiShield, FiZap } from 'react-icons/fi';
-
-const DEFENSE_ICONS: Partial<Record<DefenseType, string>> = {
-  [DefenseType.ION_CANNON]: '⚡',
-  [DefenseType.SPORE_NET]: '🕸️',
-  [DefenseType.SHIELD_MEMBRANE]: '🛡️',
-  [DefenseType.MYCELIAL_TURRET]: '🔫',
-  [DefenseType.VOID_LANCE]: '🌑',
-};
 
 export default function DefensesPage() {
   const qc = useQueryClient();
@@ -95,7 +89,11 @@ export default function DefensesPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">{DEFENSE_ICONS[defense.type] ?? '🔰'}</span>
+                      <GameAssetImage
+                        asset={DEFENSE_VISUALS[defense.type]}
+                        className="h-12 w-12 rounded-lg"
+                        fallbackIcon="shield"
+                      />
                       <div>
                         <h3 className="font-semibold text-white">{defense.name}</h3>
                         <span className="text-xs text-gray-400">

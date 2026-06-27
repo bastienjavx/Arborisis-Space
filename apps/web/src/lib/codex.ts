@@ -53,6 +53,12 @@ import {
 } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { formatDuration, formatNumber, resourceLabel } from './format';
+import {
+  BUILDING_VISUALS,
+  ITEM_VISUALS,
+  SHIP_VISUALS,
+  type GameVisualAsset,
+} from './gameVisualAssets';
 import { RESOURCE_VISUALS } from './resourceVisuals';
 
 /**
@@ -92,6 +98,7 @@ export interface CodexEntry {
   Icon: IconType;
   /** Surcharge éventuelle de la couleur d'icône (ressources). */
   iconClassName?: string;
+  visualAsset?: GameVisualAsset;
   accent: CodexAccent;
   summary: string;
   lore?: string;
@@ -390,6 +397,7 @@ function buildEntries(): CodexEntry[] {
       categoryLabel: 'Structure',
       name: config.name,
       Icon: FiLayers,
+      visualAsset: BUILDING_VISUALS[config.type],
       accent: 'canopy',
       summary: config.description,
       lore: LORE_BUILDINGS[config.type]?.lore,
@@ -430,6 +438,7 @@ function buildEntries(): CodexEntry[] {
       categoryLabel: 'Vaisseau',
       name: config.name,
       Icon: FiNavigation,
+      visualAsset: SHIP_VISUALS[config.type],
       accent: 'sap',
       summary: config.description,
       lore: LORE_SHIPS[config.type]?.lore,
@@ -579,6 +588,7 @@ function buildEntries(): CodexEntry[] {
       categoryLabel: 'Objet',
       name: config.name,
       Icon: FiPackage,
+      visualAsset: ITEM_VISUALS[config.key],
       accent,
       summary: config.description,
       stats,
