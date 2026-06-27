@@ -69,17 +69,20 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** Émet un événement personnel à un utilisateur. */
   emitToUser(userId: string, event: string, payload: unknown): void {
+    if (!this.server) return;
     this.server.to(`user:${userId}`).emit(event, payload);
   }
 
   /** Émet un événement à tous les utilisateurs d'un univers. */
   emitToUniverse(universeId: string, event: string, payload: unknown): void {
     if (!universeId) return;
+    if (!this.server) return;
     this.server.to(`universe:${universeId}`).emit(event, payload);
   }
 
   /** Émet un événement global (tous les clients connectés). */
   emitBroadcast(event: string, payload: unknown): void {
+    if (!this.server) return;
     this.server.emit(event, payload);
   }
 
