@@ -91,7 +91,13 @@ export class GameQueueService {
   async scheduleNextEvent(): Promise<void> {
     const delayMs = (4 + Math.random() * 4) * 3_600_000;
     const universeId = await this.resolveUniverseId();
-    await this.safeAddEvent(TRIGGER_EVENT_JOB, { universeId }, delayMs, `event-${universeId}`);
+    const dueSlot = Math.floor((Date.now() + delayMs) / 3_600_000);
+    await this.safeAddEvent(
+      TRIGGER_EVENT_JOB,
+      { universeId },
+      delayMs,
+      `event-${universeId}-${dueSlot}`,
+    );
   }
 
   async scheduleNextNpcSpawn(delayMs = NPC_SPAWN_INTERVAL_MS, singleton = false): Promise<void> {
@@ -106,9 +112,10 @@ export class GameQueueService {
       await this.safeAddEvent(SPAWN_NPC_JOB, { universeId }, delayMs, singletonId);
       return;
     }
-    // Récurrence intra-réplica : pas d'identifiant fixe pour éviter le conflit
-    // avec le job actif tout en permettant la chaîne de planifications.
-    await this.safeAddEvent(SPAWN_NPC_JOB, { universeId }, delayMs);
+    // Identifiant par fenêtre temporelle : évite les chaînes parallèles de spawns
+    // tout en permettant au job actif de planifier la prochaine occurrence.
+    const dueSlot = Math.floor((Date.now() + delayMs) / NPC_SPAWN_INTERVAL_MS);
+    await this.safeAddEvent(SPAWN_NPC_JOB, { universeId }, delayMs, `${singletonId}-${dueSlot}`);
   }
 
   async scheduleTransfer(jobId: string, arrivesAt: Date): Promise<void> {
@@ -296,6 +303,34 @@ export class GameQueueService {
       return current;
     }
     return getDefaultUniverseId(this.prisma);
+  }
+
+  async runWithDistributedLock<T>(
+    lockKey: string,
+    ttlMs: number,
+    task: () => Promise<T>,
+  ): Promise<T | undefined> {
+    const redis = await this.construction.client;
+    const owner = randomUUID();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const acquired = await (redis as any).set(lockKey, owner, 'NX', 'PX', ttlMs);
+    if (!acquired) return undefined;
+
+    try {
+      return await task();
+    } finally {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (redis as any).eval(
+          'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end',
+          1,
+          lockKey,
+          owner,
+        );
+      } catch {
+        // Ignorer ; le verrou expirera.
+      }
+    }
   }
 
   private async safeAdd(

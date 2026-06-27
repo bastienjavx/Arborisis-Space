@@ -86,9 +86,15 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    await this.runSweeps();
+    await this.queues.runWithDistributedLock('processors:bootstrap:lock', 120_000, () =>
+      this.runSweeps(),
+    );
     await this.queues.scheduleNextEvent().catch(() => void 0);
-    await this.npcSpawner.spawnBatch().catch(() => void 0);
+    await this.queues
+      .runWithDistributedLock('npc:bootstrap:spawn:lock', 60_000, () =>
+        this.npcSpawner.spawnBatch(),
+      )
+      .catch(() => void 0);
     await this.queues.scheduleNextNpcSpawn(0, true).catch(() => void 0);
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
@@ -106,7 +112,9 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     if (this.reconciling) return;
     this.reconciling = true;
     try {
-      await this.runSweeps();
+      await this.queues.runWithDistributedLock('processors:reconcile:lock', 55_000, () =>
+        this.runSweeps(),
+      );
     } finally {
       this.reconciling = false;
     }
