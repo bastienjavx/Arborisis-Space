@@ -364,23 +364,25 @@ export function AuthForm({ mode }: { mode: Mode }) {
                     >
                       <label className="label">Race</label>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        {Object.values(RACES).filter((cfg) => cfg.playable).map((cfg) => (
-                          <button
-                            key={cfg.type}
-                            type="button"
-                            onClick={() => setRace(cfg.type)}
-                            className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${
-                              race === cfg.type
-                                ? 'border-canopy-500 bg-canopy-500/20 text-canopy-100'
-                                : 'border-canopy-700/20 bg-bark-900/50 text-canopy-100/70 hover:border-canopy-500/50'
-                            }`}
-                          >
-                            <span className="block font-semibold">{cfg.name}</span>
-                            <span className="block text-[10px] leading-tight opacity-80">
-                              {cfg.description.slice(0, 48)}…
-                            </span>
-                          </button>
-                        ))}
+                        {Object.values(RACES)
+                          .filter((cfg) => cfg.playable)
+                          .map((cfg) => (
+                            <button
+                              key={cfg.type}
+                              type="button"
+                              onClick={() => setRace(cfg.type)}
+                              className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${
+                                race === cfg.type
+                                  ? 'border-canopy-500 bg-canopy-500/20 text-canopy-100'
+                                  : 'border-canopy-700/20 bg-bark-900/50 text-canopy-100/70 hover:border-canopy-500/50'
+                              }`}
+                            >
+                              <span className="block font-semibold">{cfg.name}</span>
+                              <span className="block text-[10px] leading-tight opacity-80">
+                                {cfg.description.slice(0, 48)}…
+                              </span>
+                            </button>
+                          ))}
                       </div>
                     </motion.div>
                   )}
