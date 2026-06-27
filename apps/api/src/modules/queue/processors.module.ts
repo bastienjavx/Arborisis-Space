@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { GameModule } from '../game/game.module';
+import { NpcModule } from '../npc/npc.module';
 import { PveModule } from '../pve/pve.module';
 import { PvpModule } from '../pvp/pvp.module';
 import { QueueModule } from './queue.module';
@@ -17,6 +18,7 @@ import { ProductionLineProcessor } from './processors/production-line.processor'
 import { TradeRouteProcessor } from './processors/trade-route.processor';
 import { MarketExpiryProcessor } from './processors/market-expiry.processor';
 import { NotificationsProcessor } from './processors/notifications.processor';
+import { MycosynthProcessor } from '../npc/mycosynth.processor';
 import { CraftingModule } from '../crafting/crafting.module';
 import { ProductionLinesModule } from '../production-lines/production-lines.module';
 import { TradeRoutesModule } from '../trade-routes/trade-routes.module';
@@ -33,6 +35,7 @@ import { MarketModule } from '../market/market.module';
     GameModule,
     PveModule,
     PvpModule,
+    NpcModule,
     CraftingModule,
     ProductionLinesModule,
     TradeRoutesModule,
@@ -53,6 +56,7 @@ import { MarketModule } from '../market/market.module';
     TradeRouteProcessor,
     MarketExpiryProcessor,
     NotificationsProcessor,
+    MycosynthProcessor,
   ],
 })
 export class ProcessorsModule {}
