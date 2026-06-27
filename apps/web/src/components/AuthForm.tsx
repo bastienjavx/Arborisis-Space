@@ -75,9 +75,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           setPendingEmail(res.email);
         }
       } else {
-        const res = (await api.login({ email, password })) as
-          | { user: import('@arborisis/shared').AuthUser }
-          | { twoFactorRequired: true; tempToken: string };
+        const res = await api.login({ email, password });
         if ('twoFactorRequired' in res && res.twoFactorRequired) {
           setTotpPending(res.tempToken);
         } else {

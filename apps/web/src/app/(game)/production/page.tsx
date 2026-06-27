@@ -13,24 +13,17 @@ import {
 import { GameIcon } from '@/components/GameIcon';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  FiActivity,
-  FiPause,
-  FiPlay,
-  FiSave,
-  FiShield,
-  FiSliders,
-  FiTrash2,
-  FiZap,
-} from 'react-icons/fi';
+import { FiPause, FiPlay, FiSave, FiShield, FiSliders, FiTrash2, FiZap } from 'react-icons/fi';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { AnimatedCountdown } from '@/components/AnimatedCountdown';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { MobileResourceBar } from '@/components/MobileResourceBar';
 import { StatCard } from '@/components/StatCard';
 import { ApiError } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
+import { BUILDING_VISUALS, ITEM_VISUALS } from '@/lib/gameVisualAssets';
 import {
   useCreateProductionLine,
   useDeleteProductionLine,
@@ -294,9 +287,11 @@ export default function ProductionPage() {
                     className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(14rem,1fr)_minmax(18rem,1.4fr)_12rem] lg:items-center"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-canopy-700/25 bg-canopy-500/5 text-canopy-300/70">
-                        <FiActivity className="h-5 w-5" aria-hidden="true" />
-                      </span>
+                      <GameAssetImage
+                        asset={BUILDING_VISUALS[building.type]}
+                        className="h-11 w-11 rounded-full"
+                        fallbackIcon="wrench"
+                      />
                       <div>
                         <h3 className="text-sm text-canopy-50/90">{building.name}</h3>
                         <p className="mt-1 text-xs text-canopy-100/38">Niveau {building.level}</p>
@@ -378,9 +373,11 @@ export default function ProductionPage() {
                       className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(14rem,1fr)_minmax(12rem,0.8fr)_auto] lg:items-center"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl" aria-hidden="true">
-                          <GameIcon name={item.icon} className="h-6 w-6" />
-                        </span>
+                        <GameAssetImage
+                          asset={ITEM_VISUALS[item.key]}
+                          className="h-10 w-10 rounded-lg"
+                          fallbackIcon={item.icon}
+                        />
                         <div>
                           <h3 className="text-sm text-canopy-50/90">{item.name}</h3>
                           <p className="mt-1 text-xs text-canopy-100/40">
@@ -456,9 +453,11 @@ export default function ProductionPage() {
                   className="rounded-lg border border-canopy-700/15 bg-bark-900/60 p-4"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-2xl" aria-hidden="true">
-                      <GameIcon name={item.icon} className="h-6 w-6" />
-                    </span>
+                    <GameAssetImage
+                      asset={ITEM_VISUALS[item.key]}
+                      className="h-10 w-10 rounded-lg"
+                      fallbackIcon={item.icon}
+                    />
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-semibold text-canopy-50/90">{item.name}</h3>
                       <p className="mt-1 text-xs text-canopy-100/42">

@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
 import { ITEMS, type MarketSummaryView, type ItemKey } from '@arborisis/shared';
-import { api } from '@/lib/api';
-import { GameIcon } from '@/components/GameIcon';
+import { useMarketSummaries } from '@/lib/queries';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { PageHeader } from '@/components/PageHeader';
+import { ITEM_VISUALS } from '@/lib/gameVisualAssets';
 import { FiTrendingUp, FiTrendingDown, FiMinus, FiArrowRight } from 'react-icons/fi';
 
 function PriceChange({ change }: { change: number | null }) {
@@ -34,11 +34,7 @@ function PriceChange({ change }: { change: number | null }) {
 const RARITY_ORDER = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY'];
 
 export default function MarketPage() {
-  const { data: summaries, isLoading } = useQuery({
-    queryKey: ['market', 'summaries'],
-    queryFn: () => api.marketSummaries(),
-    refetchInterval: 15_000,
-  });
+  const { data: summaries, isLoading } = useMarketSummaries();
 
   const grouped = summaries
     ? Object.values(ITEMS).reduce(
@@ -98,9 +94,11 @@ export default function MarketPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl leading-none">
-                        <GameIcon name={item.icon} className="h-6 w-6" />
-                      </span>
+                      <GameAssetImage
+                        asset={ITEM_VISUALS[item.key]}
+                        className="h-10 w-10 rounded-lg"
+                        fallbackIcon={item.icon}
+                      />
                       <div>
                         <p className="text-sm font-semibold text-canopy-100">{item.name}</p>
                         <p className="text-[10px] text-canopy-100/40">

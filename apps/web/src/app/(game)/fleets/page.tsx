@@ -24,6 +24,8 @@ import { ResourceCost } from '@/components/ResourceCost';
 import { QuantityControl } from '@/components/QuantityControl';
 import { WikiPopover } from '@/components/WikiPopover';
 import { codexId } from '@/lib/codex';
+import { GameAssetImage } from '@/components/GameAssetImage';
+import { SHIP_VISUALS } from '@/lib/gameVisualAssets';
 import { ApiError } from '@/lib/api';
 import { formatDuration, formatNumber } from '@/lib/format';
 import {
@@ -40,15 +42,7 @@ import {
   useTransfers,
 } from '@/lib/queries';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  FiBookmark,
-  FiClock,
-  FiLock,
-  FiNavigation,
-  FiSend,
-  FiTrash2,
-  FiTruck,
-} from 'react-icons/fi';
+import { FiBookmark, FiLock, FiNavigation, FiSend, FiTrash2, FiTruck } from 'react-icons/fi';
 
 export default function FleetsPage() {
   const { selectedId } = usePlanetSelection();
@@ -257,13 +251,20 @@ export default function FleetsPage() {
                   </span>
                 </div>
                 {fleet.ships.slice(0, 5).map((ship) => (
-                  <div key={ship.type} className="bg-bark-950/45 px-4 py-4">
-                    <span className="block truncate text-[10px] uppercase tracking-[0.13em] text-canopy-100/30">
-                      {ship.name}
-                    </span>
-                    <span className="mt-1 block font-display text-2xl text-canopy-300/80">
-                      {formatNumber(ship.available)}
-                    </span>
+                  <div key={ship.type} className="flex gap-3 bg-bark-950/45 px-4 py-4">
+                    <GameAssetImage
+                      asset={SHIP_VISUALS[ship.type]}
+                      className="h-10 w-10 rounded-lg"
+                      fallbackIcon="rocket"
+                    />
+                    <div className="min-w-0">
+                      <span className="block truncate text-[10px] uppercase tracking-[0.13em] text-canopy-100/30">
+                        {ship.name}
+                      </span>
+                      <span className="mt-1 block font-display text-2xl text-canopy-300/80">
+                        {formatNumber(ship.available)}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -297,21 +298,28 @@ export default function FleetsPage() {
                   transition={{ delay: Math.min(index * 0.04, 0.3) }}
                   className={`grid gap-4 px-5 py-3.5 md:grid-cols-[minmax(14rem,1.4fr)_minmax(10rem,1fr)_6rem_8rem] md:items-center ${!ship.unlocked ? 'opacity-50' : ''}`}
                 >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="truncate text-sm text-canopy-50/85">
-                        <WikiPopover entryId={codexId.ship(ship.type)}>{ship.name}</WikiPopover>
-                      </h3>
-                      <span className="text-[10px] text-canopy-300/55">
-                        {ship.available} dispo.
-                      </span>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <GameAssetImage
+                      asset={SHIP_VISUALS[ship.type]}
+                      className="h-12 w-12 rounded-lg"
+                      fallbackIcon="rocket"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-sm text-canopy-50/85">
+                          <WikiPopover entryId={codexId.ship(ship.type)}>{ship.name}</WikiPopover>
+                        </h3>
+                        <span className="text-[10px] text-canopy-300/55">
+                          {ship.available} dispo.
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-1 text-xs text-canopy-100/35">
+                        {ship.description}
+                      </p>
+                      <p className="mt-1 text-[10px] text-canopy-100/28">
+                        {formatDuration(ship.productionTimeSeconds)} / unité · charge {ship.cargo}
+                      </p>
                     </div>
-                    <p className="mt-1 line-clamp-1 text-xs text-canopy-100/35">
-                      {ship.description}
-                    </p>
-                    <p className="mt-1 text-[10px] text-canopy-100/28">
-                      {formatDuration(ship.productionTimeSeconds)} / unité · charge {ship.cargo}
-                    </p>
                   </div>
                   <ResourceCost cost={ship.cost} have={planet.resources.amounts} />
                   <QuantityControl
@@ -357,7 +365,11 @@ export default function FleetsPage() {
                   <h2 className="section-title">File de production</h2>
                 </div>
                 <div className="flex flex-wrap items-center gap-4 px-5 py-4">
-                  <FiClock className="h-5 w-5 text-canopy-300/60" aria-hidden="true" />
+                  <GameAssetImage
+                    asset={SHIP_VISUALS[fleet.productionJob.shipType]}
+                    className="h-10 w-10 rounded-lg"
+                    fallbackIcon="rocket"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-canopy-100/75">
                       {fleet.productionJob.quantity} × {SHIPS[fleet.productionJob.shipType].name}
@@ -420,7 +432,11 @@ export default function FleetsPage() {
                   const minimum = type === ShipType.SPORAL_SCOUT && ship.available > 0 ? 1 : 0;
                   return (
                     <div key={type} className="flex items-center gap-3 px-3 py-3">
-                      <FiNavigation className="h-4 w-4 text-spore-400/55" aria-hidden="true" />
+                      <GameAssetImage
+                        asset={SHIP_VISUALS[type]}
+                        className="h-9 w-9 rounded-lg"
+                        fallbackIcon="rocket"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs text-canopy-100/70">
                           <WikiPopover entryId={codexId.ship(type)}>{ship.name}</WikiPopover>

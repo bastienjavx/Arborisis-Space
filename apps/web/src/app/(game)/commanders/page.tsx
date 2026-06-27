@@ -2,10 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { COMMANDERS, CommanderType, type CommanderView } from '@arborisis/shared';
+import {
+  COMMANDERS,
+  CommanderTalentBranch,
+  CommanderType,
+  type CommanderView,
+} from '@arborisis/shared';
 import { api, ApiError } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
+import { COMMANDER_VISUALS } from '@/lib/gameVisualAssets';
 import { AnimatedButton } from '@/components/AnimatedButton';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ResourceCost } from '@/components/ResourceCost';
@@ -13,9 +20,7 @@ import { StatCard } from '@/components/StatCard';
 import {
   FiActivity,
   FiChevronDown,
-  FiCpu,
   FiMapPin,
-  FiPlus,
   FiShield,
   FiStar,
   FiUser,
@@ -42,6 +47,7 @@ const RARITY_CLASSES: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   IDLE: 'Inactif',
   ASSIGNED_TO_PLANET: 'Sur planète',
+  ON_FLEET: 'En flotte',
   ON_MISSION: 'En mission',
 };
 
@@ -51,7 +57,7 @@ function TalentTree({
   disabled,
 }: {
   commander: CommanderView;
-  onInvest: (branch: string, nodeId: string) => void;
+  onInvest: (branch: CommanderTalentBranch, nodeId: string) => void;
   disabled: boolean;
 }) {
   return (
@@ -112,7 +118,7 @@ function CommanderCard({
   expanded: boolean;
   onExpand: () => void;
   onAssign: (planetId: string | null) => void;
-  onInvest: (branch: string, nodeId: string) => void;
+  onInvest: (branch: CommanderTalentBranch, nodeId: string) => void;
   currentPlanetId?: string;
   busy: boolean;
 }) {
@@ -133,9 +139,11 @@ function CommanderCard({
         className="flex w-full items-start gap-4 px-5 py-4 text-left transition hover:bg-canopy-500/[0.025]"
         aria-expanded={expanded}
       >
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-canopy-700/25 bg-bark-950/60 text-canopy-300/70">
-          <FiUser className="h-5 w-5" aria-hidden="true" />
-        </span>
+        <GameAssetImage
+          asset={COMMANDER_VISUALS[commander.type]}
+          className="h-12 w-12 rounded-lg"
+          fallbackIcon="brain"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h3 className="truncate text-sm text-canopy-50/90">{commander.name}</h3>
@@ -143,7 +151,9 @@ function CommanderCard({
               {RARITY_LABELS[commander.rarity]} · Niv. {commander.level}
             </span>
           </div>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">{commander.lore}</p>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">
+            {commander.lore}
+          </p>
           <div className="mt-3">
             <div className="mb-1 flex justify-between text-[10px] text-canopy-100/35">
               <span>XP</span>
@@ -272,8 +282,15 @@ export default function CommandersPage() {
   });
 
   const invest = useMutation({
-    mutationFn: ({ id, branch, nodeId }: { id: string; branch: string; nodeId: string }) =>
-      api.investTalent(id, branch as never, nodeId),
+    mutationFn: ({
+      id,
+      branch,
+      nodeId,
+    }: {
+      id: string;
+      branch: CommanderTalentBranch;
+      nodeId: string;
+    }) => api.investTalent(id, branch, nodeId),
     onSuccess: () => {
       setError(undefined);
       void qc.invalidateQueries({ queryKey: ['commanders'] });
@@ -385,9 +402,11 @@ export default function CommandersPage() {
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-canopy-700/20 bg-bark-950/60 text-canopy-300/70">
-                        <FiCpu className="h-4 w-4" aria-hidden="true" />
-                      </span>
+                      <GameAssetImage
+                        asset={COMMANDER_VISUALS[type]}
+                        className="h-10 w-10 rounded-lg"
+                        fallbackIcon="brain"
+                      />
                       <div className="min-w-0">
                         <h3 className="truncate text-sm text-canopy-50/90">{config.name}</h3>
                         <p className="mt-0.5 text-xs text-canopy-100/40">
@@ -402,23 +421,13 @@ export default function CommandersPage() {
                       <ResourceCost cost={config.recruitCost} />
                     </div>
                     <AnimatedButton
-                      variant="ghost"
-                      onClick={() => {
-                        setError(undefined);
-                        recruit.mutate(type);
-                      }}
-                      disabled={alreadyOwned || busy || data?.canRecruit === false}
+                      variant={alreadyOwned ? 'ghost' : 'primary'}
+                      onClick={() => recruit.mutate(type)}
+                      disabled={alreadyOwned || recruit.isPending}
                       loading={recruit.isPending && recruit.variables === type}
                       className="mt-4 w-full"
                     >
-                      {alreadyOwned ? (
-                        'Déjà recruté'
-                      ) : (
-                        <>
-                          <FiPlus className="h-3.5 w-3.5" aria-hidden="true" />
-                          Recruter
-                        </>
-                      )}
+                      {alreadyOwned ? 'Déjà recruté' : 'Recruter'}
                     </AnimatedButton>
                   </article>
                 );

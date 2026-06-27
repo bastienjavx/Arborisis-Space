@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CRAFTING_RECIPES,
   ITEMS,
@@ -13,10 +13,18 @@ import {
   type PlaceMarketOrderDto,
 } from '@arborisis/shared';
 import { api } from '@/lib/api';
-import { GameIcon } from '@/components/GameIcon';
+import { GameAssetImage } from '@/components/GameAssetImage';
+import {
+  keys,
+  useInventory,
+  useMarketCandles,
+  useMarketOrderBook,
+  useMyMarketOrders,
+} from '@/lib/queries';
 import { TradingChart } from '@/components/market/TradingChart';
 import { OrderBook } from '@/components/market/OrderBook';
 import { usePlanetSelection } from '@/components/PlanetContext';
+import { ITEM_VISUALS } from '@/lib/gameVisualAssets';
 import { FiArrowLeft, FiRepeat, FiTool, FiX, FiZap } from 'react-icons/fi';
 
 type Interval = '1h' | '4h' | '1d';
@@ -35,28 +43,10 @@ export default function ItemMarketPage() {
   const item = ITEMS[itemKey as ItemKey];
   if (!item) return <div className="p-8 text-red-400">Objet inconnu.</div>;
 
-  const { data: orderBook, isLoading: obLoading } = useQuery({
-    queryKey: ['market', 'orderbook', itemKey],
-    queryFn: () => api.marketOrderBook(itemKey as ItemKey),
-    refetchInterval: 5_000,
-  });
-
-  const { data: candles } = useQuery({
-    queryKey: ['market', 'candles', itemKey, interval],
-    queryFn: () => api.marketCandles(itemKey as ItemKey, interval),
-    refetchInterval: 60_000,
-  });
-
-  const { data: myOrders } = useQuery({
-    queryKey: ['market', 'my-orders'],
-    queryFn: () => api.myMarketOrders(),
-    refetchInterval: 10_000,
-  });
-
-  const { data: inventory } = useQuery({
-    queryKey: ['inventory'],
-    queryFn: () => api.inventory(),
-  });
+  const { data: orderBook, isLoading: obLoading } = useMarketOrderBook(itemKey);
+  const { data: candles } = useMarketCandles(itemKey, interval);
+  const { data: myOrders } = useMyMarketOrders();
+  const { data: inventory } = useInventory();
 
   const itemInventory =
     inventory?.filter((s) => s.itemKey === itemKey && s.planetId === planetId) ?? [];
@@ -65,8 +55,10 @@ export default function ItemMarketPage() {
   const place = useMutation({
     mutationFn: (dto: PlaceMarketOrderDto) => api.placeMarketOrder(dto),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['market'] });
-      qc.invalidateQueries({ queryKey: ['inventory'] });
+      qc.invalidateQueries({ queryKey: keys.marketSummaries });
+      qc.invalidateQueries({ queryKey: keys.marketOrderBook(itemKey) });
+      qc.invalidateQueries({ queryKey: keys.myMarketOrders });
+      qc.invalidateQueries({ queryKey: keys.inventory });
       setPrice('');
       setQuantity('');
       setError('');
@@ -77,8 +69,10 @@ export default function ItemMarketPage() {
   const cancel = useMutation({
     mutationFn: (id: string) => api.cancelMarketOrder(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['market'] });
-      qc.invalidateQueries({ queryKey: ['inventory'] });
+      qc.invalidateQueries({ queryKey: keys.marketSummaries });
+      qc.invalidateQueries({ queryKey: keys.marketOrderBook(itemKey) });
+      qc.invalidateQueries({ queryKey: keys.myMarketOrders });
+      qc.invalidateQueries({ queryKey: keys.inventory });
     },
   });
 
@@ -125,9 +119,11 @@ export default function ItemMarketPage() {
         >
           <FiArrowLeft className="h-5 w-5" aria-hidden />
         </Link>
-        <span className="text-3xl leading-none">
-          <GameIcon name={item.icon} className="h-8 w-8" />
-        </span>
+        <GameAssetImage
+          asset={ITEM_VISUALS[item.key]}
+          className="h-14 w-14 rounded-xl"
+          fallbackIcon={item.icon}
+        />
         <div>
           <h1 className="text-xl font-bold text-canopy-100">{item.name}</h1>
           <p className="text-xs text-canopy-100/50">{item.description}</p>

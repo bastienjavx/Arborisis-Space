@@ -8,7 +8,7 @@ interface TradeRouteJobData {
   routeId: string;
 }
 
-@Processor(TRADE_ROUTE_QUEUE)
+@Processor(TRADE_ROUTE_QUEUE, { concurrency: 5 })
 export class TradeRouteProcessor extends WorkerHost {
   private readonly logger = new Logger(TradeRouteProcessor.name);
 

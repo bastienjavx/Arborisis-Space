@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { CRAFTING_RECIPES, ITEMS, ItemCategory, type ItemKey } from '@arborisis/shared';
 import { api } from '@/lib/api';
-import { GameIcon } from '@/components/GameIcon';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { PageHeader } from '@/components/PageHeader';
+import { ITEM_VISUALS } from '@/lib/gameVisualAssets';
 import { FiPackage, FiArrowRight, FiTool } from 'react-icons/fi';
 
 export default function InventoryPage() {
@@ -77,9 +78,11 @@ export default function InventoryPage() {
                   style={{ borderColor: `${item.rarityColor}20` }}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl leading-none">
-                      <GameIcon name={item.icon} className="h-6 w-6" />
-                    </span>
+                    <GameAssetImage
+                      asset={ITEM_VISUALS[item.key]}
+                      className="h-10 w-10 rounded-lg"
+                      fallbackIcon={item.icon}
+                    />
                     <div className="min-w-0">
                       <p
                         className="truncate text-xs font-semibold"

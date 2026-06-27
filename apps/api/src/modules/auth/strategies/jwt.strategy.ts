@@ -9,6 +9,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 
 export const ACCESS_COOKIE = 'access_token';
 export const REFRESH_COOKIE = 'refresh_token';
+export const AUTH_EXPIRES_COOKIE = 'auth_expires_at';
 
 export interface JwtPayload {
   sub: string;

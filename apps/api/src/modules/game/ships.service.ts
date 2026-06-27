@@ -18,6 +18,7 @@ import { FinalizationService } from './finalization.service';
 import { GameEngineService } from './game-engine.service';
 import { PlanetsService } from './planets.service';
 import { EngagementHookService } from './engagement-hook.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class ShipsService {
@@ -28,6 +29,7 @@ export class ShipsService {
     private readonly finalization: FinalizationService,
     private readonly queue: GameQueueService,
     private readonly dailyQuests: EngagementHookService,
+    private readonly events: EventsGateway,
   ) {}
 
   async overview(userId: string, planetId: string): Promise<FleetOverview> {
@@ -75,7 +77,7 @@ export class ShipsService {
     await this.finalization.finalizeDueShipProduction(dto.planetId);
     let job;
     try {
-      job = await this.prisma.serializable(async (tx) => {
+      job = await this.prisma.optimistic(async (tx) => {
         const pending = await tx.shipProductionJob.findFirst({
           where: { planetId: dto.planetId, status: JobStatus.PENDING },
         });
@@ -100,7 +102,7 @@ export class ShipsService {
         const finishesAt = new Date(
           now.getTime() + shipProductionTimeSeconds(dto.type, dto.quantity, nursery) * 1_000,
         );
-        await this.engine.spend(dto.planetId, cost, tx);
+        await this.engine.spend(dto.planetId, cost, tx, settled.planet.version);
         return tx.shipProductionJob.create({
           data: {
             planetId: dto.planetId,
@@ -118,6 +120,7 @@ export class ShipsService {
     }
     await this.queue.scheduleShipProduction(job.id, job.finishesAt);
     await this.dailyQuests.onShipsProduced(userId, dto.quantity).catch(() => void 0);
+    this.events.emitToUser(userId, 'planet:updated', { planetId: dto.planetId });
     return this.jobView(job);
   }
 

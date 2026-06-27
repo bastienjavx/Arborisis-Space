@@ -6,7 +6,7 @@ import { FinalizationService } from '../../game/finalization.service';
 import { COLONIZATION_QUEUE, type FinalizeJobData } from '../queue.constants';
 import { runWithUniverse } from './run-with-universe';
 
-@Processor(COLONIZATION_QUEUE)
+@Processor(COLONIZATION_QUEUE, { concurrency: 10 })
 export class ColonizationProcessor extends WorkerHost {
   private readonly logger = new Logger(ColonizationProcessor.name);
 

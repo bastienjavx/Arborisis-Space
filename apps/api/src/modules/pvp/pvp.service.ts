@@ -34,8 +34,9 @@ import {
   type SpyPlanetDto,
   type SpyReportView,
 } from '@arborisis/shared';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { withConcurrencyLimit } from '../../common/utils/concurrency';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
@@ -55,7 +56,14 @@ export class PvpService {
     const source = await this.planets.assertOwnership(userId, dto.sourcePlanetId);
     const target = await this.prisma.planet.findUnique({
       where: { id: dto.targetPlanetId },
-      include: { owner: true },
+      select: {
+        id: true,
+        universeId: true,
+        ownerId: true,
+        galaxy: true,
+        system: true,
+        position: true,
+      },
     });
     if (!target) throw new NotFoundException('Planète cible introuvable.');
     if (target.universeId !== source.universeId)
@@ -71,7 +79,7 @@ export class PvpService {
 
     let mission;
     try {
-      mission = await this.prisma.serializable(async (tx) => {
+      mission = await this.prisma.optimistic(async (tx) => {
         const active = await tx.pvpMission.findFirst({
           where: {
             sourcePlanetId: dto.sourcePlanetId,
@@ -89,7 +97,10 @@ export class PvpService {
             throw new BadRequestException('Bio-vaisseaux disponibles insuffisants.');
         }
 
-        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { race: true },
+        });
         const race = user.race as RaceType;
         const travelSeconds = pvpTravelTimeSeconds(source, target, ships, race);
         if (travelSeconds <= 0) throw new BadRequestException('La flotte est vide.');
@@ -98,15 +109,7 @@ export class PvpService {
         const arrivesAt = new Date(now.getTime() + travelSeconds * 1_000);
         const returnsAt = new Date(arrivesAt.getTime() + travelSeconds * 1_000);
 
-        for (const type of SHIP_TYPES) {
-          const qty = ships[type] ?? 0;
-          if (qty > 0) {
-            await tx.planetShip.update({
-              where: { planetId_type: { planetId: dto.sourcePlanetId, type } },
-              data: { quantity: { decrement: qty } },
-            });
-          }
-        }
+        await this.decrementShips(tx, dto.sourcePlanetId, ships);
 
         return tx.pvpMission.create({
           data: {
@@ -137,7 +140,14 @@ export class PvpService {
     const source = await this.planets.assertOwnership(userId, dto.sourcePlanetId);
     const target = await this.prisma.planet.findUnique({
       where: { id: dto.targetPlanetId },
-      include: { owner: true },
+      select: {
+        id: true,
+        universeId: true,
+        ownerId: true,
+        galaxy: true,
+        system: true,
+        position: true,
+      },
     });
     if (!target) throw new NotFoundException('Planète cible introuvable.');
     if (target.universeId !== source.universeId)
@@ -155,7 +165,7 @@ export class PvpService {
 
     let mission;
     try {
-      mission = await this.prisma.serializable(async (tx) => {
+      mission = await this.prisma.optimistic(async (tx) => {
         const active = await tx.pvpMission.findFirst({
           where: {
             sourcePlanetId: dto.sourcePlanetId,
@@ -173,7 +183,10 @@ export class PvpService {
             throw new BadRequestException('Bio-vaisseaux disponibles insuffisants.');
         }
 
-        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { race: true },
+        });
         const race = user.race as RaceType;
         const travelSeconds = pvpTravelTimeSeconds(source, target, ships, race);
         if (travelSeconds <= 0) throw new BadRequestException('La flotte est vide.');
@@ -182,15 +195,7 @@ export class PvpService {
         const arrivesAt = new Date(now.getTime() + travelSeconds * 1_000);
         const returnsAt = new Date(arrivesAt.getTime() + travelSeconds * 1_000);
 
-        for (const type of SHIP_TYPES) {
-          const qty = ships[type] ?? 0;
-          if (qty > 0) {
-            await tx.planetShip.update({
-              where: { planetId_type: { planetId: dto.sourcePlanetId, type } },
-              data: { quantity: { decrement: qty } },
-            });
-          }
-        }
+        await this.decrementShips(tx, dto.sourcePlanetId, ships);
 
         return tx.pvpMission.create({
           data: {
@@ -216,7 +221,7 @@ export class PvpService {
     await this.queue.schedulePvp(mission.id, PvpMissionPhase.OUTBOUND, mission.arrivesAt);
     // Notifier la cible d'une attaque imminente
     await this.notifications
-      .create(
+      .enqueue(
         mission.targetPlanet.ownerId,
         NotificationType.ATTACK_INCOMING,
         'Attaque imminente !',
@@ -270,7 +275,15 @@ export class PvpService {
         phase: PvpMissionPhase.OUTBOUND,
         arrivesAt: { gt: now },
       },
-      include: { user: true, sourcePlanet: true, targetPlanet: true },
+      select: {
+        id: true,
+        type: true,
+        arrivesAt: true,
+        targetPlanetId: true,
+        user: { select: { username: true } },
+        sourcePlanet: { select: { galaxy: true, system: true, position: true } },
+        targetPlanet: { select: { name: true, galaxy: true, system: true, position: true } },
+      },
       orderBy: { arrivesAt: 'asc' },
     });
 
@@ -318,18 +331,37 @@ export class PvpService {
         ],
       },
     });
-    for (const mission of due) await this.advanceMission(mission.id, now);
+    await withConcurrencyLimit(due, 10, (mission) => this.advanceMission(mission.id, now));
   }
 
   async advanceMission(id: string, now = new Date()): Promise<void> {
     let scheduleNext: { phase: string; at: Date } | undefined;
-    const state = await this.prisma.serializable(async (tx) => {
+    const state = await this.prisma.optimistic(async (tx) => {
       const mission = await tx.pvpMission.findUnique({
         where: { id },
-        include: {
-          sourcePlanet: true,
-          targetPlanet: { include: { owner: true, ships: true } },
-          user: true,
+        select: {
+          id: true,
+          userId: true,
+          type: true,
+          phase: true,
+          ships: true,
+          sourcePlanetId: true,
+          targetPlanetId: true,
+          arrivesAt: true,
+          returnsAt: true,
+          result: true,
+          targetPlanet: {
+            select: {
+              universeId: true,
+              galaxy: true,
+              system: true,
+              position: true,
+              ownerId: true,
+              owner: { select: { race: true } },
+              ships: { select: { type: true, quantity: true } },
+            },
+          },
+          user: { select: { race: true } },
         },
       });
       if (!mission || mission.phase === PvpMissionPhase.COMPLETED) return 'done' as const;
@@ -346,12 +378,14 @@ export class PvpService {
 
         if (mission.type === PrismaPvpMissionType.SPY) {
           const settled = await this.engine.settlePlanet(mission.targetPlanetId, now, tx);
+          const targetShipMap = this.shipMapFrom(mission.targetPlanet.ships);
+          const attackerShipMap = this.shipMapFrom(mission.ships);
           const defensePower = computeDefensePower({
-            ships: this.shipCountsFrom(mission.targetPlanet.ships),
+            ships: this.shipCountsFromMap(targetShipMap),
             race: mission.targetPlanet.owner.race as RaceType,
           });
           const spyResult = resolveSpy({
-            ships: this.shipCountsFrom(mission.ships),
+            ships: this.shipCountsFromMap(attackerShipMap),
             defensePower,
             sporeSenseLevel: attackerResearchMap[ResearchType.SPORE_SENSE] ?? 0,
           });
@@ -368,8 +402,8 @@ export class PvpService {
               buildings: Object.fromEntries(
                 settled.planet.buildings.map((b) => [b.type, b.level]),
               ) as Partial<Record<BuildingType, number>>,
-              fleet: this.shipCountsFrom(mission.targetPlanet.ships),
-              defenses: this.defenseShipCountsFrom(mission.targetPlanet.ships),
+              fleet: this.shipCountsFromMap(targetShipMap),
+              defenses: this.defenseShipCountsFromMap(targetShipMap),
               defensePower,
             };
           }
@@ -390,9 +424,11 @@ export class PvpService {
             defenderResearch.map((r) => [r.type, r.level]),
           ) as Partial<Record<ResearchType, number>>;
 
+          const targetShipMap = this.shipMapFrom(mission.targetPlanet.ships);
+          const attackerShipMap = this.shipMapFrom(mission.ships);
           const resolve = resolvePvpAttack({
-            attackerShips: this.shipCountsFrom(mission.ships),
-            defenderShips: this.shipCountsFrom(mission.targetPlanet.ships),
+            attackerShips: this.shipCountsFromMap(attackerShipMap),
+            defenderShips: this.shipCountsFromMap(targetShipMap),
             attackerRace: mission.user.race as RaceType,
             defenderRace: mission.targetPlanet.owner.race as RaceType,
             attackerResearch: attackerResearchMap as Partial<Record<ResearchType, number>>,
@@ -408,23 +444,15 @@ export class PvpService {
             remainingShips[type] = Math.max(0, sent - lost);
           }
 
+          const defenderLosses: Record<string, number> = {};
           for (const type of SHIP_TYPES) {
             const lost = resolve.defenderLosses[type] ?? 0;
             if (lost <= 0) continue;
-            const existing = mission.targetPlanet.ships.find((s) => s.type === type);
-            if (!existing) continue;
-            const next = Math.max(0, existing.quantity - lost);
-            if (next === 0) {
-              await tx.planetShip.delete({
-                where: { planetId_type: { planetId: mission.targetPlanetId, type } },
-              });
-            } else {
-              await tx.planetShip.update({
-                where: { planetId_type: { planetId: mission.targetPlanetId, type } },
-                data: { quantity: next },
-              });
-            }
+            const existing = targetShipMap.get(type) ?? 0;
+            if (existing <= 0) continue;
+            defenderLosses[type] = Math.min(existing, lost);
           }
+          await this.decrementShips(tx, mission.targetPlanetId, defenderLosses);
 
           const result: PvpMissionResultView = {
             outcome: resolve.outcome,
@@ -464,16 +492,7 @@ export class PvpService {
       if (!result) return 'waiting' as const;
 
       const ships = mission.ships as Record<string, number>;
-      for (const type of SHIP_TYPES) {
-        const qty = ships[type] ?? 0;
-        if (qty > 0) {
-          await tx.planetShip.upsert({
-            where: { planetId_type: { planetId: mission.sourcePlanetId, type } },
-            update: { quantity: { increment: qty } },
-            create: { planetId: mission.sourcePlanetId, type, quantity: qty },
-          });
-        }
-      }
+      await this.upsertShips(tx, mission.sourcePlanetId, ships);
 
       const loot = result.loot;
       if (loot && Object.values(loot).some((v) => v > 0)) {
@@ -485,12 +504,13 @@ export class PvpService {
           accepted[resource] = Math.max(0, Math.min(loot[resource] ?? 0, cap - current[resource]));
         }
         await tx.planet.update({
-          where: { id: mission.sourcePlanetId },
+          where: { id: mission.sourcePlanetId, version: settled.planet.version },
           data: {
             biomass: { increment: accepted[ResourceType.BIOMASS] },
             sap: { increment: accepted[ResourceType.SAP] },
             minerals: { increment: accepted[ResourceType.MINERALS] },
             spores: { increment: accepted[ResourceType.SPORES] },
+            version: { increment: 1 },
           },
         });
       }
@@ -508,33 +528,84 @@ export class PvpService {
     }
   }
 
-  private shipCountsFrom(items: unknown): Record<ShipType, number> {
+  private shipMapFrom(items: unknown): Map<string, number> {
     const arr = Array.isArray(items)
       ? (items as { type: string; quantity: number }[])
       : Object.entries(items as Record<string, number>).map(([type, quantity]) => ({
           type,
           quantity,
         }));
+    return new Map(arr.map((s) => [s.type, s.quantity]));
+  }
+
+  private shipCountsFromMap(map: Map<string, number>): Record<ShipType, number> {
+    return Object.fromEntries(SHIP_TYPES.map((type) => [type, map.get(type) ?? 0])) as Record<
+      ShipType,
+      number
+    >;
+  }
+
+  private shipCountsFrom(items: unknown): Record<ShipType, number> {
+    return this.shipCountsFromMap(this.shipMapFrom(items));
+  }
+
+  private defenseShipCountsFromMap(map: Map<string, number>): Record<ShipType, number> {
     return Object.fromEntries(
-      SHIP_TYPES.map((type) => [type, arr.find((s) => s.type === type)?.quantity ?? 0]),
+      SHIP_TYPES.map((type) => [
+        type,
+        SHIPS[type].role === ShipRole.DEFENSE ? (map.get(type) ?? 0) : 0,
+      ]),
     ) as Record<ShipType, number>;
   }
 
   private defenseShipCountsFrom(
     items: { type: string; quantity: number }[],
   ): Record<ShipType, number> {
-    return Object.fromEntries(
-      SHIP_TYPES.map((type) => [
-        type,
-        SHIPS[type].role === ShipRole.DEFENSE
-          ? (items.find((s) => s.type === type)?.quantity ?? 0)
-          : 0,
-      ]),
-    ) as Record<ShipType, number>;
+    return this.defenseShipCountsFromMap(this.shipMapFrom(items));
   }
 
   private emptyShipCounts(): Record<ShipType, number> {
     return Object.fromEntries(SHIP_TYPES.map((type) => [type, 0])) as Record<ShipType, number>;
+  }
+
+  private async decrementShips(
+    tx: Prisma.TransactionClient,
+    planetId: string,
+    ships: Record<string, number>,
+  ): Promise<void> {
+    const entries = Object.entries(ships).filter(([, qty]) => qty > 0);
+    if (entries.length === 0) return;
+    const typeArray = Prisma.sql`ARRAY[${Prisma.join(
+      entries.map(([type]) => Prisma.sql`${type}::text`),
+      ', ',
+    )}]`;
+    const qtyArray = Prisma.sql`ARRAY[${Prisma.join(
+      entries.map(([, qty]) => Prisma.sql`${qty}::int`),
+      ', ',
+    )}]`;
+    await tx.$executeRaw`
+      UPDATE "planet_ships" ps
+      SET quantity = ps.quantity - d.qty
+      FROM unnest(${typeArray}::text[], ${qtyArray}::int[]) AS d(type, qty)
+      WHERE ps."planetId" = ${planetId}
+        AND ps."type"::text = d.type
+        AND ps.quantity >= d.qty
+    `;
+  }
+
+  private async upsertShips(
+    tx: Prisma.TransactionClient,
+    planetId: string,
+    ships: Record<string, number>,
+  ): Promise<void> {
+    for (const [type, qty] of Object.entries(ships)) {
+      if (qty <= 0) continue;
+      await tx.planetShip.upsert({
+        where: { planetId_type: { planetId, type: type as ShipType } },
+        update: { quantity: { increment: qty } },
+        create: { planetId, type: type as ShipType, quantity: qty },
+      });
+    }
   }
 
   private missionView(mission: {

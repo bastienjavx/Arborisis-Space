@@ -8,8 +8,10 @@ import { AnimatedCountdown } from '@/components/AnimatedCountdown';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { MobileResourceBar } from '@/components/MobileResourceBar';
 import { ResourceCost } from '@/components/ResourceCost';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { WikiPopover } from '@/components/WikiPopover';
 import { codexId } from '@/lib/codex';
+import { BUILDING_VISUALS } from '@/lib/gameVisualAssets';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ApiError } from '@/lib/api';
 import { formatDuration, formatNumber } from '@/lib/format';
@@ -99,9 +101,17 @@ export default function BuildingsPage() {
                 <h2 className="section-title">File de construction</h2>
               </div>
               <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-canopy-700/25 bg-canopy-500/5 text-canopy-300">
-                  <FiLayers className="h-5 w-5" aria-hidden="true" />
-                </span>
+                {planet.constructionJob.targetType ? (
+                  <GameAssetImage
+                    asset={BUILDING_VISUALS[planet.constructionJob.targetType as BuildingType]}
+                    className="h-12 w-12 rounded-full"
+                    fallbackIcon="wrench"
+                  />
+                ) : (
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-canopy-700/25 bg-canopy-500/5 text-canopy-300">
+                    <FiLayers className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-canopy-50">
                     {planet.constructionJob.targetType
@@ -220,9 +230,11 @@ export default function BuildingsPage() {
                 className={`grid gap-4 px-5 py-4 transition hover:bg-canopy-500/[0.025] xl:grid-cols-[minmax(16rem,1.7fr)_4rem_minmax(13rem,1.15fr)_7rem_minmax(11rem,1fr)_9rem] xl:items-center ${locked ? 'opacity-55' : ''}`}
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-canopy-700/25 bg-bark-950/60 text-canopy-300/65">
-                    <FiLayers className="h-5 w-5" aria-hidden="true" />
-                  </span>
+                  <GameAssetImage
+                    asset={BUILDING_VISUALS[building.type]}
+                    className="h-12 w-12 rounded-full"
+                    fallbackIcon="wrench"
+                  />
                   <div className="min-w-0">
                     <h3 className="truncate text-sm text-canopy-50/90">
                       <WikiPopover entryId={codexId.building(building.type)}>

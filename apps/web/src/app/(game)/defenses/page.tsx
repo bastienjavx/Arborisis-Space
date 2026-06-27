@@ -12,22 +12,15 @@ import {
 import { api, ApiError } from '@/lib/api';
 import { formatDuration, formatNumber } from '@/lib/format';
 import { keys, usePlanetDetail } from '@/lib/queries';
+import { DEFENSE_VISUALS } from '@/lib/gameVisualAssets';
 import { AnimatedButton } from '@/components/AnimatedButton';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import { MobileResourceBar } from '@/components/MobileResourceBar';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ResourceCost } from '@/components/ResourceCost';
 import { StatCard } from '@/components/StatCard';
-import { FiClock, FiCrosshair, FiLock, FiShield, FiZap } from 'react-icons/fi';
-
-const DEFENSE_ICONS: Record<DefenseType, typeof FiShield> = {
-  [DefenseType.ION_CANNON]: FiZap,
-  [DefenseType.SPORE_NET]: FiCrosshair,
-  [DefenseType.SHIELD_MEMBRANE]: FiShield,
-  [DefenseType.MYCELIAL_TURRET]: FiCrosshair,
-  [DefenseType.VOID_LANCE]: FiZap,
-  [DefenseType.ORBITAL_THORN_BED]: FiShield,
-};
+import { FiClock, FiLock, FiShield, FiZap } from 'react-icons/fi';
 
 function multiplyCost(cost: ResourceBundle, quantity: number): ResourceBundle {
   const total: ResourceBundle = {};
@@ -156,7 +149,7 @@ export default function DefensesPage() {
           <h2 className="section-title">Catalogue défensif</h2>
         </div>
 
-        <div className="hidden grid-cols-[minmax(16rem,1.35fr)_5rem_minmax(12rem,1fr)_7rem_7rem_minmax(11rem,0.85fr)_10rem] gap-4 border-b border-canopy-700/15 bg-canopy-500/[0.025] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-canopy-100/32 xl:grid">
+        <div className="hidden grid-cols-[minmax(18rem,1.35fr)_5rem_minmax(12rem,1fr)_7rem_7rem_minmax(11rem,0.85fr)_10rem] gap-4 border-b border-canopy-700/15 bg-canopy-500/[0.025] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.13em] text-canopy-100/32 xl:grid">
           <span>Défense</span>
           <span>Stock</span>
           <span>Coût</span>
@@ -168,7 +161,6 @@ export default function DefensesPage() {
 
         <div className="divide-y divide-canopy-700/10">
           {data.defenses.map((defense) => {
-            const Icon = DEFENSE_ICONS[defense.type] ?? FiShield;
             const requested = quantities[defense.type] ?? 1;
             const max = Math.min(10_000, maxAffordable(defense.cost, amounts));
             const locked = defense.unmet.length > 0;
@@ -180,14 +172,16 @@ export default function DefensesPage() {
             return (
               <article
                 key={defense.type}
-                className={`grid gap-4 px-5 py-4 transition hover:bg-canopy-500/[0.025] xl:grid-cols-[minmax(16rem,1.35fr)_5rem_minmax(12rem,1fr)_7rem_7rem_minmax(11rem,0.85fr)_10rem] xl:items-center ${
+                className={`grid gap-4 px-5 py-4 transition hover:bg-canopy-500/[0.025] xl:grid-cols-[minmax(18rem,1.35fr)_5rem_minmax(12rem,1fr)_7rem_7rem_minmax(11rem,0.85fr)_10rem] xl:items-center ${
                   locked ? 'opacity-60' : ''
                 }`}
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-canopy-700/25 bg-bark-950/60 text-canopy-300/70">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  </span>
+                  <GameAssetImage
+                    asset={DEFENSE_VISUALS[defense.type]}
+                    className="h-12 w-12 rounded-lg"
+                    fallbackIcon="shield"
+                  />
                   <div className="min-w-0">
                     <h3 className="truncate text-sm text-canopy-50/90">{defense.name}</h3>
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-canopy-100/38">

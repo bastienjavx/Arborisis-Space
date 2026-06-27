@@ -6,7 +6,7 @@ import { ExpeditionsService } from '../../game/expeditions.service';
 import { EXPEDITION_QUEUE, FINALIZE_JOB, type FinalizeJobData } from '../queue.constants';
 import { runWithUniverse } from './run-with-universe';
 
-@Processor(EXPEDITION_QUEUE)
+@Processor(EXPEDITION_QUEUE, { concurrency: 5 })
 export class ExpeditionProcessor extends WorkerHost {
   private readonly logger = new Logger(ExpeditionProcessor.name);
   constructor(
