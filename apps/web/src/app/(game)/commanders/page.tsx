@@ -6,6 +6,8 @@ import { COMMANDERS, CommanderType, type CommanderView } from '@arborisis/shared
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { usePlanetSelection } from '@/components/PlanetContext';
+import { GameAssetImage } from '@/components/GameAssetImage';
+import { COMMANDER_VISUALS } from '@/lib/gameVisualAssets';
 
 const RARITY_COLORS: Record<string, string> = {
   COMMON: 'text-gray-400 border-gray-600',
@@ -92,7 +94,11 @@ function CommanderCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 cursor-pointer" onClick={onExpand}>
           <div className="flex items-center gap-2">
-            <span className="text-2xl">{'🧬'}</span>
+            <GameAssetImage
+              asset={COMMANDER_VISUALS[commander.type]}
+              className="h-12 w-12 rounded-lg"
+              fallbackIcon="brain"
+            />
             <div>
               <h3 className="font-bold text-white">{commander.name}</h3>
               <span className={`text-xs ${rarityClasses.split(' ')[0]}`}>
@@ -274,7 +280,11 @@ export default function CommandersPage() {
                       } bg-gray-950`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl">{'🧬'}</span>
+                        <GameAssetImage
+                          asset={COMMANDER_VISUALS[type]}
+                          className="h-12 w-12 rounded-lg"
+                          fallbackIcon="brain"
+                        />
                         <div>
                           <h3 className="text-sm font-bold text-white">{config.name}</h3>
                           <span className="text-xs text-gray-400">

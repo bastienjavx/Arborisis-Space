@@ -13,19 +13,19 @@ import {
   type PlaceMarketOrderDto,
 } from '@arborisis/shared';
 import { api } from '@/lib/api';
+import { GameAssetImage } from '@/components/GameAssetImage';
 import {
+  keys,
   useInventory,
   useMarketCandles,
   useMarketOrderBook,
   useMyMarketOrders,
 } from '@/lib/queries';
-import { GameIcon } from '@/components/GameIcon';
 import { TradingChart } from '@/components/market/TradingChart';
 import { OrderBook } from '@/components/market/OrderBook';
 import { usePlanetSelection } from '@/components/PlanetContext';
+import { ITEM_VISUALS } from '@/lib/gameVisualAssets';
 import { FiArrowLeft, FiRepeat, FiTool, FiX, FiZap } from 'react-icons/fi';
-
-import { keys } from '@/lib/queries';
 
 type Interval = '1h' | '4h' | '1d';
 
@@ -119,9 +119,11 @@ export default function ItemMarketPage() {
         >
           <FiArrowLeft className="h-5 w-5" aria-hidden />
         </Link>
-        <span className="text-3xl leading-none">
-          <GameIcon name={item.icon} className="h-8 w-8" />
-        </span>
+        <GameAssetImage
+          asset={ITEM_VISUALS[item.key]}
+          className="h-14 w-14 rounded-xl"
+          fallbackIcon={item.icon}
+        />
         <div>
           <h1 className="text-xl font-bold text-canopy-100">{item.name}</h1>
           <p className="text-xs text-canopy-100/50">{item.description}</p>
