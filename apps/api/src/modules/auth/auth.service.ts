@@ -536,7 +536,7 @@ export class AuthService {
 
   /** Clé AES-256 dérivée de TOTP_ENC_KEY, ou `null` si le chiffrement est désactivé. */
   private totpKey(): Buffer | null {
-    const raw = this.config.get('TOTP_ENC_KEY', { infer: true });
+    const raw = this.config.get('TOTP_ENC_KEY', { infer: true })?.trim();
     return raw ? createHash('sha256').update(raw).digest() : null;
   }
 
@@ -555,14 +555,24 @@ export class AuthService {
   private decryptTotpSecret(stored: string): string {
     if (!stored.startsWith(TOTP_ENC_PREFIX)) return stored;
     const key = this.totpKey();
-    if (!key) throw new UnauthorizedException('Déchiffrement TOTP indisponible.');
-    const buf = Buffer.from(stored.slice(TOTP_ENC_PREFIX.length), 'base64');
-    const iv = buf.subarray(0, 12);
-    const tag = buf.subarray(12, 28);
-    const data = buf.subarray(28);
-    const decipher = createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
+    if (!key) {
+      throw new UnauthorizedException(
+        'Déchiffrement TOTP indisponible. Vérifiez la variable TOTP_ENC_KEY.',
+      );
+    }
+    try {
+      const buf = Buffer.from(stored.slice(TOTP_ENC_PREFIX.length), 'base64');
+      const iv = buf.subarray(0, 12);
+      const tag = buf.subarray(12, 28);
+      const data = buf.subarray(28);
+      const decipher = createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(tag);
+      return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
+    } catch {
+      throw new UnauthorizedException(
+        'Impossible de déchiffrer le secret TOTP. La clé TOTP_ENC_KEY a probablement changé.',
+      );
+    }
   }
 
   private hashesEqual(a: string, b: string): boolean {

@@ -171,7 +171,11 @@ export function createApi(request: RequestFn) {
         noRefresh: true,
       }),
     login: (body: { email: string; password: string }) =>
-      request<{ user: AuthUser }>('/auth/login', { method: 'POST', body, noRefresh: true }),
+      request<{ user: AuthUser } | { twoFactorRequired: true; tempToken: string }>('/auth/login', {
+        method: 'POST',
+        body,
+        noRefresh: true,
+      }),
     verifyEmail: (token: string) =>
       request<{ user: AuthUser }>('/auth/verify-email', {
         method: 'POST',
