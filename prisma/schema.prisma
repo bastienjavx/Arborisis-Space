@@ -33,6 +33,7 @@ enum RaceType {
   MYCELIANS
   PHOTOSYNTHEX
   CHITINIDS
+  MYCOSYNTH
 }
 
 enum BuildingType {

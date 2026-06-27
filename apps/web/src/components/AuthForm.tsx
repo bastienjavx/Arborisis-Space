@@ -364,7 +364,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                     >
                       <label className="label">Race</label>
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        {Object.values(RACES).map((cfg) => (
+                        {Object.values(RACES).filter((cfg) => cfg.playable).map((cfg) => (
                           <button
                             key={cfg.type}
                             type="button"
