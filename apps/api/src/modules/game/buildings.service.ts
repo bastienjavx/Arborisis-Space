@@ -18,6 +18,7 @@ import { FinalizationService } from './finalization.service';
 import { GameEngineService } from './game-engine.service';
 import { constructionJobView } from './game.mappers';
 import { PlanetsService } from './planets.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class BuildingsService {
@@ -27,6 +28,7 @@ export class BuildingsService {
     private readonly planets: PlanetsService,
     private readonly finalization: FinalizationService,
     private readonly queue: GameQueueService,
+    private readonly events: EventsGateway,
   ) {}
 
   async upgrade(userId: string, planetId: string, type: BuildingType): Promise<JobView> {
@@ -34,7 +36,7 @@ export class BuildingsService {
     await this.finalization.finalizeDueForPlanet(planetId);
     let job;
     try {
-      job = await this.prisma.serializable(async (tx) => {
+      job = await this.prisma.optimistic(async (tx) => {
         const pending = await tx.constructionJob.findFirst({
           where: { planetId, status: JobStatus.PENDING },
         });
@@ -70,7 +72,7 @@ export class BuildingsService {
         );
         const now = new Date();
         const finishesAt = new Date(now.getTime() + seconds * 1000);
-        await this.engine.spend(planetId, cost, tx);
+        await this.engine.spend(planetId, cost, tx, settled.planet.version);
         return tx.constructionJob.create({
           data: { planetId, buildingType: type, targetLevel, startedAt: now, finishesAt },
         });
@@ -82,6 +84,7 @@ export class BuildingsService {
       throw error;
     }
     await this.queue.scheduleConstruction(job.id, job.finishesAt);
+    this.events.emitToUser(userId, 'planet:updated', { planetId });
 
     return constructionJobView(job);
   }

@@ -72,7 +72,7 @@ export class PveService {
 
     let mission;
     try {
-      mission = await this.prisma.serializable(async (tx) => {
+      mission = await this.prisma.optimistic(async (tx) => {
         const active = await tx.pveMission.findFirst({
           where: {
             sourcePlanetId: dto.planetId,
@@ -204,7 +204,7 @@ export class PveService {
 
   async advanceMission(id: string, now = new Date()): Promise<void> {
     let scheduleNext: { phase: string; at: Date } | undefined;
-    const state = await this.prisma.serializable(async (tx) => {
+    const state = await this.prisma.optimistic(async (tx) => {
       const mission = await tx.pveMission.findUnique({
         where: { id },
         select: {
@@ -289,12 +289,13 @@ export class PveService {
       }
 
       await tx.planet.update({
-        where: { id: mission.sourcePlanetId },
+        where: { id: mission.sourcePlanetId, version: settled.planet.version },
         data: {
           biomass: { increment: accepted[ResourceType.BIOMASS] },
           sap: { increment: accepted[ResourceType.SAP] },
           minerals: { increment: accepted[ResourceType.MINERALS] },
           spores: { increment: accepted[ResourceType.SPORES] },
+          version: { increment: 1 },
         },
       });
 

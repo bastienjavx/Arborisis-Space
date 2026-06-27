@@ -15,12 +15,14 @@ import {
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
+import { RedisService } from '../../common/redis/redis.service';
 import { withConcurrencyLimit } from '../../common/utils/concurrency';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GameQueueService } from '../queue/game-queue.service';
 import { EngagementHookService } from './engagement-hook.service';
 import { GameEngineService } from './game-engine.service';
 import { WorldFactoryService } from './world-factory.service';
+import { EventsGateway } from '../events/events.gateway';
 
 /**
  * Finalise les jobs temporisés (construction, recherche, essaimage).
@@ -40,6 +42,8 @@ export class FinalizationService {
     private readonly engine: GameEngineService,
     private readonly gameQueue: GameQueueService,
     private readonly engagementHook: EngagementHookService,
+    private readonly events: EventsGateway,
+    private readonly redis: RedisService,
   ) {}
 
   async finalizeConstruction(jobId: string, now = new Date()): Promise<void> {
@@ -88,6 +92,7 @@ export class FinalizationService {
           { buildingType, level },
         )
         .catch(() => void 0);
+      this.events.emitToUser(userId, 'construction:completed', { planetId });
       await this.processNextInQueue(planetId);
       await this.engagementHook.onBuildingCompleted(userId).catch(() => void 0);
     }
@@ -132,7 +137,7 @@ export class FinalizationService {
 
       let newJobId: string | null = null;
       await this.prisma.$transaction(async (tx) => {
-        await this.engine.spend(planetId, cost, tx);
+        await this.engine.spend(planetId, cost, tx, settled.planet.version);
         const job = await tx.constructionJob.create({
           data: {
             planetId,
@@ -156,7 +161,7 @@ export class FinalizationService {
 
   async finalizeResearch(jobId: string, now = new Date()): Promise<void> {
     let notifyData: { userId: string; researchType: string; level: number } | null = null;
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       const job = await tx.researchJob.findUnique({ where: { id: jobId } });
       if (!job || job.status !== JobStatus.PENDING || job.finishesAt > now) return;
 
@@ -176,6 +181,7 @@ export class FinalizationService {
         researchType: string;
         level: number;
       };
+      await this.redis.del(`research:levels:${userId}`);
       const researchName = RESEARCHES[researchType as ResearchType]?.name ?? researchType;
       await this.notifications
         .enqueue(
@@ -186,6 +192,7 @@ export class FinalizationService {
           { researchType, level },
         )
         .catch(() => void 0);
+      this.events.emitToUser(userId, 'research:completed', { researchType, level });
       await this.engagementHook.onResearchCompleted(userId).catch(() => void 0);
     }
   }
@@ -235,6 +242,7 @@ export class FinalizationService {
           { galaxy: job.targetGalaxy, system: job.targetSystem, position: job.targetPosition },
         )
         .catch(() => void 0);
+      this.events.emitToUser(job.userId, 'mission:updated', { kind: 'colonization' });
     });
   }
 
@@ -268,6 +276,7 @@ export class FinalizationService {
           { shipType: done.shipType, quantity: done.quantity },
         )
         .catch(() => void 0);
+      this.events.emitToUser(done.planet.ownerId, 'ship:produced', { planetId: done.planetId });
     }
   }
 
@@ -363,14 +372,16 @@ export class FinalizationService {
     const ships = mission.ships as Record<string, number>;
     const itemCargo = mission.itemCargo as Record<string, number>;
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
+      const settled = await this.engine.settlePlanet(mission.targetPlanetId, now, tx);
       await tx.planet.update({
-        where: { id: mission.targetPlanetId },
+        where: { id: mission.targetPlanetId, version: settled.planet.version },
         data: {
           biomass: { increment: resources['BIOMASS'] ?? 0 },
           sap: { increment: resources['SAP'] ?? 0 },
           minerals: { increment: resources['MINERALS'] ?? 0 },
           spores: { increment: resources['SPORES'] ?? 0 },
+          version: { increment: 1 },
         },
       });
       for (const [type, qty] of Object.entries(ships)) {
@@ -403,6 +414,7 @@ export class FinalizationService {
         where: { id: missionId },
         data: { phase: TransferPhase.COMPLETED, completedAt: now },
       });
+      this.events.emitToUser(mission.userId, 'transfer:completed', { missionId });
     });
   }
 }

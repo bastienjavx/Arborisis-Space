@@ -14,6 +14,7 @@ import {
   FiUsers,
 } from 'react-icons/fi';
 import { PageHeader } from '@/components/PageHeader';
+import { VirtualList } from '@/components/VirtualList';
 import {
   useChatContacts,
   useChatMessages,
@@ -176,18 +177,17 @@ export default function ChatPage() {
   const allianceUnavailable = scope === ChatScope.ALLIANCE && !alliance;
   const privateUnavailable = scope === ChatScope.PRIVATE && !peer;
 
-  const renderedMessages = useMemo(
-    () =>
-      messages.map((message) => (
-        <ChatMessage
-          key={message.id}
-          message={message}
-          mine={message.author.id === me?.id}
-          canModerate={canModerate}
-          onDelete={handleDelete}
-        />
-      )),
-    [messages, me?.id, canModerate, handleDelete],
+  const renderedMessage = useCallback(
+    (message: ChatMessageView) => (
+      <ChatMessage
+        key={message.id}
+        message={message}
+        mine={message.author.id === me?.id}
+        canModerate={canModerate}
+        onDelete={handleDelete}
+      />
+    ),
+    [me?.id, canModerate, handleDelete],
   );
 
   return (
@@ -244,21 +244,24 @@ export default function ChatPage() {
                     aria-label="Chercher un joueur"
                   />
                 </label>
-                <div className="mt-3 max-h-52 space-y-1 overflow-y-auto md:max-h-[29rem]">
-                  {contacts.map((contact) => (
+                <VirtualList
+                  items={contacts}
+                  estimateSize={64}
+                  className="mt-3 h-52 md:h-[29rem]"
+                  keyExtractor={(contact) => contact.id}
+                  renderItem={(contact) => (
                     <ContactButton
-                      key={contact.id}
                       contact={contact}
                       active={peerId === contact.id}
                       onSelect={handleSelectContact}
                     />
-                  ))}
-                  {!contacts.length && (
+                  )}
+                  empty={
                     <p className="px-3 py-6 text-center text-xs text-canopy-100/35">
                       Aucun joueur trouvé.
                     </p>
-                  )}
-                </div>
+                  }
+                />
               </>
             ) : (
               <div className="p-3 text-sm leading-6 text-canopy-100/40">
@@ -283,7 +286,7 @@ export default function ChatPage() {
               </p>
             </div>
 
-            <div className="h-[27rem] flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+            <div className="h-[27rem] flex-1 px-4 py-5 sm:px-6">
               {isLoading && <p className="text-sm text-canopy-100/35">Synchronisation…</p>}
               {allianceUnavailable && (
                 <p className="rounded-xl border border-canopy-700/20 p-5 text-sm text-canopy-100/50">
@@ -299,12 +302,20 @@ export default function ChatPage() {
                   Sélectionnez un joueur dans la liste pour ouvrir une conversation.
                 </p>
               )}
-              {!isLoading && !allianceUnavailable && !privateUnavailable && !messages.length && (
-                <p className="py-16 text-center text-sm text-canopy-100/35">
-                  Aucun message. Initiez la conversation.
-                </p>
+              {!isLoading && !allianceUnavailable && !privateUnavailable && (
+                <VirtualList
+                  items={messages}
+                  estimateSize={80}
+                  className="h-full"
+                  keyExtractor={(message) => message.id}
+                  renderItem={renderedMessage}
+                  empty={
+                    <p className="py-16 text-center text-sm text-canopy-100/35">
+                      Aucun message. Initiez la conversation.
+                    </p>
+                  }
+                />
               )}
-              {renderedMessages}
               <div ref={endRef} />
             </div>
 

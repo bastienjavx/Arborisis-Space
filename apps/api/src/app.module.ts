@@ -34,6 +34,7 @@ import { DiplomacyModule } from './modules/diplomacy/diplomacy.module';
 import { CommandersModule } from './modules/commanders/commanders.module';
 import { MoonsModule } from './modules/moons/moons.module';
 import { DefensesModule } from './modules/defenses/defenses.module';
+import { EventsModule } from './modules/events/events.module';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { DefensesModule } from './modules/defenses/defenses.module';
     }),
     RedisModule,
     PrismaModule,
+    RedisModule,
     AntiCheatModule,
     HealthModule,
     AuthModule,
@@ -112,6 +114,7 @@ import { DefensesModule } from './modules/defenses/defenses.module';
     ProcessorsModule,
     ProvisioningModule,
     UniverseModule,
+    EventsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: OriginGuard },

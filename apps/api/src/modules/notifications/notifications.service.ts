@@ -4,12 +4,14 @@ import { Prisma, NotificationType as PrismaNotificationType } from '@prisma/clie
 import { Queue } from 'bullmq';
 import { NotificationType, NotificationView, UnreadCountView } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { EventsGateway } from '../events/events.gateway';
 import { NOTIFICATIONS_QUEUE, SEND_NOTIFICATION_JOB } from '../queue/queue.constants';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly events: EventsGateway,
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
   ) {}
 
@@ -29,6 +31,7 @@ export class NotificationsService {
         data: data as Prisma.InputJsonValue,
       },
     });
+    this.events.emitToUser(userId, 'notification:new', { type });
   }
 
   async enqueue(

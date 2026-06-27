@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { ItemKey as PrismaItemKey, OhlcvInterval } from '@prisma/client';
+import { ItemKey as PrismaItemKey, OhlcvInterval, Prisma } from '@prisma/client';
 import {
   CRAFTING_RECIPES,
   ITEMS,
@@ -21,6 +21,7 @@ import { GameEngineService } from '../game/game-engine.service';
 import { PlanetsService } from '../game/planets.service';
 import { GameQueueService } from '../queue/game-queue.service';
 import { MARKET_EXPIRY_QUEUE, EXPIRE_MARKET_ORDER_JOB } from '../queue/queue.constants';
+import { EventsGateway } from '../events/events.gateway';
 
 // Re-export for convenience
 export { CRAFTING_RECIPES, ITEMS };
@@ -43,6 +44,7 @@ export class MarketService {
     private readonly planets: PlanetsService,
     private readonly gameQueue: GameQueueService,
     @InjectQueue(MARKET_EXPIRY_QUEUE) private readonly expiryQueue: Queue,
+    private readonly events: EventsGateway,
   ) {}
 
   async getMarketSummaries(universeId: string): Promise<MarketSummaryView[]> {
@@ -289,7 +291,7 @@ export class MarketService {
 
     if (dto.side === MarketOrderSide.BUY) {
       const escrow = dto.pricePerUnit * dto.quantity;
-      const order = await this.prisma.serializable(async (tx) => {
+      const order = await this.prisma.optimistic(async (tx) => {
         const freshPlanet = await tx.planet.findUniqueOrThrow({ where: { id: planet.id } });
         if (freshPlanet.biomass < escrow) {
           throw new BadRequestException(
@@ -297,10 +299,11 @@ export class MarketService {
           );
         }
         await tx.planet.update({
-          where: { id: planet.id },
+          where: { id: planet.id, version: freshPlanet.version },
           data: {
             biomass: { decrement: escrow },
             lastResourceUpdate: settled.planet.lastResourceUpdate,
+            version: { increment: 1 },
           },
         });
 
@@ -322,6 +325,7 @@ export class MarketService {
 
       await this.scheduleExpiry(order.id, order.expiresAt!);
       await this.tryMatch(universeId, dto.itemKey, order.id);
+      this.events.emitToUser(userId, 'planet:updated', { planetId: dto.sourcePlanetId });
 
       const fresh = await this.prisma.marketOrder.findUniqueOrThrow({
         where: { id: order.id },
@@ -329,7 +333,7 @@ export class MarketService {
       });
       return this.toOrderView(fresh, userId);
     } else {
-      const order = await this.prisma.serializable(async (tx) => {
+      const order = await this.prisma.optimistic(async (tx) => {
         const debit = await tx.playerInventorySlot.updateMany({
           where: {
             userId,
@@ -382,7 +386,7 @@ export class MarketService {
   }
 
   async cancelOrder(userId: string, orderId: string): Promise<void> {
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       const order = await tx.marketOrder.findUnique({ where: { id: orderId } });
       if (!order) throw new NotFoundException('Ordre introuvable.');
       if (order.userId !== userId)
@@ -402,10 +406,12 @@ export class MarketService {
       if (order.side === MarketOrderSide.BUY && order.escrowBiomass > 0) {
         const remaining = order.quantity - order.filledQuantity;
         const refund = remaining * order.pricePerUnit;
+        const settled = await this.engine.settlePlanet(order.sourcePlanetId, new Date(), tx);
         await tx.planet.update({
-          where: { id: order.sourcePlanetId },
-          data: { biomass: { increment: refund } },
+          where: { id: order.sourcePlanetId, version: settled.planet.version },
+          data: { biomass: { increment: refund }, version: { increment: 1 } },
         });
+        this.events.emitToUser(userId, 'planet:updated', { planetId: order.sourcePlanetId });
       } else if (order.side === MarketOrderSide.SELL) {
         const remaining = order.quantity - order.filledQuantity;
         if (remaining > 0) {
@@ -515,7 +521,7 @@ export class MarketService {
   }): Promise<void> {
     const { universeId, itemKey, buyOrder, sellOrder, execQty, execPrice } = params;
 
-    await this.prisma.serializable(async (tx) => {
+    await this.prisma.optimistic(async (tx) => {
       // Vérifier à nouveau les quantités restantes
       const [freshBuy, freshSell] = await Promise.all([
         tx.marketOrder.findUniqueOrThrow({ where: { id: buyOrder.id } }),
@@ -568,19 +574,25 @@ export class MarketService {
         },
       });
 
+      // Récupère les versions des planètes concernées via un settle serveur-authoritative.
+      const [buyerPlanet, sellerPlanet] = await Promise.all([
+        this.engine.settlePlanet(buyOrder.sourcePlanetId, new Date(), tx),
+        this.engine.settlePlanet(sellOrder.sourcePlanetId, new Date(), tx),
+      ]);
+
       // Remboursement différentiel si acheteur a payé plus que execPrice
       const overpay = (freshBuy.pricePerUnit - execPrice) * qty;
       if (overpay > 0) {
         await tx.planet.update({
-          where: { id: buyOrder.sourcePlanetId },
-          data: { biomass: { increment: overpay } },
+          where: { id: buyOrder.sourcePlanetId, version: buyerPlanet.planet.version },
+          data: { biomass: { increment: overpay }, version: { increment: 1 } },
         });
       }
 
       // Vendeur reçoit la Biomasse
       await tx.planet.update({
-        where: { id: sellOrder.sourcePlanetId },
-        data: { biomass: { increment: totalBiomass } },
+        where: { id: sellOrder.sourcePlanetId, version: sellerPlanet.planet.version },
+        data: { biomass: { increment: totalBiomass }, version: { increment: 1 } },
       });
 
       const newBuyFilled = freshBuy.filledQuantity + qty;
@@ -624,11 +636,17 @@ export class MarketService {
 
       // Mettre à jour ou créer la bougie OHLCV courante
       await this.updateCandles(tx, universeId, itemKey, execPrice, qty);
+      this.events.emitToUser(buyOrder.userId, 'planet:updated', {
+        planetId: buyOrder.sourcePlanetId,
+      });
+      this.events.emitToUser(sellOrder.userId, 'planet:updated', {
+        planetId: sellOrder.sourcePlanetId,
+      });
     });
   }
 
   private async updateCandles(
-    tx: Parameters<Parameters<PrismaService['serializable']>[0]>[0],
+    tx: Prisma.TransactionClient,
     universeId: string,
     itemKey: ItemKey,
     price: number,

@@ -2,14 +2,15 @@ import { Module, Global, Inject, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { Env } from '../config/env';
+import { REDIS_CLIENT } from './redis.constants';
 import { RedisCacheService } from './redis-cache.service';
-
-export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
+import { RedisService } from './redis.service';
 
 @Global()
 @Module({
   providers: [
     RedisCacheService,
+    RedisService,
     {
       provide: REDIS_CLIENT,
       useFactory: (config: ConfigService<Env, true>) =>
@@ -17,7 +18,7 @@ export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
       inject: [ConfigService],
     },
   ],
-  exports: [RedisCacheService, REDIS_CLIENT],
+  exports: [RedisCacheService, RedisService, REDIS_CLIENT],
 })
 export class RedisModule implements OnApplicationShutdown {
   constructor(@Inject(REDIS_CLIENT) private readonly client: Redis) {}
