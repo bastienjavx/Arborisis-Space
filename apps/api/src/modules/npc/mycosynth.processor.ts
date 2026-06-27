@@ -27,8 +27,10 @@ export class MycosynthProcessor extends WorkerHost {
     });
 
     // Planifier le prochain tick en chaîne
-    await this.queue.scheduleNextMycosynthTick().catch((e: unknown) =>
-      this.logger.warn({ err: e }, 'Impossible de planifier le prochain tick MYCOSYNTH'),
-    );
+    await this.queue
+      .scheduleNextMycosynthTick()
+      .catch((e: unknown) =>
+        this.logger.warn({ err: e }, 'Impossible de planifier le prochain tick MYCOSYNTH'),
+      );
   }
 }

@@ -114,7 +114,13 @@ export class GameQueueService {
       const existing = await this.npcQueue.getJob(singletonId);
       const state = existing ? await existing.getState() : null;
       if (existing && (state === 'delayed' || state === 'waiting')) return;
-      await this.safeAddToQueue(this.npcQueue, MYCOSYNTH_TICK_JOB, { universeId }, delayMs, singletonId);
+      await this.safeAddToQueue(
+        this.npcQueue,
+        MYCOSYNTH_TICK_JOB,
+        { universeId },
+        delayMs,
+        singletonId,
+      );
       return;
     }
     const dueSlot = Math.floor((Date.now() + delayMs) / MYCOSYNTH_TICK_INTERVAL_MS);
