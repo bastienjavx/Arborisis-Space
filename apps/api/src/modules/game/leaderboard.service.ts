@@ -62,7 +62,7 @@ export class LeaderboardService {
         SELECT rl."userId" AS user_id,
                COALESCE(SUM(rl.level) * 100, 0) AS research_score
         FROM research_levels rl
-        WHERE rl."userId" IN (SELECT id FROM users WHERE "universeId" = ${effectiveUniverseId})
+        WHERE rl."userId" IN (SELECT id FROM users WHERE "universeId" = ${effectiveUniverseId} AND role != 'NPC')
         GROUP BY rl."userId"
       ),
       ship_counts AS (
@@ -77,7 +77,7 @@ export class LeaderboardService {
         SELECT er."userId" AS user_id,
                COUNT(*) AS expeditions
         FROM expedition_reports er
-        WHERE er."userId" IN (SELECT id FROM users WHERE "universeId" = ${effectiveUniverseId})
+        WHERE er."userId" IN (SELECT id FROM users WHERE "universeId" = ${effectiveUniverseId} AND role != 'NPC')
         GROUP BY er."userId"
       )
       SELECT
@@ -102,6 +102,7 @@ export class LeaderboardService {
       LEFT JOIN alliance_members am ON am."userId" = u.id
       LEFT JOIN alliances a ON a.id = am."allianceId"
       WHERE u."universeId" = ${effectiveUniverseId}
+        AND u.role != 'NPC'
       ORDER BY
         COALESCE(bs.building_score, 0) + COALESCE(rs.research_score, 0)
         + COALESCE(bs.colonies, 0) * 500 + COALESCE(sc.ships, 0) * 5
