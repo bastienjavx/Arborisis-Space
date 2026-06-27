@@ -53,44 +53,44 @@ export class MarketService {
     const twoDaysAgo = new Date(now.getTime() - 2 * 86_400_000);
 
     const [bestRows, lastTradeRows, volumeRows] = await Promise.all([
-      this.prisma.$queryRaw<Array<{ item_key: string; side: string; price_per_unit: number }>>`
+      this.prisma.$queryRaw<Array<{ itemKey: string; side: string; pricePerUnit: number }>>`
         WITH ranked AS (
-          SELECT item_key, side, price_per_unit,
+          SELECT "itemKey", side, "pricePerUnit",
             ROW_NUMBER() OVER (
-              PARTITION BY item_key, side
+              PARTITION BY "itemKey", side
               ORDER BY
-                CASE WHEN side = 'BUY' THEN price_per_unit END DESC,
-                CASE WHEN side = 'SELL' THEN price_per_unit END ASC,
-                created_at ASC
+                CASE WHEN side = 'BUY' THEN "pricePerUnit" END DESC,
+                CASE WHEN side = 'SELL' THEN "pricePerUnit" END ASC,
+                "createdAt" ASC
             ) as rn
           FROM market_orders
-          WHERE universe_id = ${universeId}
+          WHERE "universeId" = ${universeId}
             AND status IN ('OPEN', 'PARTIALLY_FILLED')
         )
-        SELECT item_key, side, price_per_unit
+        SELECT "itemKey", side, "pricePerUnit"
         FROM ranked
         WHERE rn = 1
       `,
       this.prisma.$queryRaw<
-        Array<{ item_key: string; latest_price: number | null; older_price: number | null }>
+        Array<{ itemKey: string; latest_price: number | null; older_price: number | null }>
       >`
         WITH latest_per_item AS (
-          SELECT item_key, price,
-            ROW_NUMBER() OVER (PARTITION BY item_key ORDER BY executed_at DESC) as rn
+          SELECT "itemKey", price,
+            ROW_NUMBER() OVER (PARTITION BY "itemKey" ORDER BY "executedAt" DESC) as rn
           FROM market_trades
-          WHERE universe_id = ${universeId}
+          WHERE "universeId" = ${universeId}
         ),
         older_per_item AS (
-          SELECT item_key, price,
-            ROW_NUMBER() OVER (PARTITION BY item_key ORDER BY executed_at DESC) as rn
+          SELECT "itemKey", price,
+            ROW_NUMBER() OVER (PARTITION BY "itemKey" ORDER BY "executedAt" DESC) as rn
           FROM market_trades
-          WHERE universe_id = ${universeId}
-            AND executed_at < ${dayAgo}
-            AND executed_at >= ${twoDaysAgo}
+          WHERE "universeId" = ${universeId}
+            AND "executedAt" < ${dayAgo}
+            AND "executedAt" >= ${twoDaysAgo}
         )
-        SELECT l.item_key, l.price as latest_price, o.price as older_price
+        SELECT l."itemKey", l.price as latest_price, o.price as older_price
         FROM latest_per_item l
-        LEFT JOIN older_per_item o ON l.item_key = o.item_key AND o.rn = 1
+        LEFT JOIN older_per_item o ON l."itemKey" = o."itemKey" AND o.rn = 1
         WHERE l.rn = 1
       `,
       this.prisma.marketTrade.groupBy({
@@ -102,15 +102,15 @@ export class MarketService {
 
     const bestByItem = new Map<string, { bestBid: number | null; bestAsk: number | null }>();
     for (const row of bestRows) {
-      const current = bestByItem.get(row.item_key) ?? { bestBid: null, bestAsk: null };
-      if (row.side === 'BUY') current.bestBid = row.price_per_unit;
-      else if (row.side === 'SELL') current.bestAsk = row.price_per_unit;
-      bestByItem.set(row.item_key, current);
+      const current = bestByItem.get(row.itemKey) ?? { bestBid: null, bestAsk: null };
+      if (row.side === 'BUY') current.bestBid = row.pricePerUnit;
+      else if (row.side === 'SELL') current.bestAsk = row.pricePerUnit;
+      bestByItem.set(row.itemKey, current);
     }
 
     const lastTradeByItem = new Map<string, { latest: number | null; older: number | null }>();
     for (const row of lastTradeRows) {
-      lastTradeByItem.set(row.item_key, { latest: row.latest_price, older: row.older_price });
+      lastTradeByItem.set(row.itemKey, { latest: row.latest_price, older: row.older_price });
     }
 
     const volumeByItem = new Map<string, number>();
@@ -658,9 +658,9 @@ export class MarketService {
       const openTime = new Date(Math.floor(now.getTime() / ms) * ms);
       const candleId = randomUUID();
       await tx.$queryRaw`
-        INSERT INTO ohlcv_candles (id, universe_id, item_key, "interval", open_time, open, high, low, close, volume)
+        INSERT INTO ohlcv_candles (id, "universeId", "itemKey", "interval", "openTime", open, high, low, close, volume)
         VALUES (${candleId}, ${universeId}, ${itemKey as PrismaItemKey}, ${name}, ${openTime}, ${price}, ${price}, ${price}, ${price}, ${qty})
-        ON CONFLICT (universe_id, item_key, "interval", open_time)
+        ON CONFLICT ("universeId", "itemKey", "interval", "openTime")
         DO UPDATE SET
           high = GREATEST(ohlcv_candles.high, EXCLUDED.high),
           low = LEAST(ohlcv_candles.low, EXCLUDED.low),
