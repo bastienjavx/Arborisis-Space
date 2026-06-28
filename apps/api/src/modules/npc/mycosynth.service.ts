@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   ExpeditionPhase,
   JobStatus,
+  Prisma,
   PveMissionPhase,
   PvpMissionPhase,
   PvpMissionType as PrismaPvpMissionType,
@@ -24,6 +25,8 @@ import {
   maxColonies,
   MAX_PRODUCTION_LINES_PER_PLANET,
   MYCOSYNTH_AI_CONFIG,
+  NpcActionLogStatus,
+  NpcActionType,
   npcCombatPower,
   NPC_ENCOUNTER_CONFIGS,
   NpcEncounterType,
@@ -176,6 +179,45 @@ export class MycosynthService {
     private readonly productionLines: ProductionLinesService,
     private readonly crafting: CraftingService,
   ) {}
+
+  private logAction(
+    snapshot: BotSnapshot,
+    actionType: NpcActionType,
+    status: NpcActionLogStatus,
+    detail: Record<string, unknown> = {},
+  ): void {
+    void this.prisma.npcActionLog
+      .create({
+        data: {
+          universeId: snapshot.universeId,
+          userId: snapshot.userId,
+          actionType,
+          status,
+          detail: detail as Prisma.InputJsonValue,
+        },
+      })
+      .catch((err: unknown) => {
+        this.logger.warn({ err }, "Échec de journalisation d'action NPC");
+      });
+  }
+
+  private async runAndLog(
+    snapshot: BotSnapshot,
+    actionType: NpcActionType,
+    run: () => Promise<unknown>,
+    detail: Record<string, unknown> = {},
+  ): Promise<void> {
+    try {
+      await run();
+      this.logAction(snapshot, actionType, NpcActionLogStatus.SUCCESS, detail);
+    } catch {
+      this.logAction(snapshot, actionType, NpcActionLogStatus.FAILED, {
+        ...detail,
+        error: 'ACTION_FAILED',
+      });
+      throw new Error('ACTION_FAILED');
+    }
+  }
 
   /** Crée les 50 bots NPC s'ils n'existent pas encore et les rattache à MYCOSYNTH. */
   async ensureAllExist(): Promise<void> {
@@ -433,7 +475,14 @@ export class MycosynthService {
         candidates.push({
           score: decision.score,
           run: async () => {
-            await this.buildings.upgrade(snapshot.userId, planet.id, decision.type);
+            await this.runAndLog(
+              snapshot,
+              NpcActionType.BUILDING_UPGRADE,
+              async () => {
+                await this.buildings.upgrade(snapshot.userId, planet.id, decision.type);
+              },
+              { planetId: planet.id, buildingType: decision.type, fromLevel: current },
+            );
           },
         });
         break;
@@ -445,7 +494,18 @@ export class MycosynthService {
       candidates.push({
         score: researchCandidate.score,
         run: async () => {
-          await this.research.start(snapshot.userId, snapshot.homeworld.id, researchCandidate.type);
+          await this.runAndLog(
+            snapshot,
+            NpcActionType.RESEARCH,
+            async () => {
+              await this.research.start(
+                snapshot.userId,
+                snapshot.homeworld.id,
+                researchCandidate.type,
+              );
+            },
+            { planetId: snapshot.homeworld.id, researchType: researchCandidate.type },
+          );
         },
       });
     }
@@ -455,10 +515,17 @@ export class MycosynthService {
       candidates.push({
         score: 94,
         run: async () => {
-          await this.colonization.colonize(
-            snapshot.userId,
-            snapshot.homeworld.id,
-            colonizationCandidate,
+          await this.runAndLog(
+            snapshot,
+            NpcActionType.COLONIZATION,
+            async () => {
+              await this.colonization.colonize(
+                snapshot.userId,
+                snapshot.homeworld.id,
+                colonizationCandidate,
+              );
+            },
+            { sourcePlanetId: snapshot.homeworld.id, target: colonizationCandidate },
           );
         },
       });
@@ -469,11 +536,22 @@ export class MycosynthService {
       candidates.push({
         score: shipCandidate.score,
         run: async () => {
-          await this.ships.produce(snapshot.userId, {
-            planetId: shipCandidate.planetId,
-            type: shipCandidate.type,
-            quantity: shipCandidate.quantity,
-          });
+          await this.runAndLog(
+            snapshot,
+            NpcActionType.SHIP_PRODUCTION,
+            async () => {
+              await this.ships.produce(snapshot.userId, {
+                planetId: shipCandidate.planetId,
+                type: shipCandidate.type,
+                quantity: shipCandidate.quantity,
+              });
+            },
+            {
+              planetId: shipCandidate.planetId,
+              shipType: shipCandidate.type,
+              quantity: shipCandidate.quantity,
+            },
+          );
         },
       });
     }
@@ -489,16 +567,27 @@ export class MycosynthService {
       candidates.push({
         score: lineCandidate.status === ProductionLineStatus.INPUT_SHORTAGE ? 86 : 82,
         run: async () => {
-          if (lineCandidate.id) {
-            await this.productionLines.updateLine(snapshot.userId, lineCandidate.id, {
-              status: ProductionLineStatus.ACTIVE,
-            });
-            return;
-          }
-          await this.productionLines.createLine(snapshot.userId, {
-            planetId: lineCandidate.planetId,
-            recipeId: lineCandidate.recipeId,
-          });
+          await this.runAndLog(
+            snapshot,
+            NpcActionType.PRODUCTION_LINE,
+            async () => {
+              if (lineCandidate.id) {
+                await this.productionLines.updateLine(snapshot.userId, lineCandidate.id, {
+                  status: ProductionLineStatus.ACTIVE,
+                });
+                return;
+              }
+              await this.productionLines.createLine(snapshot.userId, {
+                planetId: lineCandidate.planetId,
+                recipeId: lineCandidate.recipeId,
+              });
+            },
+            {
+              planetId: lineCandidate.planetId,
+              recipeId: lineCandidate.recipeId,
+              resumed: !!lineCandidate.id,
+            },
+          );
         },
       });
     }
@@ -508,11 +597,18 @@ export class MycosynthService {
       candidates.push({
         score: 78,
         run: async () => {
-          await this.crafting.startCrafting(snapshot.userId, {
-            planetId: craftCandidate.planetId,
-            recipeId: craftCandidate.recipeId,
-            quantity: 1,
-          });
+          await this.runAndLog(
+            snapshot,
+            NpcActionType.CRAFTING,
+            async () => {
+              await this.crafting.startCrafting(snapshot.userId, {
+                planetId: craftCandidate.planetId,
+                recipeId: craftCandidate.recipeId,
+                quantity: 1,
+              });
+            },
+            { planetId: craftCandidate.planetId, recipeId: craftCandidate.recipeId },
+          );
         },
       });
     }
@@ -522,15 +618,27 @@ export class MycosynthService {
       candidates.push({
         score: 72,
         run: async () => {
-          await this.tradeRoutes.createRoute(snapshot.userId, {
-            fromPlanetId: routeCandidate.fromPlanetId,
-            toPlanetId: routeCandidate.toPlanetId,
-            resource: routeCandidate.resource,
-            quantityPerRun: routeCandidate.quantityPerRun,
-            shipType: routeCandidate.shipType,
-            shipCount: routeCandidate.shipCount,
-            intervalHours: MYCOSYNTH_AI_CONFIG.tradeRouteIntervalHours,
-          });
+          await this.runAndLog(
+            snapshot,
+            NpcActionType.TRADE_ROUTE,
+            async () => {
+              await this.tradeRoutes.createRoute(snapshot.userId, {
+                fromPlanetId: routeCandidate.fromPlanetId,
+                toPlanetId: routeCandidate.toPlanetId,
+                resource: routeCandidate.resource,
+                quantityPerRun: routeCandidate.quantityPerRun,
+                shipType: routeCandidate.shipType,
+                shipCount: routeCandidate.shipCount,
+                intervalHours: MYCOSYNTH_AI_CONFIG.tradeRouteIntervalHours,
+              });
+            },
+            {
+              fromPlanetId: routeCandidate.fromPlanetId,
+              toPlanetId: routeCandidate.toPlanetId,
+              resource: routeCandidate.resource,
+              quantityPerRun: routeCandidate.quantityPerRun,
+            },
+          );
         },
       });
     }
@@ -540,13 +648,26 @@ export class MycosynthService {
       candidates.push({
         score: marketCandidate.side === MarketOrderSide.SELL ? 68 : 64,
         run: async () => {
-          await this.market.placeOrder(snapshot.userId, snapshot.universeId, {
-            sourcePlanetId: marketCandidate.planetId,
-            itemKey: marketCandidate.itemKey,
-            side: marketCandidate.side,
-            pricePerUnit: marketCandidate.pricePerUnit,
-            quantity: marketCandidate.quantity,
-          });
+          await this.runAndLog(
+            snapshot,
+            NpcActionType.MARKET_ORDER,
+            async () => {
+              await this.market.placeOrder(snapshot.userId, snapshot.universeId, {
+                sourcePlanetId: marketCandidate.planetId,
+                itemKey: marketCandidate.itemKey,
+                side: marketCandidate.side,
+                pricePerUnit: marketCandidate.pricePerUnit,
+                quantity: marketCandidate.quantity,
+              });
+            },
+            {
+              planetId: marketCandidate.planetId,
+              itemKey: marketCandidate.itemKey,
+              side: marketCandidate.side,
+              pricePerUnit: marketCandidate.pricePerUnit,
+              quantity: marketCandidate.quantity,
+            },
+          );
         },
       });
     }
@@ -561,18 +682,26 @@ export class MycosynthService {
 
     const pvpAction = await this.findPvpAction(snapshot);
     if (pvpAction) {
-      await pvpAction();
+      await this.runAndLog(snapshot, pvpAction.actionType, pvpAction.run, pvpAction.detail);
       return;
     }
 
     const pveAction = await this.findPveAction(snapshot);
     if (pveAction) {
-      await pveAction();
+      await this.runAndLog(snapshot, NpcActionType.PVE_ATTACK, pveAction.run, pveAction.detail);
       return;
     }
 
     const expeditionAction = await this.findExpeditionAction(snapshot);
-    if (expeditionAction) await expeditionAction();
+    if (expeditionAction) {
+      await this.runAndLog(
+        snapshot,
+        NpcActionType.EXPEDITION,
+        expeditionAction.run,
+        expeditionAction.detail,
+      );
+      return;
+    }
   }
 
   private async findResearchCandidate(
@@ -841,7 +970,11 @@ export class MycosynthService {
     return null;
   }
 
-  private async findPvpAction(snapshot: BotSnapshot): Promise<(() => Promise<void>) | null> {
+  private async findPvpAction(snapshot: BotSnapshot): Promise<{
+    actionType: NpcActionType;
+    run: () => Promise<void>;
+    detail: Record<string, unknown>;
+  } | null> {
     const source = [...snapshot.planets]
       .filter(
         (planet) => sumCombatShips(planet.ships) >= MYCOSYNTH_AI_CONFIG.minCombatShipsForAttack,
@@ -872,30 +1005,50 @@ export class MycosynthService {
         recentAttacksAgainstPlanet: recent.planet,
       })
     ) {
-      return async () => {
-        await this.pvp.attack(snapshot.userId, {
+      return {
+        actionType: NpcActionType.PVP_ATTACK,
+        run: async () => {
+          await this.pvp.attack(snapshot.userId, {
+            sourcePlanetId: source.id,
+            targetPlanetId: target.id,
+            ships: this.completeShipCounts(attackFleet),
+          });
+        },
+        detail: {
           sourcePlanetId: source.id,
           targetPlanetId: target.id,
-          ships: this.completeShipCounts(attackFleet),
-        });
+          targetOwnerId: target.ownerId,
+          attackerPower,
+          defenderPower,
+        },
       };
     }
 
     const spyFleet = this.buildSpyFleet(source.ships);
     if (recent.owner === 0 && Object.values(spyFleet).some((qty) => qty > 0)) {
-      return async () => {
-        await this.pvp.spy(snapshot.userId, {
+      return {
+        actionType: NpcActionType.PVP_SPY,
+        run: async () => {
+          await this.pvp.spy(snapshot.userId, {
+            sourcePlanetId: source.id,
+            targetPlanetId: target.id,
+            ships: this.completeShipCounts(spyFleet),
+          });
+        },
+        detail: {
           sourcePlanetId: source.id,
           targetPlanetId: target.id,
-          ships: this.completeShipCounts(spyFleet),
-        });
+          targetOwnerId: target.ownerId,
+        },
       };
     }
 
     return null;
   }
 
-  private async findPveAction(snapshot: BotSnapshot): Promise<(() => Promise<void>) | null> {
+  private async findPveAction(
+    snapshot: BotSnapshot,
+  ): Promise<{ run: () => Promise<void>; detail: Record<string, unknown> } | null> {
     const source = [...snapshot.planets]
       .filter((planet) => sumCombatShips(planet.ships) >= MYCOSYNTH_AI_CONFIG.minCombatShipsForPve)
       .sort((a, b) => sumCombatShips(b.ships) - sumCombatShips(a.ships))[0];
@@ -931,15 +1084,26 @@ export class MycosynthService {
       .sort((a, b) => b.score - a.score)[0];
 
     if (!viable) return null;
-    return async () => {
-      await this.pve.attack(snapshot.userId, viable.encounter.id, {
-        planetId: source.id,
-        ships: this.completeShipCounts(fleet),
-      });
+    return {
+      run: async () => {
+        await this.pve.attack(snapshot.userId, viable.encounter.id, {
+          planetId: source.id,
+          ships: this.completeShipCounts(fleet),
+        });
+      },
+      detail: {
+        sourcePlanetId: source.id,
+        encounterId: viable.encounter.id,
+        encounterType: viable.encounter.type,
+        difficulty: viable.encounter.difficulty,
+        fleetPower,
+      },
     };
   }
 
-  private async findExpeditionAction(snapshot: BotSnapshot): Promise<(() => Promise<void>) | null> {
+  private async findExpeditionAction(
+    snapshot: BotSnapshot,
+  ): Promise<{ run: () => Promise<void>; detail: Record<string, unknown> } | null> {
     const sporal = await this.currentResearchLevel(snapshot.userId, ResearchType.SPORAL_PROPULSION);
     if (sporal < 1) return null;
     const source = [...snapshot.planets]
@@ -952,12 +1116,15 @@ export class MycosynthService {
       system: clamp(source.system + 4 + Math.floor(Math.random() * 6), 1, SYSTEMS_PER_GALAXY),
     };
 
-    return async () => {
-      await this.expeditions.start(snapshot.userId, {
-        planetId: source.id,
-        target,
-        ships: this.expeditionFleet(source.ships),
-      });
+    return {
+      run: async () => {
+        await this.expeditions.start(snapshot.userId, {
+          planetId: source.id,
+          target,
+          ships: this.expeditionFleet(source.ships),
+        });
+      },
+      detail: { sourcePlanetId: source.id, target },
     };
   }
 

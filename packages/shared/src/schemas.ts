@@ -10,6 +10,8 @@ import {
   DefenseType,
   ItemKey,
   MarketOrderSide,
+  NpcActionLogStatus,
+  NpcActionType,
   PlanetSpecialization,
   ProductionLineStatus,
   RaceType,
@@ -61,6 +63,16 @@ export const moderateUserSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });
 export type ModerateUserDto = z.infer<typeof moderateUserSchema>;
+
+export const npcActionLogQuerySchema = z.object({
+  actionType: z.nativeEnum(NpcActionType).optional(),
+  userId: z.string().uuid().optional(),
+  status: z.nativeEnum(NpcActionLogStatus).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+export type NpcActionLogQueryDto = z.infer<typeof npcActionLogQuerySchema>;
 
 export const allianceTagSchema = z
   .string()

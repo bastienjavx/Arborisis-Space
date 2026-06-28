@@ -63,7 +63,10 @@ const LINKS = [
 ] as const;
 
 const PRIMARY_MOBILE_LINKS = LINKS.slice(0, 4);
-const ADMIN_LINK = { href: '/admin', label: 'Modération', icon: FiShield } as const;
+const ADMIN_LINKS = [
+  { href: '/admin', label: 'Modération', icon: FiShield },
+  { href: '/admin/npc', label: 'IA Mycosynth', icon: FiCpu },
+] as const;
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -77,7 +80,7 @@ export function Nav({ user }: { user: AuthUser }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigationLinks =
     user.role === UserRole.ADMIN || user.role === UserRole.MODERATOR
-      ? [...LINKS, ADMIN_LINK]
+      ? [...LINKS, ...ADMIN_LINKS]
       : LINKS;
 
   useEffect(() => setMobileOpen(false), [pathname]);

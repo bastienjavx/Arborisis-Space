@@ -24,6 +24,7 @@ import type {
   IncomingAttackView,
   ItemKey,
   ModerateUserDto,
+  NpcActionLogQueryDto,
   NotificationView,
   PlanetDetail,
   ProduceShipsDto,
@@ -88,6 +89,8 @@ export const keys = {
   chatContacts: (search: string) => ['chat-contacts', search] as const,
   adminUsers: (search: string) => ['admin-users', search] as const,
   moderationActions: ['moderation-actions'] as const,
+  npcActionLogs: (filters: NpcActionLogQueryDto) => ['npc-action-logs', filters] as const,
+  npcActionStats: ['npc-action-stats'] as const,
   productionLines: ['production-lines'] as const,
   marketSummaries: ['market', 'summaries'] as const,
   marketOrderBook: (itemKey: string) => ['market', 'orderbook', itemKey] as const,
@@ -165,6 +168,28 @@ export function useModerationActions(enabled = true) {
     queryKey: keys.moderationActions,
     queryFn: () => api.moderationActions(),
     refetchInterval: false,
+    enabled,
+  });
+}
+
+export function useNpcActionLogs(filters: NpcActionLogQueryDto = { limit: 100 }, enabled = true) {
+  return useQuery({
+    queryKey: keys.npcActionLogs(filters),
+    queryFn: () => api.npcActionLogs(filters),
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 15_000,
+    enabled,
+  });
+}
+
+export function useNpcActionStats(enabled = true) {
+  return useQuery({
+    queryKey: keys.npcActionStats,
+    queryFn: () => api.npcActionStats(),
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 15_000,
     enabled,
   });
 }

@@ -34,6 +34,9 @@ import type {
   MarketSummaryView,
   MarketTradeView,
   NotificationView,
+  NpcActionLogQueryDto,
+  NpcActionLogView,
+  NpcActionStatsView,
   NpcEncounterView,
   OhlcvCandleView,
   OrderBookView,
@@ -248,6 +251,17 @@ export function createApi(request: RequestFn) {
     moderateUser: (id: string, body: ModerateUserDto) =>
       request<void>(`/admin/users/${id}/moderation`, { method: 'PATCH', body }),
     moderationActions: () => request<ModerationActionView[]>('/admin/moderation-actions'),
+    npcActionLogs: (query: Partial<NpcActionLogQueryDto> = {}) => {
+      const params = new URLSearchParams();
+      if (query.actionType) params.set('actionType', query.actionType);
+      if (query.status) params.set('status', query.status);
+      if (query.userId) params.set('userId', query.userId);
+      if (query.from) params.set('from', query.from);
+      if (query.to) params.set('to', query.to);
+      if (query.limit) params.set('limit', String(query.limit));
+      return request<NpcActionLogView[]>(`/admin/npc-actions?${params.toString()}`);
+    },
+    npcActionStats: () => request<NpcActionStatsView>('/admin/npc-actions/stats'),
 
     // ── Planètes ──
     planets: () => request<PlanetSummary[]>('/planets'),
