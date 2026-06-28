@@ -464,33 +464,17 @@ export class MycosynthService {
   }
 
   private async runEmpireAction(snapshot: BotSnapshot): Promise<void> {
-    const candidates: Array<{ score: number; run: () => Promise<void> }> = [];
+    // Construction : chaque planète possède sa propre file et sa propre économie ;
+    // les chantiers ne se concurrencent donc pas. On lance le meilleur chantier
+    // abordable sur CHAQUE planète éligible, en parallèle, pour une croissance
+    // d'empire réaliste (comme un joueur qui construit sur toutes ses colonies).
+    await Promise.all(
+      snapshot.planets.map((planet) => this.runPlanetConstruction(snapshot, planet)),
+    );
 
-    for (const planet of snapshot.planets) {
-      if (await this.hasPendingConstruction(planet.id)) continue;
-      for (const decision of chooseBuildingUpgrade(planet)) {
-        const current = planet.buildings[decision.type] ?? 0;
-        if (current >= BUILDINGS[decision.type].maxLevel) continue;
-        if (unmetBuildingRequirements(decision.type, planet).length > 0) continue;
-        if (!canAfford(planet.resources.amounts, buildingCost(decision.type, current + 1))) {
-          continue;
-        }
-        candidates.push({
-          score: decision.score,
-          run: async () => {
-            await this.runAndLog(
-              snapshot,
-              NpcActionType.BUILDING_UPGRADE,
-              async () => {
-                await this.buildings.upgrade(snapshot.userId, planet.id, decision.type);
-              },
-              { planetId: planet.id, buildingType: decision.type, fromLevel: current },
-            );
-          },
-        });
-        break;
-      }
-    }
+    // Action empire « globale » : recherche, colonisation ou production de
+    // vaisseaux — la meilleure décision (par score) l'emporte.
+    const candidates: Array<{ score: number; run: () => Promise<void> }> = [];
 
     const researchCandidate = await this.findResearchCandidate(snapshot);
     if (researchCandidate) {
@@ -560,6 +544,29 @@ export class MycosynthService {
     }
 
     await this.runBest(candidates);
+  }
+
+  /** Lance le meilleur chantier abordable sur une planète, si sa file est libre. */
+  private async runPlanetConstruction(
+    snapshot: BotSnapshot,
+    planet: PlanetSnapshot,
+  ): Promise<void> {
+    if (await this.hasPendingConstruction(planet.id)) return;
+    for (const decision of chooseBuildingUpgrade(planet)) {
+      const current = planet.buildings[decision.type] ?? 0;
+      if (current >= BUILDINGS[decision.type].maxLevel) continue;
+      if (unmetBuildingRequirements(decision.type, planet).length > 0) continue;
+      if (!canAfford(planet.resources.amounts, buildingCost(decision.type, current + 1))) continue;
+      await this.runAndLog(
+        snapshot,
+        NpcActionType.BUILDING_UPGRADE,
+        async () => {
+          await this.buildings.upgrade(snapshot.userId, planet.id, decision.type);
+        },
+        { planetId: planet.id, buildingType: decision.type, fromLevel: current },
+      ).catch(() => void 0);
+      return;
+    }
   }
 
   private async runEconomicAction(snapshot: BotSnapshot): Promise<void> {
