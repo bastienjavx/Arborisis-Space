@@ -6,6 +6,7 @@ import {
   PveMissionPhase,
   PvpMissionPhase,
   PvpMissionType as PrismaPvpMissionType,
+  UserRole,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import {
@@ -185,8 +186,8 @@ export class MycosynthService {
     actionType: NpcActionType,
     status: NpcActionLogStatus,
     detail: Record<string, unknown> = {},
-  ): void {
-    void this.prisma.npcActionLog
+  ): Promise<void> {
+    return this.prisma.npcActionLog
       .create({
         data: {
           universeId: snapshot.universeId,
@@ -196,6 +197,7 @@ export class MycosynthService {
           detail: detail as Prisma.InputJsonValue,
         },
       })
+      .then(() => void 0)
       .catch((err: unknown) => {
         this.logger.warn({ err }, "Échec de journalisation d'action NPC");
       });
@@ -209,11 +211,12 @@ export class MycosynthService {
   ): Promise<void> {
     try {
       await run();
-      this.logAction(snapshot, actionType, NpcActionLogStatus.SUCCESS, detail);
-    } catch {
-      this.logAction(snapshot, actionType, NpcActionLogStatus.FAILED, {
+      await this.logAction(snapshot, actionType, NpcActionLogStatus.SUCCESS, detail);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      await this.logAction(snapshot, actionType, NpcActionLogStatus.FAILED, {
         ...detail,
-        error: 'ACTION_FAILED',
+        error,
       });
       throw new Error('ACTION_FAILED');
     }
@@ -223,7 +226,7 @@ export class MycosynthService {
   async ensureAllExist(): Promise<void> {
     const universeId = await getDefaultUniverseId(this.prisma);
     const existing = await this.prisma.user.findMany({
-      where: { role: 'NPC' as never, universeId },
+      where: { role: UserRole.NPC, universeId },
       select: { username: true },
     });
     const existingNames = new Set(existing.map((u) => u.username));
@@ -237,7 +240,7 @@ export class MycosynthService {
             email: cfg.email,
             username: cfg.username,
             passwordHash: `$npc$${randomUUID()}`,
-            role: 'NPC' as never,
+            role: UserRole.NPC,
             race: cfg.race,
             displayName: cfg.username,
             universeId,
@@ -251,7 +254,7 @@ export class MycosynthService {
     }
 
     await this.prisma.user.updateMany({
-      where: { role: 'NPC' as never, universeId, race: { not: RaceType.MYCOSYNTH } },
+      where: { role: UserRole.NPC, universeId, race: { not: RaceType.MYCOSYNTH } },
       data: { race: RaceType.MYCOSYNTH },
     });
 
@@ -263,7 +266,7 @@ export class MycosynthService {
   /** Tick principal : snapshot → une action empire → une action économie → une mission. */
   async tick(universeId: string): Promise<void> {
     const bots = await this.prisma.user.findMany({
-      where: { role: 'NPC' as never, universeId },
+      where: { role: UserRole.NPC, universeId },
       select: { id: true, race: true, username: true },
     });
     if (bots.length === 0) return;

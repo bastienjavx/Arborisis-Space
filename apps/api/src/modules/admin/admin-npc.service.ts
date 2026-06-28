@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { NpcActionLogStatus, NpcActionType } from '@arborisis/shared';
 import type { NpcActionLogView, NpcActionLogQueryDto, NpcActionStatsView } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -71,7 +72,7 @@ export class AdminNpcService {
       this.prisma.npcActionLog.count({
         where: { universeId, status: NpcActionLogStatus.FAILED, createdAt: { gte: last24h } },
       }),
-      this.prisma.user.count({ where: { universeId, role: 'NPC' as never } }),
+      this.prisma.user.count({ where: { universeId, role: UserRole.NPC } }),
       this.prisma.npcActionLog
         .groupBy({
           by: ['userId'],
