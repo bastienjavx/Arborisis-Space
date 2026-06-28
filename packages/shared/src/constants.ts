@@ -1525,6 +1525,105 @@ export const NPC_SPAWN_WEIGHTS: Record<'easy' | 'medium' | 'hard' | 'elite', num
   elite: 10,
 };
 
+// ──────────────────────────── IA Mycosynth autonome ──────────────────────────
+
+export interface MycosynthAiConfig {
+  botCount: number;
+  tickConcurrency: number;
+  maxOpenMarketOrders: number;
+  maxActiveTradeRoutes: number;
+  attackCooldownHours: number;
+  targetOwnerCooldownHours: number;
+  spyFreshnessHours: number;
+  minAttackPowerRatio: number;
+  minPvePowerRatio: number;
+  fleetReserveRatio: number;
+  minCombatShipsForAttack: number;
+  minCombatShipsForPve: number;
+  minSpyShips: number;
+  minTransportShips: number;
+  marketOrderQuantity: number;
+  marketSellSurplus: number;
+  marketBuyShortage: number;
+  marketPriceFloor: number;
+  defaultBuyPrice: number;
+  defaultSellPrice: number;
+  tradeRouteIntervalHours: number;
+  tradeRouteMaxQuantity: number;
+  economyReserve: ResourceBundle;
+  preferredResearch: ResearchType[];
+  preferredProductionLineRecipes: string[];
+  preferredCraftingRecipes: string[];
+  resourceTransferHighRatio: number;
+  resourceTransferLowRatio: number;
+  nearbyColonizationDriftSystems: number;
+}
+
+export const MYCOSYNTH_AI_CONFIG: MycosynthAiConfig = {
+  botCount: 50,
+  tickConcurrency: 5,
+  maxOpenMarketOrders: 6,
+  maxActiveTradeRoutes: 6,
+  attackCooldownHours: 12,
+  targetOwnerCooldownHours: 24,
+  spyFreshnessHours: 18,
+  minAttackPowerRatio: 1.35,
+  minPvePowerRatio: 1.35,
+  fleetReserveRatio: 0.35,
+  minCombatShipsForAttack: 30,
+  minCombatShipsForPve: 18,
+  minSpyShips: 2,
+  minTransportShips: 2,
+  marketOrderQuantity: 3,
+  marketSellSurplus: 8,
+  marketBuyShortage: 2,
+  marketPriceFloor: 25,
+  defaultBuyPrice: 120,
+  defaultSellPrice: 180,
+  tradeRouteIntervalHours: 6,
+  tradeRouteMaxQuantity: 5_000,
+  economyReserve: {
+    [ResourceType.BIOMASS]: 1_500,
+    [ResourceType.SAP]: 800,
+    [ResourceType.MINERALS]: 800,
+    [ResourceType.SPORES]: 250,
+  },
+  preferredResearch: [
+    ResearchType.SPORAL_PROPULSION,
+    ResearchType.ADVANCED_PHOTOSYNTHESIS,
+    ResearchType.GENETIC_ENGINEERING,
+    ResearchType.BIOENGINEERING,
+    ResearchType.NUTRIENT_CYCLING,
+    ResearchType.SUBTERRANEAN_ROOTS,
+    ResearchType.SPORAL_ECONOMY,
+    ResearchType.HYPERSPORE_DRIVE,
+    ResearchType.CHITIN_ARMOR,
+    ResearchType.BIOLOGICAL_WARFARE,
+    ResearchType.SWARM_TACTICS,
+    ResearchType.ORBITAL_DEFENSE_GRID,
+    ResearchType.SPORE_SENSE,
+    ResearchType.DEEP_SCAN,
+    ResearchType.TERRAFORMATION,
+    ResearchType.SYMBIOSIS,
+    ResearchType.WORMHOLE_MYCOLOGY,
+  ],
+  preferredProductionLineRecipes: [
+    'line_mycelial_fiber',
+    'line_bioluminescent_gel',
+    'line_chitin_shard',
+    'line_spore_essence',
+  ],
+  preferredCraftingRecipes: [
+    'recipe_mycotoxin_vial',
+    'recipe_reinforced_chitin',
+    'recipe_neural_matrix',
+    'recipe_void_alloy',
+  ],
+  resourceTransferHighRatio: 0.75,
+  resourceTransferLowRatio: 0.25,
+  nearbyColonizationDriftSystems: 12,
+};
+
 // ──────────────────────────── Spécialisation planète ─────────────────────────
 
 export interface SpecializationConfig {
