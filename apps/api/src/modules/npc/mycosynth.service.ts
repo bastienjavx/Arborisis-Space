@@ -26,8 +26,13 @@ import {
   maxColonies,
   MAX_PRODUCTION_LINES_PER_PLANET,
   MYCOSYNTH_AI_CONFIG,
+  MYCOSYNTH_BRAIN_CONFIG,
+  NpcActionCategory,
   NpcActionLogStatus,
   NpcActionType,
+  NpcArchetype,
+  NpcGoal,
+  NpcMood,
   npcCombatPower,
   NPC_ENCOUNTER_CONFIGS,
   NpcEncounterType,
@@ -50,6 +55,7 @@ import {
   unmetBuildingRequirements,
   unmetResearchRequirements,
   type Coordinates,
+  type NpcTraitVector,
   type ResourceBundle,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -80,6 +86,19 @@ import {
   sumCombatShips,
   type MycosynthPlanetSnapshot,
 } from './mycosynth-planner';
+import { assignArchetype, deriveTraits, parseTraits } from './npc-personality';
+import {
+  decayMemory,
+  emptyMemory,
+  parseMemory,
+  recordIncomingAttack,
+  recordOutgoingAttack,
+  topGrudge,
+  totalThreat,
+  type NpcMemoryState,
+} from './npc-memory';
+import { deriveMood, selectGoal, type NpcGoalContext } from './npc-goals';
+import { actionUtility, effectiveAttackRatio } from './npc-utility';
 
 interface NpcBotConfig {
   username: string;
@@ -93,10 +112,22 @@ interface PlanetSnapshot extends MycosynthPlanetSnapshot {
   position: number;
 }
 
+/** État du « cerveau » d'un bot, chargé/persisté depuis NpcProfile. */
+interface BotBrain {
+  archetype: NpcArchetype;
+  traits: NpcTraitVector;
+  goal: NpcGoal | null;
+  goalTargetId: string | null;
+  mood: NpcMood;
+  memory: NpcMemoryState;
+}
+
 interface BotSnapshot {
   userId: string;
+  username: string;
   universeId: string;
   race: RaceType;
+  brain: BotBrain;
   planets: PlanetSnapshot[];
   homeworld: PlanetSnapshot;
   marketOrders: Array<{ itemKey: string; side: string }>;
@@ -258,8 +289,39 @@ export class MycosynthService {
       data: { race: RaceType.MYCOSYNTH },
     });
 
+    await this.ensureProfiles(universeId);
+
     if (created > 0) {
       this.logger.log(`${created} bot(s) NPC créé(s) dans l'univers ${universeId}`);
+    }
+  }
+
+  /** Attribue un cerveau (archétype + traits) à chaque bot qui n'en a pas encore. */
+  private async ensureProfiles(universeId: string): Promise<void> {
+    const [npcs, profiles] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { role: UserRole.NPC, universeId },
+        select: { id: true, username: true },
+      }),
+      this.prisma.npcProfile.findMany({ where: { universeId }, select: { userId: true } }),
+    ]);
+    const withProfile = new Set(profiles.map((p) => p.userId));
+
+    for (const npc of npcs) {
+      if (withProfile.has(npc.id)) continue;
+      const archetype = assignArchetype(npc.username);
+      await this.prisma.npcProfile
+        .create({
+          data: {
+            userId: npc.id,
+            universeId,
+            archetype,
+            traits: deriveTraits(archetype, npc.username) as unknown as Prisma.InputJsonValue,
+            mood: NpcMood.CALM,
+            memory: emptyMemory() as unknown as Prisma.InputJsonValue,
+          },
+        })
+        .catch(() => void 0);
     }
   }
 
@@ -277,16 +339,21 @@ export class MycosynthService {
       const batch = bots.slice(i, i + MYCOSYNTH_AI_CONFIG.tickConcurrency);
       await Promise.all(
         batch.map((bot) =>
-          this.thinkForBot(bot.id, bot.race as RaceType, universeId).catch((e: unknown) =>
-            this.logger.debug({ err: e }, `Tick ignoré pour ${bot.username}`),
+          this.thinkForBot(bot.id, bot.username, bot.race as RaceType, universeId).catch(
+            (e: unknown) => this.logger.debug({ err: e }, `Tick ignoré pour ${bot.username}`),
           ),
         ),
       );
     }
   }
 
-  private async thinkForBot(userId: string, race: RaceType, universeId: string): Promise<void> {
-    const snapshot = await this.buildSnapshot(userId, race, universeId);
+  private async thinkForBot(
+    userId: string,
+    username: string,
+    race: RaceType,
+    universeId: string,
+  ): Promise<void> {
+    const snapshot = await this.buildSnapshot(userId, username, race, universeId);
     if (!snapshot) return;
 
     await this.runEmpireAction(snapshot).catch(() => void 0);
@@ -296,6 +363,7 @@ export class MycosynthService {
 
   private async buildSnapshot(
     userId: string,
+    username: string,
     race: RaceType,
     universeId: string,
   ): Promise<BotSnapshot | null> {
@@ -445,10 +513,12 @@ export class MycosynthService {
     const homeworld = planets[0];
     if (!homeworld) return null;
 
-    return {
+    const snapshot: BotSnapshot = {
       userId,
+      username,
       universeId,
       race,
+      brain: placeholderBrain(username),
       planets,
       homeworld,
       marketOrders,
@@ -461,6 +531,245 @@ export class MycosynthService {
       activeExpeditions,
       spyReports,
     };
+
+    snapshot.brain = await this.refreshBrain(snapshot);
+    return snapshot;
+  }
+
+  // ─────────────────────────────── Cerveau NPC ────────────────────────────────
+
+  /**
+   * Charge le profil persistant du bot, ingère les attaques subies depuis la
+   * dernière revue, puis (à cadence limitée) recalcule humeur et but
+   * stratégique. La révision est espacée (hystérésis) pour donner une intention
+   * tenue sur plusieurs ticks et limiter les écritures.
+   */
+  private async refreshBrain(snapshot: BotSnapshot): Promise<BotBrain> {
+    const profile = await this.loadOrCreateProfile(snapshot.userId, snapshot.username);
+
+    const archetype = parseArchetype(profile.archetype, snapshot.username);
+    const traits = parseTraits(profile.traits, deriveTraits(archetype, snapshot.username));
+    let memory = parseMemory(profile.memory);
+    let goal = parseGoal(profile.goal);
+    let goalTargetId = profile.goalTargetId;
+    let mood = parseMood(profile.mood);
+
+    const now = new Date();
+    const intervalMs = MYCOSYNTH_BRAIN_CONFIG.goalReviewIntervalHours * 3_600_000;
+    const due =
+      !profile.lastStrategyReviewAt ||
+      now.getTime() - profile.lastStrategyReviewAt.getTime() >= intervalMs;
+
+    if (!due) {
+      return { archetype, traits, goal, goalTargetId, mood, memory };
+    }
+
+    memory = await this.ingestIncomingAttacks(
+      snapshot,
+      memory,
+      profile.lastStrategyReviewAt ??
+        new Date(now.getTime() - MYCOSYNTH_BRAIN_CONFIG.threatWindowHours * 3_600_000),
+    );
+    memory = decayMemory(memory);
+
+    const context = await this.buildGoalContext(snapshot, memory, archetype, traits, mood);
+    const grudge = topGrudge(memory);
+    const combatReady = context.combatShips >= context.minCombatForAttack;
+    const hasReadyGrudge =
+      !!grudge &&
+      grudge.relation.grudge >= MYCOSYNTH_BRAIN_CONFIG.grudgeRetaliationThreshold &&
+      combatReady;
+    const winDelta = grudge ? grudge.relation.battlesWon - grudge.relation.battlesLost : 0;
+
+    mood = deriveMood({
+      traits,
+      totalThreat: totalThreat(memory),
+      hasReadyGrudge,
+      winDelta,
+      combatReady,
+    });
+
+    const selection = selectGoal(context, goal, hasReadyGrudge ? grudge.playerId : null);
+    goal = selection.goal;
+    goalTargetId = selection.targetId;
+
+    await this.persistBrain(snapshot.userId, {
+      traits,
+      goal,
+      goalTargetId,
+      mood,
+      memory,
+      lastStrategyReviewAt: now,
+    }).catch((err: unknown) => this.logger.debug({ err }, 'Persistance cerveau NPC échouée'));
+
+    return { archetype, traits, goal, goalTargetId, mood, memory };
+  }
+
+  private async loadOrCreateProfile(
+    userId: string,
+    username: string,
+  ): Promise<{
+    archetype: string;
+    traits: Prisma.JsonValue;
+    goal: string | null;
+    goalTargetId: string | null;
+    mood: string;
+    memory: Prisma.JsonValue;
+    lastStrategyReviewAt: Date | null;
+  }> {
+    const existing = await this.prisma.npcProfile.findUnique({
+      where: { userId },
+      select: {
+        archetype: true,
+        traits: true,
+        goal: true,
+        goalTargetId: true,
+        mood: true,
+        memory: true,
+        lastStrategyReviewAt: true,
+      },
+    });
+    if (existing) return existing;
+
+    const archetype = assignArchetype(username);
+    const traits = deriveTraits(archetype, username);
+    const universeId = await getDefaultUniverseId(this.prisma);
+    await this.prisma.npcProfile
+      .create({
+        data: {
+          userId,
+          universeId,
+          archetype,
+          traits: traits as unknown as Prisma.InputJsonValue,
+          mood: NpcMood.CALM,
+          memory: emptyMemory() as unknown as Prisma.InputJsonValue,
+        },
+      })
+      .catch(() => void 0);
+    return {
+      archetype,
+      traits: traits as unknown as Prisma.JsonValue,
+      goal: null,
+      goalTargetId: null,
+      mood: NpcMood.CALM,
+      memory: emptyMemory() as unknown as Prisma.JsonValue,
+      lastStrategyReviewAt: null,
+    };
+  }
+
+  private async persistBrain(
+    userId: string,
+    data: {
+      traits: NpcTraitVector;
+      goal: NpcGoal | null;
+      goalTargetId: string | null;
+      mood: NpcMood;
+      memory: NpcMemoryState;
+      lastStrategyReviewAt: Date;
+    },
+  ): Promise<void> {
+    await this.prisma.npcProfile.update({
+      where: { userId },
+      data: {
+        traits: data.traits as unknown as Prisma.InputJsonValue,
+        goal: data.goal,
+        goalTargetId: data.goalTargetId,
+        mood: data.mood,
+        memory: data.memory as unknown as Prisma.InputJsonValue,
+        lastStrategyReviewAt: data.lastStrategyReviewAt,
+      },
+    });
+  }
+
+  /** Après une attaque lancée, la rancune envers la cible retombe (best-effort). */
+  private async recordRetaliation(snapshot: BotSnapshot, targetOwnerId: string): Promise<void> {
+    const memory = recordOutgoingAttack(
+      snapshot.brain.memory,
+      targetOwnerId,
+      new Date().toISOString(),
+    );
+    snapshot.brain.memory = memory;
+    await this.prisma.npcProfile
+      .update({
+        where: { userId: snapshot.userId },
+        data: { memory: memory as unknown as Prisma.InputJsonValue },
+      })
+      .catch(() => void 0);
+  }
+
+  /** Incrémente la menace/rancune pour chaque attaque de joueur subie depuis `since`. */
+  private async ingestIncomingAttacks(
+    snapshot: BotSnapshot,
+    memory: NpcMemoryState,
+    since: Date,
+  ): Promise<NpcMemoryState> {
+    const attacks = await this.prisma.pvpMission.findMany({
+      where: {
+        type: PrismaPvpMissionType.ATTACK,
+        targetPlanet: { ownerId: snapshot.userId },
+        user: { role: UserRole.PLAYER },
+        createdAt: { gt: since },
+      },
+      select: { userId: true, createdAt: true },
+      take: 100,
+    });
+    let next = memory;
+    for (const attack of attacks) {
+      next = recordIncomingAttack(next, attack.userId, attack.createdAt.toISOString());
+    }
+    return next;
+  }
+
+  /** Contexte compact pour la sélection de but. */
+  private async buildGoalContext(
+    snapshot: BotSnapshot,
+    memory: NpcMemoryState,
+    archetype: NpcArchetype,
+    traits: NpcTraitVector,
+    mood: NpcMood,
+  ): Promise<NpcGoalContext> {
+    const sporal = await this.currentResearchLevel(snapshot.userId, ResearchType.SPORAL_PROPULSION);
+    const combatShips = snapshot.planets.reduce(
+      (sum, planet) => sum + sumCombatShips(planet.ships),
+      0,
+    );
+    const activeLines = snapshot.productionLines.filter(
+      (line) => line.status === ProductionLineStatus.ACTIVE,
+    ).length;
+    const economyScore = Math.max(
+      0,
+      Math.min(
+        1,
+        (activeLines + snapshot.tradeRoutes.length) / Math.max(1, snapshot.planets.length * 3),
+      ),
+    );
+    const grudge = topGrudge(memory);
+
+    return {
+      archetype,
+      traits,
+      mood,
+      colonies: snapshot.planets.length,
+      maxColonies: maxColonies(sporal),
+      combatShips,
+      minCombatForAttack: MYCOSYNTH_AI_CONFIG.minCombatShipsForAttack,
+      totalThreat: totalThreat(memory),
+      hasGrudgeTarget:
+        !!grudge && grudge.relation.grudge >= MYCOSYNTH_BRAIN_CONFIG.grudgeRetaliationThreshold,
+      economyScore,
+      researchBacklog: (await this.findResearchCandidate(snapshot)) !== null,
+    };
+  }
+
+  /** Applique la pondération d'utilité (personnalité + but + humeur) à un score. */
+  private weigh(snapshot: BotSnapshot, baseScore: number, category: NpcActionCategory): number {
+    return actionUtility({
+      baseScore,
+      category,
+      archetype: snapshot.brain.archetype,
+      goal: snapshot.brain.goal,
+      mood: snapshot.brain.mood,
+    });
   }
 
   private async runEmpireAction(snapshot: BotSnapshot): Promise<void> {
@@ -479,7 +788,7 @@ export class MycosynthService {
     const researchCandidate = await this.findResearchCandidate(snapshot);
     if (researchCandidate) {
       candidates.push({
-        score: researchCandidate.score,
+        score: this.weigh(snapshot, researchCandidate.score, NpcActionCategory.RESEARCH),
         run: async () => {
           await this.runAndLog(
             snapshot,
@@ -500,7 +809,7 @@ export class MycosynthService {
     const colonizationCandidate = await this.findColonizationCandidate(snapshot);
     if (colonizationCandidate) {
       candidates.push({
-        score: 94,
+        score: this.weigh(snapshot, 94, NpcActionCategory.EXPANSION),
         run: async () => {
           await this.runAndLog(
             snapshot,
@@ -521,7 +830,7 @@ export class MycosynthService {
     const shipCandidate = this.findShipProductionCandidate(snapshot);
     if (shipCandidate) {
       candidates.push({
-        score: shipCandidate.score,
+        score: this.weigh(snapshot, shipCandidate.score, NpcActionCategory.FLEET),
         run: async () => {
           await this.runAndLog(
             snapshot,
@@ -552,7 +861,13 @@ export class MycosynthService {
     planet: PlanetSnapshot,
   ): Promise<void> {
     if (await this.hasPendingConstruction(planet.id)) return;
-    for (const decision of chooseBuildingUpgrade(planet)) {
+    const ranked = chooseBuildingUpgrade(planet)
+      .map((decision) => ({
+        decision,
+        utility: this.weigh(snapshot, decision.score, buildingCategory(decision.type)),
+      }))
+      .sort((a, b) => b.utility - a.utility);
+    for (const { decision } of ranked) {
       const current = planet.buildings[decision.type] ?? 0;
       if (current >= BUILDINGS[decision.type].maxLevel) continue;
       if (unmetBuildingRequirements(decision.type, planet).length > 0) continue;
@@ -992,9 +1307,12 @@ export class MycosynthService {
       .sort((a, b) => sumCombatShips(b.ships) - sumCombatShips(a.ships))[0];
     if (!source) return null;
 
-    const target = await this.findTarget(snapshot, source);
+    const preferredOwnerId =
+      snapshot.brain.goalTargetId ?? topGrudge(snapshot.brain.memory)?.playerId ?? null;
+    const target = await this.findTarget(snapshot, source, preferredOwnerId);
     if (!target) return null;
 
+    const isGrudgeTarget = !!preferredOwnerId && target.ownerId === preferredOwnerId;
     const recent = await this.countRecentAttacks(snapshot.userId, target);
     const spyReport = this.findFreshSpyReport(snapshot, target.id);
     const attackFleet = this.buildCombatFleet(source.ships);
@@ -1006,14 +1324,24 @@ export class MycosynthService {
         race: target.owner.race as RaceType,
       });
 
+    const minRatio = effectiveAttackRatio(
+      MYCOSYNTH_AI_CONFIG.minAttackPowerRatio,
+      snapshot.brain.traits,
+      snapshot.brain.mood,
+      isGrudgeTarget,
+    );
+
     if (
-      shouldLaunchAttack({
-        attackerPower,
-        defenderPower,
-        hasFreshSpy: !!spyReport,
-        recentAttacksAgainstOwner: recent.owner,
-        recentAttacksAgainstPlanet: recent.planet,
-      })
+      shouldLaunchAttack(
+        {
+          attackerPower,
+          defenderPower,
+          hasFreshSpy: !!spyReport,
+          recentAttacksAgainstOwner: recent.owner,
+          recentAttacksAgainstPlanet: recent.planet,
+        },
+        minRatio,
+      )
     ) {
       return {
         actionType: NpcActionType.PVP_ATTACK,
@@ -1023,6 +1351,7 @@ export class MycosynthService {
             targetPlanetId: target.id,
             ships: this.completeShipCounts(attackFleet),
           });
+          await this.recordRetaliation(snapshot, target.ownerId);
         },
         detail: {
           sourcePlanetId: source.id,
@@ -1030,6 +1359,10 @@ export class MycosynthService {
           targetOwnerId: target.ownerId,
           attackerPower,
           defenderPower,
+          minRatio,
+          retaliation: isGrudgeTarget,
+          goal: snapshot.brain.goal,
+          mood: snapshot.brain.mood,
         },
       };
     }
@@ -1068,6 +1401,13 @@ export class MycosynthService {
     const fleetPower = fleetCombatPower(fleet, snapshot.race);
     if (fleetPower <= 0) return null;
 
+    const minPveRatio = effectiveAttackRatio(
+      MYCOSYNTH_AI_CONFIG.minPvePowerRatio,
+      snapshot.brain.traits,
+      snapshot.brain.mood,
+      false,
+    );
+
     const now = new Date();
     const encounters = await this.prisma.npcEncounter.findMany({
       where: { universeId: snapshot.universeId, expiresAt: { gt: now } },
@@ -1086,10 +1426,7 @@ export class MycosynthService {
       })
       .filter(({ encounter, score }) => {
         void score;
-        return (
-          fleetPower / Math.max(1, npcCombatPower(encounter.difficulty)) >=
-          MYCOSYNTH_AI_CONFIG.minPvePowerRatio
-        );
+        return fleetPower / Math.max(1, npcCombatPower(encounter.difficulty)) >= minPveRatio;
       })
       .sort((a, b) => b.score - a.score)[0];
 
@@ -1264,6 +1601,7 @@ export class MycosynthService {
   private async findTarget(
     snapshot: BotSnapshot,
     source: PlanetSnapshot,
+    preferredOwnerId: string | null = null,
   ): Promise<TargetCandidate | null> {
     const targets = await this.prisma.planet.findMany({
       where: {
@@ -1284,13 +1622,18 @@ export class MycosynthService {
       take: 50,
     });
 
-    const sortedTargets = targets.sort(
-      (a, b) =>
-        Math.abs(a.system - source.system) +
-        Math.abs(a.position - source.position) -
-        (Math.abs(b.system - source.system) + Math.abs(b.position - source.position)),
-    );
-    return sortedTargets[0] ?? null;
+    const distance = (target: TargetCandidate): number =>
+      Math.abs(target.system - source.system) + Math.abs(target.position - source.position);
+
+    // Une cible de rancune accessible passe avant la simple proximité.
+    if (preferredOwnerId) {
+      const grudgeTargets = targets
+        .filter((target) => target.ownerId === preferredOwnerId)
+        .sort((a, b) => distance(a) - distance(b));
+      if (grudgeTargets[0]) return grudgeTargets[0];
+    }
+
+    return [...targets].sort((a, b) => distance(a) - distance(b))[0] ?? null;
   }
 
   private async countRecentAttacks(
@@ -1400,4 +1743,49 @@ export class MycosynthService {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+/** Cerveau provisoire avant rafraîchissement (jamais utilisé pour décider). */
+function placeholderBrain(username: string): BotBrain {
+  const archetype = assignArchetype(username);
+  return {
+    archetype,
+    traits: deriveTraits(archetype, username),
+    goal: null,
+    goalTargetId: null,
+    mood: NpcMood.CALM,
+    memory: emptyMemory(),
+  };
+}
+
+function parseArchetype(value: string, fallbackKey: string): NpcArchetype {
+  return (Object.values(NpcArchetype) as string[]).includes(value)
+    ? (value as NpcArchetype)
+    : assignArchetype(fallbackKey);
+}
+
+function parseGoal(value: string | null): NpcGoal | null {
+  if (!value) return null;
+  return (Object.values(NpcGoal) as string[]).includes(value) ? (value as NpcGoal) : null;
+}
+
+function parseMood(value: string): NpcMood {
+  return (Object.values(NpcMood) as string[]).includes(value) ? (value as NpcMood) : NpcMood.CALM;
+}
+
+/** Catégorie d'utilité d'un chantier, pour que la personnalité oriente la file. */
+function buildingCategory(type: BuildingType): NpcActionCategory {
+  switch (type) {
+    case BuildingType.BIOMASS_SYNTHESIZER:
+    case BuildingType.SAP_WELL:
+    case BuildingType.MINERAL_VEIN:
+    case BuildingType.SPORANGE:
+      return NpcActionCategory.ECONOMY;
+    case BuildingType.ORBITAL_NURSERY:
+      return NpcActionCategory.FLEET;
+    case BuildingType.RESEARCH_NEXUS:
+      return NpcActionCategory.RESEARCH;
+    default:
+      return NpcActionCategory.CONSTRUCTION;
+  }
 }

@@ -91,6 +91,7 @@ export const keys = {
   moderationActions: ['moderation-actions'] as const,
   npcActionLogs: (filters: NpcActionLogQueryDto) => ['npc-action-logs', filters] as const,
   npcActionStats: ['npc-action-stats'] as const,
+  npcBrains: ['npc-brains'] as const,
   productionLines: ['production-lines'] as const,
   marketSummaries: ['market', 'summaries'] as const,
   marketOrderBook: (itemKey: string) => ['market', 'orderbook', itemKey] as const,
@@ -187,6 +188,17 @@ export function useNpcActionStats(enabled = true) {
   return useQuery({
     queryKey: keys.npcActionStats,
     queryFn: () => api.npcActionStats(),
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 15_000,
+    enabled,
+  });
+}
+
+export function useNpcBrains(enabled = true) {
+  return useQuery({
+    queryKey: keys.npcBrains,
+    queryFn: () => api.npcBrains(),
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
     staleTime: 15_000,

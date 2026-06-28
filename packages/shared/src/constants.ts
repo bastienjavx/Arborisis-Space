@@ -22,7 +22,11 @@ import {
   ItemKey,
   ItemRarity,
   MoonBuildingType,
+  NpcActionCategory,
+  NpcArchetype,
   NpcEncounterType,
+  NpcGoal,
+  NpcMood,
   PlanetSpecialization,
   PlanetType,
   RaceType,
@@ -1622,6 +1626,199 @@ export const MYCOSYNTH_AI_CONFIG: MycosynthAiConfig = {
   resourceTransferHighRatio: 0.75,
   resourceTransferLowRatio: 0.25,
   nearbyColonizationDriftSystems: 12,
+};
+
+// ────────────────────────── Cerveau NPC (IA avancée) ─────────────────────────
+//
+// Le cerveau MYCOSYNTH ajoute par-dessus le planificateur glouton trois couches
+// déterministes : des personnalités (archétypes + traits), des buts stratégiques
+// tenus plusieurs ticks, et une mémoire des relations (menace/rancune). Toute la
+// configuration vit ici pour rester équilibrable de façon centralisée
+// (invariant #2).
+
+/** Vecteur de traits 0..1 modulant l'utilité des actions d'un bot. */
+export interface NpcTraitVector {
+  /** Goût du combat et de la masse militaire. */
+  aggression: number;
+  /** Goût de l'économie, du craft et du marché. */
+  greed: number;
+  /** Goût de la défense et de la prudence (seuils d'attaque relevés). */
+  caution: number;
+  /** Goût de l'expansion, de la recherche et de la croissance. */
+  ambition: number;
+  /** Goût de l'exploration et des expéditions. */
+  curiosity: number;
+}
+
+export interface NpcArchetypeProfile {
+  traits: NpcTraitVector;
+  /** Poids multiplicatif par catégorie d'action (1 = neutre). */
+  categoryWeights: Record<NpcActionCategory, number>;
+  /** Buts préférés, départage les égalités d'utilité lors d'une révision. */
+  preferredGoals: NpcGoal[];
+}
+
+export interface MycosynthBrainConfig {
+  /** Poids relatifs de répartition des archétypes sur la population de bots. */
+  archetypeDistribution: Record<NpcArchetype, number>;
+  archetypes: Record<NpcArchetype, NpcArchetypeProfile>;
+  /** Boost multiplicatif d'une catégorie quand elle sert le but courant. */
+  goalCategoryBoost: Record<NpcGoal, Partial<Record<NpcActionCategory, number>>>;
+  /** Modulateurs d'humeur appliqués à certaines catégories. */
+  moodCategoryModifier: Record<NpcMood, Partial<Record<NpcActionCategory, number>>>;
+  /** Heures minimales entre deux révisions de but (hystérésis anti-oscillation). */
+  goalReviewIntervalHours: number;
+  /** Fenêtre (heures) de prise en compte des attaques subies. */
+  threatWindowHours: number;
+  /** Fraction de menace/rancune conservée à chaque révision (0..1). */
+  memoryDecay: number;
+  /** Menace cumulée déclenchant l'humeur THREATENED. */
+  threatenedThreshold: number;
+  /** Rancune minimale autorisant une rétorsion ciblée. */
+  grudgeRetaliationThreshold: number;
+  /** Hausse du ratio de puissance requis par point de prudence. */
+  cautionAttackRatioPenalty: number;
+  /** Baisse du ratio de puissance requis par point d'agressivité. */
+  aggressionAttackRatioRelief: number;
+  /** Baisse supplémentaire du ratio requis contre une cible de rancune. */
+  vengeanceAttackRatioRelief: number;
+}
+
+const neutralCategoryWeights = (): Record<NpcActionCategory, number> => ({
+  [NpcActionCategory.CONSTRUCTION]: 1,
+  [NpcActionCategory.RESEARCH]: 1,
+  [NpcActionCategory.EXPANSION]: 1,
+  [NpcActionCategory.FLEET]: 1,
+  [NpcActionCategory.ECONOMY]: 1,
+  [NpcActionCategory.WARFARE]: 1,
+  [NpcActionCategory.ESPIONAGE]: 1,
+});
+
+export const MYCOSYNTH_BRAIN_CONFIG: MycosynthBrainConfig = {
+  archetypeDistribution: {
+    [NpcArchetype.RAIDER]: 3,
+    [NpcArchetype.ECONOMIST]: 3,
+    [NpcArchetype.EXPANSIONIST]: 2,
+    [NpcArchetype.TURTLE]: 2,
+    [NpcArchetype.OPPORTUNIST]: 2,
+  },
+  archetypes: {
+    [NpcArchetype.RAIDER]: {
+      traits: { aggression: 0.9, greed: 0.3, caution: 0.2, ambition: 0.6, curiosity: 0.5 },
+      categoryWeights: {
+        ...neutralCategoryWeights(),
+        [NpcActionCategory.FLEET]: 1.6,
+        [NpcActionCategory.WARFARE]: 1.7,
+        [NpcActionCategory.ESPIONAGE]: 1.4,
+        [NpcActionCategory.ECONOMY]: 0.7,
+        [NpcActionCategory.EXPANSION]: 0.85,
+      },
+      preferredGoals: [NpcGoal.BUILD_WAR_FLEET, NpcGoal.RAID_TARGET, NpcGoal.RESEARCH_PUSH],
+    },
+    [NpcArchetype.ECONOMIST]: {
+      traits: { aggression: 0.2, greed: 0.9, caution: 0.6, ambition: 0.5, curiosity: 0.4 },
+      categoryWeights: {
+        ...neutralCategoryWeights(),
+        [NpcActionCategory.ECONOMY]: 1.7,
+        [NpcActionCategory.CONSTRUCTION]: 1.2,
+        [NpcActionCategory.RESEARCH]: 1.2,
+        [NpcActionCategory.FLEET]: 0.7,
+        [NpcActionCategory.WARFARE]: 0.5,
+      },
+      preferredGoals: [NpcGoal.MAX_ECONOMY, NpcGoal.RESEARCH_PUSH, NpcGoal.EXPAND_COLONIES],
+    },
+    [NpcArchetype.EXPANSIONIST]: {
+      traits: { aggression: 0.4, greed: 0.5, caution: 0.3, ambition: 0.9, curiosity: 0.7 },
+      categoryWeights: {
+        ...neutralCategoryWeights(),
+        [NpcActionCategory.EXPANSION]: 1.8,
+        [NpcActionCategory.RESEARCH]: 1.3,
+        [NpcActionCategory.CONSTRUCTION]: 1.1,
+        [NpcActionCategory.WARFARE]: 0.7,
+      },
+      preferredGoals: [NpcGoal.EXPAND_COLONIES, NpcGoal.RESEARCH_PUSH, NpcGoal.MAX_ECONOMY],
+    },
+    [NpcArchetype.TURTLE]: {
+      traits: { aggression: 0.25, greed: 0.5, caution: 0.9, ambition: 0.4, curiosity: 0.3 },
+      categoryWeights: {
+        ...neutralCategoryWeights(),
+        [NpcActionCategory.CONSTRUCTION]: 1.5,
+        [NpcActionCategory.RESEARCH]: 1.3,
+        [NpcActionCategory.FLEET]: 1.1,
+        [NpcActionCategory.ECONOMY]: 1.1,
+        [NpcActionCategory.WARFARE]: 0.5,
+        [NpcActionCategory.EXPANSION]: 0.8,
+      },
+      preferredGoals: [NpcGoal.FORTIFY, NpcGoal.MAX_ECONOMY, NpcGoal.RESEARCH_PUSH],
+    },
+    [NpcArchetype.OPPORTUNIST]: {
+      traits: { aggression: 0.55, greed: 0.55, caution: 0.5, ambition: 0.55, curiosity: 0.6 },
+      categoryWeights: {
+        ...neutralCategoryWeights(),
+        [NpcActionCategory.WARFARE]: 1.1,
+        [NpcActionCategory.ESPIONAGE]: 1.1,
+        [NpcActionCategory.EXPANSION]: 1.05,
+      },
+      preferredGoals: [NpcGoal.MAX_ECONOMY, NpcGoal.BUILD_WAR_FLEET, NpcGoal.EXPAND_COLONIES],
+    },
+  },
+  goalCategoryBoost: {
+    [NpcGoal.BUILD_WAR_FLEET]: {
+      [NpcActionCategory.FLEET]: 1.6,
+      [NpcActionCategory.CONSTRUCTION]: 1.15,
+    },
+    [NpcGoal.EXPAND_COLONIES]: {
+      [NpcActionCategory.EXPANSION]: 1.7,
+      [NpcActionCategory.RESEARCH]: 1.1,
+    },
+    [NpcGoal.MAX_ECONOMY]: {
+      [NpcActionCategory.ECONOMY]: 1.6,
+      [NpcActionCategory.CONSTRUCTION]: 1.2,
+    },
+    [NpcGoal.RAID_TARGET]: {
+      [NpcActionCategory.WARFARE]: 1.8,
+      [NpcActionCategory.ESPIONAGE]: 1.3,
+      [NpcActionCategory.FLEET]: 1.2,
+    },
+    [NpcGoal.FORTIFY]: {
+      [NpcActionCategory.CONSTRUCTION]: 1.5,
+      [NpcActionCategory.FLEET]: 1.2,
+    },
+    [NpcGoal.RESEARCH_PUSH]: {
+      [NpcActionCategory.RESEARCH]: 1.7,
+    },
+  },
+  moodCategoryModifier: {
+    [NpcMood.CALM]: {},
+    [NpcMood.AMBITIOUS]: {
+      [NpcActionCategory.EXPANSION]: 1.2,
+      [NpcActionCategory.RESEARCH]: 1.1,
+      [NpcActionCategory.ECONOMY]: 1.1,
+    },
+    [NpcMood.THREATENED]: {
+      [NpcActionCategory.CONSTRUCTION]: 1.3,
+      [NpcActionCategory.FLEET]: 1.3,
+      [NpcActionCategory.WARFARE]: 0.7,
+      [NpcActionCategory.EXPANSION]: 0.7,
+    },
+    [NpcMood.VENGEFUL]: {
+      [NpcActionCategory.WARFARE]: 1.5,
+      [NpcActionCategory.ESPIONAGE]: 1.2,
+      [NpcActionCategory.FLEET]: 1.15,
+    },
+    [NpcMood.CONFIDENT]: {
+      [NpcActionCategory.WARFARE]: 1.25,
+      [NpcActionCategory.EXPANSION]: 1.1,
+    },
+  },
+  goalReviewIntervalHours: 0.5,
+  threatWindowHours: 24,
+  memoryDecay: 0.8,
+  threatenedThreshold: 2,
+  grudgeRetaliationThreshold: 1.5,
+  cautionAttackRatioPenalty: 0.4,
+  aggressionAttackRatioRelief: 0.25,
+  vengeanceAttackRatioRelief: 0.15,
 };
 
 // ──────────────────────────── Spécialisation planète ─────────────────────────

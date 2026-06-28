@@ -598,3 +598,76 @@ export enum NpcActionType {
 }
 
 export const NPC_ACTION_TYPES = Object.values(NpcActionType);
+
+/**
+ * Archétypes de personnalité des bots MYCOSYNTH. Chaque archétype porte un
+ * vecteur de traits (voir MYCOSYNTH_BRAIN_CONFIG) qui module l'utilité des
+ * actions, pour que 50 bots jouent réellement différemment.
+ */
+export enum NpcArchetype {
+  /** Militariste : flotte de guerre, espionnage, raids opportunistes. */
+  RAIDER = 'RAIDER',
+  /** Bâtisseur économique : lignes de production, craft, marché, routes. */
+  ECONOMIST = 'ECONOMIST',
+  /** Colonisateur : croissance d'empire, expansion, recherche de propulsion. */
+  EXPANSIONIST = 'EXPANSIONIST',
+  /** Défenseur : fortification, défense orbitale, réserve de flotte élevée. */
+  TURTLE = 'TURTLE',
+  /** Équilibré : s'adapte aux opportunités, sans biais marqué. */
+  OPPORTUNIST = 'OPPORTUNIST',
+}
+
+export const NPC_ARCHETYPES = Object.values(NpcArchetype);
+
+/**
+ * Buts stratégiques poursuivis sur plusieurs ticks (GOAP-lite). Un but booste
+ * la catégorie d'actions qui l'avance et procure une cohérence d'intention.
+ */
+export enum NpcGoal {
+  /** Constituer une masse de combat avant toute agression. */
+  BUILD_WAR_FLEET = 'BUILD_WAR_FLEET',
+  /** Augmenter le nombre de colonies. */
+  EXPAND_COLONIES = 'EXPAND_COLONIES',
+  /** Maximiser l'économie (production, craft, marché, routes). */
+  MAX_ECONOMY = 'MAX_ECONOMY',
+  /** Frapper une cible identifiée (souvent par rancune ou par opportunité). */
+  RAID_TARGET = 'RAID_TARGET',
+  /** Se fortifier en réaction à une menace. */
+  FORTIFY = 'FORTIFY',
+  /** Pousser l'arbre de recherche. */
+  RESEARCH_PUSH = 'RESEARCH_PUSH',
+}
+
+export const NPC_GOALS = Object.values(NpcGoal);
+
+/**
+ * Humeur courante d'un bot, dérivée de sa mémoire et de sa situation. Module
+ * les seuils d'agressivité et de prudence.
+ */
+export enum NpcMood {
+  /** Aucune pression notable. */
+  CALM = 'CALM',
+  /** Croissance ambitieuse, le bot pousse son développement. */
+  AMBITIOUS = 'AMBITIOUS',
+  /** Sous pression : a subi des attaques récentes. */
+  THREATENED = 'THREATENED',
+  /** Rancunier : cherche à rendre les coups reçus. */
+  VENGEFUL = 'VENGEFUL',
+  /** Confiant : domine et peut se montrer plus agressif. */
+  CONFIDENT = 'CONFIDENT',
+}
+
+export const NPC_MOODS = Object.values(NpcMood);
+
+/** Grandes catégories d'actions, support du moteur d'utilité. */
+export enum NpcActionCategory {
+  CONSTRUCTION = 'CONSTRUCTION',
+  RESEARCH = 'RESEARCH',
+  EXPANSION = 'EXPANSION',
+  FLEET = 'FLEET',
+  ECONOMY = 'ECONOMY',
+  WARFARE = 'WARFARE',
+  ESPIONAGE = 'ESPIONAGE',
+}
+
+export const NPC_ACTION_CATEGORIES = Object.values(NpcActionCategory);
