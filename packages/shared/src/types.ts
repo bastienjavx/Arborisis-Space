@@ -2,7 +2,7 @@
  * Types de transport partagés (formes des réponses API).
  * Les montants de ressources sont toujours calculés et renvoyés par le serveur.
  */
-import { ResourceBundle } from './constants';
+import { type NpcBattlePlan, ResourceBundle } from './constants';
 import {
   AchievementType,
   AllianceTerritoryStatus,
@@ -431,6 +431,7 @@ export interface PveResultView {
   outcome: PveOutcome;
   lostShips: Record<ShipType, number>;
   rewards: ResourceBundle;
+  npcPlan?: NpcBattlePlan;
 }
 
 export interface PveMissionView {

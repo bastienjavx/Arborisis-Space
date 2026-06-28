@@ -5,8 +5,11 @@ import {
   NpcEncounterType,
   NPC_ENCOUNTER_CONFIGS,
   PveMissionPhase,
+  ShipRole,
   ShipType,
   SHIP_TYPES,
+  type NpcBattlePlan,
+  type NpcBattleTactic,
   type NpcEncounterView,
 } from '@arborisis/shared';
 import { AnimatedButton } from '@/components/AnimatedButton';
@@ -60,17 +63,39 @@ const TIER_LABELS: Record<TierFilter, string> = {
   elite: 'Élite',
 };
 
+const NPC_TACTIC_LABELS: Record<NpcBattleTactic, string> = {
+  AMBUSH: 'Embuscade',
+  SWARM_PRESSURE: "Pression d'essaim",
+  SIEGE_BREAKER: 'Brise-siège',
+  SUPPORT_DISRUPTION: 'Désorganisation',
+  FORTIFY: 'Fortification',
+  FEIGNED_RETREAT: 'Retraite feinte',
+  LAST_STAND: 'Dernier rempart',
+};
+
+const SHIP_ROLE_LABELS: Record<ShipRole, string> = {
+  [ShipRole.COMBAT]: 'combat',
+  [ShipRole.DEFENSE]: 'défense',
+  [ShipRole.SUPPORT]: 'soutien',
+  [ShipRole.TRANSPORT]: 'transport',
+  [ShipRole.ESPIONAGE]: 'espionnage',
+};
+
 const ENCOUNTER_NAMES_PVE: Record<NpcEncounterType, string> = Object.fromEntries(
   Object.entries(NPC_ENCOUNTER_CONFIGS).map(([type, cfg]) => [type, cfg.name]),
 ) as Record<NpcEncounterType, string>;
 
 function pveOutcomeStyle(outcome: string) {
-  if (outcome === 'SUCCESS')
+  if (outcome === 'VICTORY')
     return { label: 'Victoire', cls: 'text-canopy-300', Icon: FiCheckCircle };
-  if (outcome === 'FAILURE')
-    return { label: 'Défaite', cls: 'text-red-300', Icon: FiAlertTriangle };
-  if (outcome === 'DRAW') return { label: 'Nul', cls: 'text-sap-400', Icon: FiMinus };
+  if (outcome === 'DEFEAT') return { label: 'Défaite', cls: 'text-red-300', Icon: FiAlertTriangle };
+  if (outcome === 'RETREAT') return { label: 'Retraite', cls: 'text-sap-400', Icon: FiMinus };
   return { label: '—', cls: 'text-canopy-100/30', Icon: FiMinus };
+}
+
+function npcPlanLabel(plan?: NpcBattlePlan) {
+  if (!plan) return undefined;
+  return `${NPC_TACTIC_LABELS[plan.tactic]} · cible ${SHIP_ROLE_LABELS[plan.focusRole]}`;
 }
 
 export default function PvePage() {
@@ -415,14 +440,21 @@ export default function PvePage() {
                   />
                 </span>
                 {mission.result && (
-                  <p className="text-xs text-canopy-100/50 sm:col-span-3">
-                    Dernier résultat : {mission.result.outcome} · pertes{' '}
-                    {Object.entries(mission.result.lostShips).reduce(
-                      (sum, [, v]) => sum + (v ?? 0),
-                      0,
-                    )}{' '}
-                    vaisseaux
-                  </p>
+                  <div className="text-xs text-canopy-100/50 sm:col-span-3">
+                    <p>
+                      Dernier résultat : {mission.result.outcome} · pertes{' '}
+                      {Object.entries(mission.result.lostShips).reduce(
+                        (sum, [, v]) => sum + (v ?? 0),
+                        0,
+                      )}{' '}
+                      vaisseaux
+                    </p>
+                    {mission.result.npcPlan && (
+                      <p className="mt-1 text-[10px] text-spore-300/65">
+                        IA hostile : {npcPlanLabel(mission.result.npcPlan)}
+                      </p>
+                    )}
+                  </div>
                 )}
               </motion.article>
             ))}
@@ -461,6 +493,11 @@ export default function PvePage() {
                     <span className="block text-[10px] text-canopy-100/30">
                       Niveau {report.encounter.difficulty}
                     </span>
+                    {report.result?.npcPlan && (
+                      <span className="mt-0.5 block text-[10px] text-spore-300/65">
+                        IA {npcPlanLabel(report.result.npcPlan)}
+                      </span>
+                    )}
                   </span>
                   <span className={`flex items-center gap-1.5 text-xs ${cls}`}>
                     <Icon className="h-3.5 w-3.5" aria-hidden="true" />

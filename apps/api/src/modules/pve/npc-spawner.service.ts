@@ -3,11 +3,16 @@ import {
   NpcEncounterType,
   NPC_ENCOUNTER_CONFIGS,
   NPC_ENCOUNTER_TYPES,
+  NPC_SPAWN_ANCHOR_DRIFT_SYSTEMS,
   NPC_SPAWN_TARGET,
   NPC_SPAWN_WEIGHTS,
   POSITIONS_PER_SYSTEM,
+  RaceType,
   ResourceType,
+  fleetCombatPower,
+  npcCombatPower,
   SYSTEMS_PER_GALAXY,
+  type ShipCounts,
 } from '@arborisis/shared';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -22,32 +27,41 @@ export class NpcSpawnerService {
   async spawnBatch(target = NPC_SPAWN_TARGET): Promise<number> {
     const now = new Date();
     const universeId = getCurrentUniverseId() ?? (await getDefaultUniverseId(this.prisma));
-    const active = await this.prisma.npcEncounter.findMany({
-      where: { universeId, expiresAt: { gt: now } },
-      select: { galaxy: true, system: true, position: true },
-    });
+    const [active, anchors, occupiedPlanets] = await Promise.all([
+      this.prisma.npcEncounter.findMany({
+        where: { universeId, expiresAt: { gt: now } },
+        select: { galaxy: true, system: true, position: true },
+      }),
+      this.loadSpawnAnchors(universeId),
+      this.prisma.planet.findMany({
+        where: { universeId },
+        select: { galaxy: true, system: true, position: true },
+      }),
+    ]);
 
     const needed = target - active.length;
     if (needed <= 0) return 0;
 
-    const taken = new Set(active.map((e) => `${e.galaxy}-${e.system}-${e.position}`));
+    const taken = new Set([
+      ...active.map((e) => `${e.galaxy}-${e.system}-${e.position}`),
+      ...occupiedPlanets.map((e) => `${e.galaxy}-${e.system}-${e.position}`),
+    ]);
     const tierTypes = this.buildTierMap();
     let spawned = 0;
     let attempts = 0;
 
     while (spawned < needed && attempts < needed * 5) {
       attempts++;
-      const galaxy = 1;
-      const system = Math.floor(Math.random() * SYSTEMS_PER_GALAXY) + 1;
-      const position = Math.floor(Math.random() * POSITIONS_PER_SYSTEM) + 1;
+      const anchor = this.pickAnchor(anchors);
+      const { galaxy, system, position } = this.pickSpawnLocation(anchor);
       const key = `${galaxy}-${system}-${position}`;
       if (taken.has(key)) continue;
       taken.add(key);
 
-      const type = this.pickType(tierTypes);
+      const targetDifficulty = anchor ? this.estimateAnchorDifficulty(anchor) : undefined;
+      const type = this.pickType(tierTypes, targetDifficulty);
       const cfg = NPC_ENCOUNTER_CONFIGS[type];
-      const difficulty =
-        cfg.minDifficulty + Math.floor(Math.random() * (cfg.maxDifficulty - cfg.minDifficulty + 1));
+      const difficulty = this.pickDifficulty(type, targetDifficulty);
       const health = difficulty * cfg.baseHealth;
       const rewards = {
         [ResourceType.BIOMASS]: Math.round(difficulty * 200 * cfg.rewardMultiplier),
@@ -108,7 +122,19 @@ export class NpcSpawnerService {
 
   private pickType(
     tierTypes: Map<'easy' | 'medium' | 'hard' | 'elite', NpcEncounterType[]>,
+    targetDifficulty?: number,
   ): NpcEncounterType {
+    if (targetDifficulty !== undefined) {
+      const candidates = NPC_ENCOUNTER_TYPES.filter((type) => {
+        const cfg = NPC_ENCOUNTER_CONFIGS[type];
+        return (
+          cfg.minDifficulty <= targetDifficulty + 1 && cfg.maxDifficulty >= targetDifficulty - 1
+        );
+      });
+      const picked = candidates[Math.floor(Math.random() * candidates.length)];
+      if (picked !== undefined) return picked;
+    }
+
     const roll = Math.random() * 100;
     let cumul = 0;
     const tiers: Array<'easy' | 'medium' | 'hard' | 'elite'> = ['easy', 'medium', 'hard', 'elite'];
@@ -122,4 +148,90 @@ export class NpcSpawnerService {
     }
     return NpcEncounterType.MYCOXIN_NEST;
   }
+
+  private async loadSpawnAnchors(universeId: string): Promise<SpawnAnchor[]> {
+    const planets = await this.prisma.planet.findMany({
+      where: { universeId },
+      select: {
+        galaxy: true,
+        system: true,
+        position: true,
+        owner: { select: { race: true } },
+        ships: { select: { type: true, quantity: true } },
+      },
+      take: 100,
+    });
+
+    return planets.map((planet) => ({
+      galaxy: planet.galaxy,
+      system: planet.system,
+      position: planet.position,
+      race: planet.owner.race as RaceType,
+      ships: Object.fromEntries(
+        planet.ships.map((ship) => [ship.type, ship.quantity]),
+      ) as Partial<ShipCounts>,
+    }));
+  }
+
+  private pickAnchor(anchors: SpawnAnchor[]): SpawnAnchor | undefined {
+    if (anchors.length === 0) return undefined;
+    const weighted = anchors.map((anchor) => ({
+      anchor,
+      weight: Math.max(1, this.estimateAnchorDifficulty(anchor)),
+    }));
+    const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * total;
+    for (const entry of weighted) {
+      roll -= entry.weight;
+      if (roll <= 0) return entry.anchor;
+    }
+    return weighted[weighted.length - 1]?.anchor;
+  }
+
+  private pickSpawnLocation(anchor?: SpawnAnchor): {
+    galaxy: number;
+    system: number;
+    position: number;
+  } {
+    if (!anchor) {
+      return {
+        galaxy: 1,
+        system: Math.floor(Math.random() * SYSTEMS_PER_GALAXY) + 1,
+        position: Math.floor(Math.random() * POSITIONS_PER_SYSTEM) + 1,
+      };
+    }
+
+    const drift =
+      Math.floor(Math.random() * (NPC_SPAWN_ANCHOR_DRIFT_SYSTEMS * 2 + 1)) -
+      NPC_SPAWN_ANCHOR_DRIFT_SYSTEMS;
+    return {
+      galaxy: anchor.galaxy,
+      system: Math.min(SYSTEMS_PER_GALAXY, Math.max(1, anchor.system + drift)),
+      position: Math.floor(Math.random() * POSITIONS_PER_SYSTEM) + 1,
+    };
+  }
+
+  private estimateAnchorDifficulty(anchor: SpawnAnchor): number {
+    const power = fleetCombatPower(anchor.ships, anchor.race);
+    return Math.max(1, Math.round(power / npcCombatPower(1)));
+  }
+
+  private pickDifficulty(type: NpcEncounterType, targetDifficulty?: number): number {
+    const cfg = NPC_ENCOUNTER_CONFIGS[type];
+    if (targetDifficulty === undefined) {
+      return (
+        cfg.minDifficulty + Math.floor(Math.random() * (cfg.maxDifficulty - cfg.minDifficulty + 1))
+      );
+    }
+    const jitter = Math.floor(Math.random() * 3) - 1;
+    return Math.min(cfg.maxDifficulty, Math.max(cfg.minDifficulty, targetDifficulty + jitter));
+  }
+}
+
+interface SpawnAnchor {
+  galaxy: number;
+  system: number;
+  position: number;
+  race: RaceType;
+  ships: Partial<ShipCounts>;
 }

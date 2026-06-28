@@ -2,9 +2,11 @@ import { BASE_STORAGE, PASSIVE_PRODUCTION, STORAGE_FACTOR } from './constants';
 import {
   BuildingType,
   ExpeditionOutcome,
+  NpcEncounterType,
   RaceType,
   ResearchType,
   ResourceType,
+  ShipRole,
   ShipType,
 } from './enums';
 import {
@@ -21,6 +23,7 @@ import {
   maxColonies,
   npcCombatPower,
   planetFields,
+  planNpcBattle,
   usedPlanetFields,
   pveCombatDurationSeconds,
   pveResolve,
@@ -375,6 +378,38 @@ describe('PvE', () => {
     expect(npcCombatPower(5)).toBe(750);
   });
 
+  it('choisit une tactique en fonction de la composition adverse', () => {
+    const plan = planNpcBattle({
+      encounterType: NpcEncounterType.FUNGAL_HIVEMIND,
+      difficulty: 5,
+      health: 450,
+      maxHealth: 450,
+      ships: {
+        [ShipType.SPORAL_SCOUT]: 20,
+        [ShipType.BIOLUMINESCENT_CRUISER]: 2,
+      },
+      fleetPower: 1_000,
+    });
+
+    expect(plan.tactic).toBe('SUPPORT_DISRUPTION');
+    expect(plan.focusRole).toBe(ShipRole.SUPPORT);
+    expect(plan.powerMultiplier).toBeGreaterThan(1);
+  });
+
+  it('change de posture quand un NPC résilient est blessé', () => {
+    const plan = planNpcBattle({
+      encounterType: NpcEncounterType.VOID_LEVIATHAN,
+      difficulty: 8,
+      health: 250,
+      maxHealth: 1_200,
+      ships: fleet,
+      fleetPower: 1_500,
+    });
+
+    expect(plan.tactic).toBe('LAST_STAND');
+    expect(npcCombatPower(8, plan)).toBeGreaterThan(npcCombatPower(8));
+  });
+
   it('calcule le temps de trajet PvE comme une expédition', () => {
     expect(
       pveTravelTimeSeconds({ galaxy: 1, system: 1 }, { galaxy: 1, system: 2, position: 1 }, fleet),
@@ -396,6 +431,22 @@ describe('PvE', () => {
     });
     expect(result.outcome).toBe('VICTORY');
     expect(result.rewards[ResourceType.BIOMASS]).toBeGreaterThan(0);
+  });
+
+  it('inclut le plan tactique NPC dans une résolution intelligente', () => {
+    const result = pveResolve({
+      fleetPower: 3_000,
+      npcPower: 1_000,
+      ships: fleet,
+      race: RaceType.MYCELIANS,
+      difficulty: 5,
+      encounterType: NpcEncounterType.CRYSTALLINE_GUARDIAN,
+      health: 500,
+      maxHealth: 500,
+    });
+
+    expect(result.npcPlan?.tactic).toBeDefined();
+    expect(result.npcPlan?.focusRole).toBeDefined();
   });
 
   it('renvoie une défaite si la flotte est trop faible', () => {

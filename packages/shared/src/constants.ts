@@ -1245,6 +1245,38 @@ export interface NpcEncounterConfig {
   tier: 'easy' | 'medium' | 'hard' | 'elite';
 }
 
+export const NPC_BATTLE_TACTICS = [
+  'AMBUSH',
+  'SWARM_PRESSURE',
+  'SIEGE_BREAKER',
+  'SUPPORT_DISRUPTION',
+  'FORTIFY',
+  'FEIGNED_RETREAT',
+  'LAST_STAND',
+] as const;
+
+export type NpcBattleTactic = (typeof NPC_BATTLE_TACTICS)[number];
+
+export interface NpcBehaviorConfig {
+  aggression: number;
+  adaptability: number;
+  resilience: number;
+  preferredTargetRoles: ShipRole[];
+  openingTactic: NpcBattleTactic;
+  woundedTactic: NpcBattleTactic;
+}
+
+export interface NpcBattlePlan {
+  tactic: NpcBattleTactic;
+  focusRole: ShipRole;
+  powerMultiplier: number;
+  lossMultiplier: number;
+  rewardMultiplier: number;
+  damageMultiplier: number;
+  confidence: number;
+  rationale: string;
+}
+
 export const NPC_ENCOUNTER_CONFIGS: Record<NpcEncounterType, NpcEncounterConfig> = {
   [NpcEncounterType.SPORAL_PARASITE]: {
     name: 'Parasite Sporal',
@@ -1370,8 +1402,100 @@ export const NPC_ENCOUNTER_CONFIGS: Record<NpcEncounterType, NpcEncounterConfig>
   },
 };
 
+export const NPC_BEHAVIOR_CONFIGS: Record<NpcEncounterType, NpcBehaviorConfig> = {
+  [NpcEncounterType.SPORAL_PARASITE]: {
+    aggression: 0.65,
+    adaptability: 0.8,
+    resilience: 0.35,
+    preferredTargetRoles: [ShipRole.TRANSPORT, ShipRole.SUPPORT, ShipRole.ESPIONAGE],
+    openingTactic: 'AMBUSH',
+    woundedTactic: 'FEIGNED_RETREAT',
+  },
+  [NpcEncounterType.BIOMASS_CORRUPTED]: {
+    aggression: 0.75,
+    adaptability: 0.45,
+    resilience: 0.7,
+    preferredTargetRoles: [ShipRole.COMBAT, ShipRole.TRANSPORT],
+    openingTactic: 'SWARM_PRESSURE',
+    woundedTactic: 'LAST_STAND',
+  },
+  [NpcEncounterType.MYCOXIN_NEST]: {
+    aggression: 0.7,
+    adaptability: 0.65,
+    resilience: 0.75,
+    preferredTargetRoles: [ShipRole.SUPPORT, ShipRole.COMBAT],
+    openingTactic: 'SUPPORT_DISRUPTION',
+    woundedTactic: 'FORTIFY',
+  },
+  [NpcEncounterType.VOID_RIFT]: {
+    aggression: 0.9,
+    adaptability: 0.85,
+    resilience: 0.55,
+    preferredTargetRoles: [ShipRole.ESPIONAGE, ShipRole.SUPPORT, ShipRole.COMBAT],
+    openingTactic: 'AMBUSH',
+    woundedTactic: 'FEIGNED_RETREAT',
+  },
+  [NpcEncounterType.FUNGAL_HIVEMIND]: {
+    aggression: 0.8,
+    adaptability: 0.95,
+    resilience: 0.8,
+    preferredTargetRoles: [ShipRole.SUPPORT, ShipRole.DEFENSE, ShipRole.COMBAT],
+    openingTactic: 'SUPPORT_DISRUPTION',
+    woundedTactic: 'SWARM_PRESSURE',
+  },
+  [NpcEncounterType.CRYSTALLINE_GUARDIAN]: {
+    aggression: 0.45,
+    adaptability: 0.55,
+    resilience: 0.95,
+    preferredTargetRoles: [ShipRole.COMBAT, ShipRole.DEFENSE],
+    openingTactic: 'FORTIFY',
+    woundedTactic: 'SIEGE_BREAKER',
+  },
+  [NpcEncounterType.MYCOSPORE_SWARM]: {
+    aggression: 0.95,
+    adaptability: 0.75,
+    resilience: 0.45,
+    preferredTargetRoles: [ShipRole.ESPIONAGE, ShipRole.TRANSPORT, ShipRole.SUPPORT],
+    openingTactic: 'SWARM_PRESSURE',
+    woundedTactic: 'AMBUSH',
+  },
+  [NpcEncounterType.CHITIN_WARLORD]: {
+    aggression: 0.85,
+    adaptability: 0.7,
+    resilience: 0.9,
+    preferredTargetRoles: [ShipRole.DEFENSE, ShipRole.COMBAT],
+    openingTactic: 'SIEGE_BREAKER',
+    woundedTactic: 'LAST_STAND',
+  },
+  [NpcEncounterType.ABANDONED_DERELICT]: {
+    aggression: 0.6,
+    adaptability: 0.9,
+    resilience: 0.8,
+    preferredTargetRoles: [ShipRole.SUPPORT, ShipRole.ESPIONAGE, ShipRole.TRANSPORT],
+    openingTactic: 'SUPPORT_DISRUPTION',
+    woundedTactic: 'FEIGNED_RETREAT',
+  },
+  [NpcEncounterType.VOID_LEVIATHAN]: {
+    aggression: 1,
+    adaptability: 0.75,
+    resilience: 0.95,
+    preferredTargetRoles: [ShipRole.COMBAT, ShipRole.DEFENSE, ShipRole.SUPPORT],
+    openingTactic: 'SIEGE_BREAKER',
+    woundedTactic: 'LAST_STAND',
+  },
+  [NpcEncounterType.ANCIENT_SENTINEL]: {
+    aggression: 0.7,
+    adaptability: 1,
+    resilience: 1,
+    preferredTargetRoles: [ShipRole.DEFENSE, ShipRole.SUPPORT, ShipRole.COMBAT],
+    openingTactic: 'FORTIFY',
+    woundedTactic: 'LAST_STAND',
+  },
+};
+
 export const NPC_SPAWN_TARGET = 25;
 export const NPC_SPAWN_INTERVAL_MS = 5 * 60 * 1_000;
+export const NPC_SPAWN_ANCHOR_DRIFT_SYSTEMS = 8;
 export const NPC_SPAWN_WEIGHTS: Record<'easy' | 'medium' | 'hard' | 'elite', number> = {
   easy: 30,
   medium: 40,

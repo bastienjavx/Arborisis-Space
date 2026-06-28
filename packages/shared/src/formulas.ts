@@ -24,6 +24,9 @@ import {
   FIELDS_PER_TERRAFORMATION,
   GENETIC_ENGINEERING_BONUS,
   NUTRIENT_CYCLING_BONUS,
+  NPC_BEHAVIOR_CONFIGS,
+  type NpcBattlePlan,
+  type NpcBattleTactic,
   ORBITAL_DEFENSE_GRID_BONUS,
   PLANET_TYPES_CONFIG,
   RACES,
@@ -48,6 +51,7 @@ import {
 import {
   BuildingType,
   ExpeditionOutcome,
+  NpcEncounterType,
   PlanetSpecialization,
   PlanetType,
   PveOutcome,
@@ -520,6 +524,10 @@ export interface PveResolveInput {
   ships: Partial<ShipCounts>;
   race: RaceType;
   difficulty: number;
+  encounterType?: NpcEncounterType;
+  health?: number;
+  maxHealth?: number;
+  npcPlan?: NpcBattlePlan;
 }
 
 export interface PveResolveResult {
@@ -527,6 +535,7 @@ export interface PveResolveResult {
   lostShips: Partial<ShipCounts>;
   rewards: ResourceBundle;
   damageDealt: number;
+  npcPlan?: NpcBattlePlan;
 }
 
 /** Puissance de combat d'une flotte (attaque + défense/2 + coque/4) × race.attackFactor. */
@@ -542,9 +551,183 @@ export function fleetCombatPower(ships: Partial<ShipCounts>, race: RaceType): nu
   return Math.round(power);
 }
 
+interface RoleProfile {
+  count: number;
+  power: number;
+}
+
+export interface NpcBattlePlanInput {
+  encounterType: NpcEncounterType;
+  difficulty: number;
+  health: number;
+  maxHealth: number;
+  ships: Partial<ShipCounts>;
+  fleetPower?: number;
+}
+
+const NPC_TACTIC_MODIFIERS: Record<
+  NpcBattleTactic,
+  Pick<
+    NpcBattlePlan,
+    'powerMultiplier' | 'lossMultiplier' | 'rewardMultiplier' | 'damageMultiplier'
+  >
+> = {
+  AMBUSH: {
+    powerMultiplier: 1.1,
+    lossMultiplier: 1.08,
+    rewardMultiplier: 0.95,
+    damageMultiplier: 1,
+  },
+  SWARM_PRESSURE: {
+    powerMultiplier: 1.08,
+    lossMultiplier: 1.14,
+    rewardMultiplier: 1,
+    damageMultiplier: 1.08,
+  },
+  SIEGE_BREAKER: {
+    powerMultiplier: 1.16,
+    lossMultiplier: 1.06,
+    rewardMultiplier: 1.05,
+    damageMultiplier: 0.95,
+  },
+  SUPPORT_DISRUPTION: {
+    powerMultiplier: 1.1,
+    lossMultiplier: 1.2,
+    rewardMultiplier: 0.98,
+    damageMultiplier: 1,
+  },
+  FORTIFY: {
+    powerMultiplier: 1.18,
+    lossMultiplier: 0.95,
+    rewardMultiplier: 1.08,
+    damageMultiplier: 0.85,
+  },
+  FEIGNED_RETREAT: {
+    powerMultiplier: 0.92,
+    lossMultiplier: 0.7,
+    rewardMultiplier: 0.7,
+    damageMultiplier: 0.6,
+  },
+  LAST_STAND: {
+    powerMultiplier: 1.3,
+    lossMultiplier: 1.28,
+    rewardMultiplier: 1.15,
+    damageMultiplier: 1.25,
+  },
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function fleetRoleProfile(ships: Partial<ShipCounts>): Record<ShipRole, RoleProfile> {
+  const profile = Object.fromEntries(
+    Object.values(ShipRole).map((role) => [role, { count: 0, power: 0 }]),
+  ) as Record<ShipRole, RoleProfile>;
+
+  for (const type of SHIP_TYPES) {
+    const quantity = ships[type] ?? 0;
+    if (quantity <= 0) continue;
+    const cfg = SHIPS[type];
+    const rolePower = (cfg.attack + cfg.defense * 0.5 + cfg.hull * 0.25) * quantity;
+    profile[cfg.role].count += quantity;
+    profile[cfg.role].power += rolePower;
+  }
+
+  return profile;
+}
+
+function strongestRole(profile: Record<ShipRole, RoleProfile>): ShipRole {
+  return Object.values(ShipRole).reduce((best, role) =>
+    profile[role].power > profile[best].power ? role : best,
+  );
+}
+
+function selectNpcFocusRole(
+  profile: Record<ShipRole, RoleProfile>,
+  preferredRoles: ShipRole[],
+): ShipRole {
+  const presentPreferred = preferredRoles.filter((role) => profile[role].count > 0);
+  if (presentPreferred.length === 0) return strongestRole(profile);
+  return presentPreferred.reduce((best, role) =>
+    profile[role].power > profile[best].power ? role : best,
+  );
+}
+
+function chooseNpcTactic(
+  input: NpcBattlePlanInput,
+  profile: Record<ShipRole, RoleProfile>,
+  healthRatio: number,
+  totalShips: number,
+  fleetPower: number,
+): NpcBattleTactic {
+  const behavior = NPC_BEHAVIOR_CONFIGS[input.encounterType];
+  const totalProfilePower = Math.max(
+    1,
+    Object.values(profile).reduce((sum, role) => sum + role.power, 0),
+  );
+  const supportShare =
+    (profile[ShipRole.SUPPORT].power + profile[ShipRole.ESPIONAGE].power) / totalProfilePower;
+  const defenseShare = profile[ShipRole.DEFENSE].power / totalProfilePower;
+  const npcBasePower = npcCombatPower(input.difficulty);
+
+  if (healthRatio <= 0.3) return behavior.woundedTactic;
+  if (fleetPower > npcBasePower * 1.7 && behavior.adaptability >= 0.8) return 'FEIGNED_RETREAT';
+  if (supportShare >= 0.18 && behavior.adaptability >= 0.6) return 'SUPPORT_DISRUPTION';
+  if (defenseShare >= 0.3 && behavior.aggression >= 0.65) return 'SIEGE_BREAKER';
+  if (totalShips >= input.difficulty * 12 && behavior.aggression >= 0.75) return 'SWARM_PRESSURE';
+  if (healthRatio <= 0.55 && behavior.resilience >= 0.75) return 'FORTIFY';
+  return behavior.openingTactic;
+}
+
+export function planNpcBattle(input: NpcBattlePlanInput): NpcBattlePlan {
+  const behavior = NPC_BEHAVIOR_CONFIGS[input.encounterType];
+  const profile = fleetRoleProfile(input.ships);
+  const totalShips = Object.values(ShipType).reduce(
+    (sum, type) => sum + (input.ships[type] ?? 0),
+    0,
+  );
+  const healthRatio = clamp(input.maxHealth > 0 ? input.health / input.maxHealth : 1, 0, 1);
+  const fleetPower = input.fleetPower ?? fleetCombatPower(input.ships, RaceType.MYCELIANS);
+  const focusRole = selectNpcFocusRole(profile, behavior.preferredTargetRoles);
+  const tactic = chooseNpcTactic(input, profile, healthRatio, totalShips, fleetPower);
+  const modifiers = NPC_TACTIC_MODIFIERS[tactic];
+  const focusPressure = profile[focusRole].count > 0 ? 1 + behavior.adaptability * 0.08 : 1;
+  const woundedPressure = 1 + (1 - healthRatio) * behavior.resilience * 0.18;
+  const commandPressure = 1 + behavior.aggression * 0.04 + input.difficulty * 0.004;
+
+  return {
+    tactic,
+    focusRole,
+    powerMultiplier: Number(
+      clamp(
+        modifiers.powerMultiplier * focusPressure * woundedPressure * commandPressure,
+        0.7,
+        1.65,
+      ).toFixed(3),
+    ),
+    lossMultiplier: Number(
+      clamp(modifiers.lossMultiplier * (1 + behavior.adaptability * 0.05), 0.55, 1.5).toFixed(3),
+    ),
+    rewardMultiplier: Number(
+      clamp(modifiers.rewardMultiplier * (1 + behavior.resilience * 0.03), 0.5, 1.25).toFixed(3),
+    ),
+    damageMultiplier: Number(
+      clamp(modifiers.damageMultiplier * (1 + behavior.aggression * 0.04), 0.5, 1.4).toFixed(3),
+    ),
+    confidence: Number(
+      clamp(0.45 + behavior.adaptability * 0.35 + healthRatio * 0.2, 0, 1).toFixed(2),
+    ),
+    rationale: `${tactic}:${focusRole}:${Math.round(healthRatio * 100)}%`,
+  };
+}
+
 /** Puissance de combat d'une anomalie hostile. */
-export function npcCombatPower(difficulty: number): number {
-  return difficulty * 150;
+export function npcCombatPower(
+  difficulty: number,
+  plan?: Pick<NpcBattlePlan, 'powerMultiplier'>,
+): number {
+  return Math.round(difficulty * 150 * (plan?.powerMultiplier ?? 1));
 }
 
 /** Temps de trajet pour un raid PvE (même formule qu'une expédition). */
@@ -565,7 +748,20 @@ export function pveCombatDurationSeconds(fleetPower: number, npcPower: number): 
 
 /** Résout un combat PvE : issue, pertes et récompenses. */
 export function pveResolve(input: PveResolveInput): PveResolveResult {
-  const { fleetPower, npcPower, ships, difficulty } = input;
+  const { fleetPower, ships, difficulty } = input;
+  const npcPlan =
+    input.npcPlan ??
+    (input.encounterType
+      ? planNpcBattle({
+          encounterType: input.encounterType,
+          difficulty,
+          health: input.health ?? difficulty * 100,
+          maxHealth: input.maxHealth ?? difficulty * 100,
+          ships,
+          fleetPower,
+        })
+      : undefined);
+  const npcPower = npcPlan ? npcCombatPower(difficulty, npcPlan) : input.npcPower;
   const ratio = fleetPower / Math.max(1, npcPower);
 
   let outcome: PveOutcome;
@@ -577,7 +773,10 @@ export function pveResolve(input: PveResolveInput): PveResolveResult {
   const totalShips = Object.values(ShipType).reduce((sum, type) => sum + (ships[type] ?? 0), 0);
 
   if (outcome === PveOutcome.VICTORY) {
-    const lossRate = Math.max(0, 0.05 + (1 - ratio) * 0.15);
+    const lossRate = Math.min(
+      0.95,
+      Math.max(0, 0.05 + (1 - ratio) * 0.15) * (npcPlan?.lossMultiplier ?? 1),
+    );
     for (const type of Object.values(ShipType)) {
       const qty = ships[type] ?? 0;
       if (qty > 0) {
@@ -585,7 +784,7 @@ export function pveResolve(input: PveResolveInput): PveResolveResult {
       }
     }
   } else if (outcome === PveOutcome.RETREAT) {
-    const lossRate = 0.25;
+    const lossRate = Math.min(0.95, 0.25 * (npcPlan?.lossMultiplier ?? 1));
     for (const type of Object.values(ShipType)) {
       const qty = ships[type] ?? 0;
       if (qty > 0) {
@@ -594,7 +793,7 @@ export function pveResolve(input: PveResolveInput): PveResolveResult {
     }
   } else {
     // Défaite : pertes massives, les survivants fuient (déterministe).
-    const lossRate = 0.85;
+    const lossRate = Math.min(0.95, 0.85 * (npcPlan?.lossMultiplier ?? 1));
     for (const type of Object.values(ShipType)) {
       const qty = ships[type] ?? 0;
       if (qty > 0) {
@@ -605,7 +804,7 @@ export function pveResolve(input: PveResolveInput): PveResolveResult {
 
   const rewards: ResourceBundle = {};
   if (outcome === PveOutcome.VICTORY || outcome === PveOutcome.RETREAT) {
-    const baseReward = difficulty * 500;
+    const baseReward = difficulty * 500 * (npcPlan?.rewardMultiplier ?? 1);
     rewards[ResourceType.BIOMASS] = Math.floor(baseReward * 0.4);
     rewards[ResourceType.SAP] = Math.floor(baseReward * 0.25);
     rewards[ResourceType.MINERALS] = Math.floor(baseReward * 0.25);
@@ -614,8 +813,12 @@ export function pveResolve(input: PveResolveInput): PveResolveResult {
 
   const damageDealt =
     outcome === PveOutcome.DEFEAT
-      ? Math.floor(fleetPower * 0.3)
-      : Math.floor(fleetPower * (outcome === PveOutcome.VICTORY ? 1.2 : 0.7));
+      ? Math.floor(fleetPower * 0.3 * (npcPlan?.damageMultiplier ?? 1))
+      : Math.floor(
+          fleetPower *
+            (outcome === PveOutcome.VICTORY ? 1.2 : 0.7) *
+            (npcPlan?.damageMultiplier ?? 1),
+        );
 
   // Normalise les pertes pour ne jamais dépasser les effectifs.
   const normalizedLost: Partial<ShipCounts> = {};
@@ -636,7 +839,7 @@ export function pveResolve(input: PveResolveInput): PveResolveResult {
     }
   }
 
-  return { outcome, lostShips: normalizedLost, rewards, damageDealt };
+  return { outcome, lostShips: normalizedLost, rewards, damageDealt, npcPlan };
 }
 
 // ──────────────────────────── PvP ────────────────────────────────────────────
