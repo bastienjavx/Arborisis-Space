@@ -24,6 +24,10 @@ export const RUN_TRADE_ROUTE_JOB = 'run-trade-route';
 export const EXPIRE_MARKET_ORDER_JOB = 'expire-market-order';
 export const SEND_NOTIFICATION_JOB = 'send-notification';
 
+export const NPC_QUEUE = 'npc';
+export const MYCOSYNTH_TICK_JOB = 'mycosynth-tick';
+export const MYCOSYNTH_TICK_INTERVAL_MS = 5 * 60 * 1_000;
+
 /** Données portées par un job de file : l'identifiant du job métier à finaliser. */
 export interface FinalizeJobData {
   jobId: string;

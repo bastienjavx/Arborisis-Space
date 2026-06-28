@@ -316,9 +316,17 @@ export enum RaceType {
   PHOTOSYNTHEX = 'PHOTOSYNTHEX',
   /** Chitinids — constructeurs défensifs et mineurs. */
   CHITINIDS = 'CHITINIDS',
+  /** Mycosynth — intelligence IA née d'un réseau mycélien ancestral ; réservée aux PNJ, non sélectionnable par les joueurs. */
+  MYCOSYNTH = 'MYCOSYNTH',
 }
 
 export const RACE_TYPES = Object.values(RaceType);
+/** Races sélectionnables par les joueurs humains (exclut les factions PNJ). */
+export const PLAYABLE_RACE_TYPES: RaceType[] = [
+  RaceType.MYCELIANS,
+  RaceType.PHOTOSYNTHEX,
+  RaceType.CHITINIDS,
+];
 
 /** Statut d'une saison de classement. */
 export enum SeasonStatus {
