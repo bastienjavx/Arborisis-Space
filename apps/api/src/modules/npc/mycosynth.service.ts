@@ -1,37 +1,81 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { JobStatus, PvpMissionPhase } from '@prisma/client';
 import {
+  ExpeditionPhase,
+  JobStatus,
+  PveMissionPhase,
+  PvpMissionPhase,
+  PvpMissionType as PrismaPvpMissionType,
+} from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import {
+  BUILDINGS,
   buildingCost,
   BuildingType,
   canAfford,
+  computeDefensePower,
+  COLONIZATION_BASE_COST,
+  CRAFTING_RECIPES,
+  EXPEDITION_SHIP_TYPES,
+  fleetCombatPower,
   GALAXY_COUNT,
+  ItemKey,
+  MarketOrderSide,
+  MarketOrderStatus,
   maxColonies,
+  MAX_PRODUCTION_LINES_PER_PLANET,
+  MYCOSYNTH_AI_CONFIG,
+  npcCombatPower,
+  NPC_ENCOUNTER_CONFIGS,
+  NpcEncounterType,
   POSITIONS_PER_SYSTEM,
+  ProductionLineStatus,
+  PRODUCTION_LINE_RECIPES,
   RaceType,
+  RESEARCHES,
   researchCost,
   ResearchType,
+  ResourceType,
   SHIPS,
+  shipCost,
   SHIP_TYPES,
   ShipRole,
   ShipType,
   SYSTEMS_PER_GALAXY,
+  TradeRouteStatus,
+  TRANSPORT_SHIP_TYPES,
   unmetBuildingRequirements,
   unmetResearchRequirements,
   type Coordinates,
+  type ResourceBundle,
 } from '@arborisis/shared';
-import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDefaultUniverseId } from '../../common/prisma/default-universe.helper';
-import { GameEngineService } from '../game/game-engine.service';
 import { BuildingsService } from '../game/buildings.service';
+import { ColonizationService } from '../game/colonization.service';
+import { ExpeditionsService } from '../game/expeditions.service';
+import { FinalizationService } from '../game/finalization.service';
+import { GameEngineService } from '../game/game-engine.service';
 import { ResearchService } from '../game/research.service';
 import { ShipsService } from '../game/ships.service';
-import { ColonizationService } from '../game/colonization.service';
-import { FinalizationService } from '../game/finalization.service';
 import { WorldFactoryService } from '../game/world-factory.service';
+import { CraftingService } from '../crafting/crafting.service';
+import { MarketService } from '../market/market.service';
+import { ProductionLinesService } from '../production-lines/production-lines.service';
+import { PveService } from '../pve/pve.service';
 import { PvpService } from '../pvp/pvp.service';
-
-// ── Configuration des 50 bots NPC ────────────────────────────────────────────
+import { TradeRoutesService } from '../trade-routes/trade-routes.service';
+import {
+  chooseBuildingUpgrade,
+  chooseShipProduction,
+  preferredMarketItems,
+  reserveProtectedAmounts,
+  resourceRatio,
+  shouldCreateTradeRoute,
+  shouldLaunchAttack,
+  shouldPlaceMarketOrder,
+  sumCombatShips,
+  type MycosynthPlanetSnapshot,
+} from './mycosynth-planner';
 
 interface NpcBotConfig {
   username: string;
@@ -39,85 +83,77 @@ interface NpcBotConfig {
   race: RaceType;
 }
 
+interface PlanetSnapshot extends MycosynthPlanetSnapshot {
+  galaxy: number;
+  system: number;
+  position: number;
+}
+
+interface BotSnapshot {
+  userId: string;
+  universeId: string;
+  race: RaceType;
+  planets: PlanetSnapshot[];
+  homeworld: PlanetSnapshot;
+  marketOrders: Array<{ itemKey: string; side: string }>;
+  inventory: Array<{ planetId: string; itemKey: string; quantity: number }>;
+  productionLines: Array<{
+    id: string;
+    planetId: string;
+    recipeId: string;
+    status: string;
+  }>;
+  tradeRoutes: Array<{
+    fromPlanetId: string;
+    toPlanetId: string;
+    resource: string | null;
+    itemKey: string | null;
+    status: string;
+  }>;
+  pendingCraftingJobs: number;
+  activePveMissions: number;
+  activePvpMissions: number;
+  activeExpeditions: number;
+  spyReports: Array<{
+    targetPlanetId: string;
+    result: unknown;
+    completedAt: Date | null;
+  }>;
+}
+
+interface TargetCandidate {
+  id: string;
+  ownerId: string;
+  galaxy: number;
+  system: number;
+  position: number;
+  owner: { race: string };
+  ships: Array<{ type: string; quantity: number }>;
+}
+
+type ShipCounts = Partial<Record<ShipType, number>>;
+
 function buildBotConfigs(): NpcBotConfig[] {
   const configs: NpcBotConfig[] = [];
-  const races: Array<{ race: RaceType; prefix: string; count: number }> = [
-    { race: RaceType.MYCELIANS, prefix: 'MYCO', count: 17 },
-    { race: RaceType.PHOTOSYNTHEX, prefix: 'PHOTO', count: 17 },
-    { race: RaceType.CHITINIDS, prefix: 'CHITIN', count: 16 },
+  const prefixes: Array<{ prefix: string; count: number }> = [
+    { prefix: 'MYCO', count: 17 },
+    { prefix: 'PHOTO', count: 17 },
+    { prefix: 'CHITIN', count: 16 },
   ];
-  for (const { race, prefix, count } of races) {
+  for (const { prefix, count } of prefixes) {
     for (let i = 1; i <= count; i++) {
       const username = `${prefix}-${String(i).padStart(2, '0')}`;
-      configs.push({ username, email: `${username.toLowerCase()}@npc.internal`, race });
+      configs.push({
+        username,
+        email: `${username.toLowerCase()}@npc.internal`,
+        race: RaceType.MYCOSYNTH,
+      });
     }
   }
-  return configs;
+  return configs.slice(0, MYCOSYNTH_AI_CONFIG.botCount);
 }
 
 const BOT_CONFIGS = buildBotConfigs();
-const NPC_CONCURRENCY = 5;
-
-// ── Priorités IA partagées par tous les bots ──────────────────────────────────
-
-const BUILDING_PRIORITY: Array<[BuildingType, number]> = [
-  [BuildingType.PHOTOSYNTHETIC_CANOPY, 6],
-  [BuildingType.BIOMASS_SYNTHESIZER, 6],
-  [BuildingType.SAP_WELL, 6],
-  [BuildingType.MINERAL_VEIN, 5],
-  [BuildingType.SYMBIOTIC_CORE, 3],
-  [BuildingType.STORAGE_VACUOLE, 4],
-  [BuildingType.RESEARCH_NEXUS, 4],
-  [BuildingType.PHOTOSYNTHETIC_CANOPY, 10],
-  [BuildingType.BIOMASS_SYNTHESIZER, 10],
-  [BuildingType.SAP_WELL, 10],
-  [BuildingType.MINERAL_VEIN, 8],
-  [BuildingType.SPORANGE, 6],
-  [BuildingType.ORBITAL_NURSERY, 5],
-  [BuildingType.STORAGE_VACUOLE, 8],
-  [BuildingType.RESEARCH_NEXUS, 8],
-  [BuildingType.SYMBIOTIC_CORE, 6],
-];
-
-const RESEARCH_PRIORITY: Array<[ResearchType, number]> = [
-  [ResearchType.ADVANCED_PHOTOSYNTHESIS, 3],
-  [ResearchType.GENETIC_ENGINEERING, 2],
-  [ResearchType.BIOENGINEERING, 2],
-  [ResearchType.SPORAL_PROPULSION, 1],
-  [ResearchType.BIOENGINEERING, 3],
-  [ResearchType.CHITIN_ARMOR, 3],
-  [ResearchType.BIOLOGICAL_WARFARE, 3],
-  [ResearchType.SPORAL_PROPULSION, 2],
-  [ResearchType.HYPERSPORE_DRIVE, 3],
-  [ResearchType.GENETIC_ENGINEERING, 5],
-  [ResearchType.ADVANCED_PHOTOSYNTHESIS, 8],
-  [ResearchType.BIOENGINEERING, 6],
-  [ResearchType.CHITIN_ARMOR, 7],
-  [ResearchType.BIOLOGICAL_WARFARE, 7],
-  [ResearchType.NUTRIENT_CYCLING, 5],
-  [ResearchType.SUBTERRANEAN_ROOTS, 5],
-  [ResearchType.SPORAL_PROPULSION, 5],
-  [ResearchType.SWARM_TACTICS, 5],
-  [ResearchType.ORBITAL_DEFENSE_GRID, 5],
-  [ResearchType.SYMBIOSIS, 5],
-  [ResearchType.TERRAFORMATION, 3],
-  [ResearchType.SPORAL_ECONOMY, 5],
-  [ResearchType.WORMHOLE_MYCOLOGY, 3],
-  [ResearchType.SPORE_SENSE, 3],
-  [ResearchType.DEEP_SCAN, 3],
-];
-
-const SHIP_PRIORITY: Array<[ShipType, number]> = [
-  [ShipType.SPORAL_SWARM, 10],
-  [ShipType.LUMINOUS_WARDEN, 10],
-  [ShipType.CHITIN_BULWARK, 10],
-  [ShipType.SPORAL_DRONE, 20],
-  [ShipType.ACID_BOMBER, 5],
-  [ShipType.CHITIN_DESTROYER, 3],
-];
-
-const ATTACK_THRESHOLD = 30;
-const COMBAT_ROLES = new Set([ShipRole.COMBAT]);
 
 @Injectable()
 export class MycosynthService {
@@ -133,13 +169,19 @@ export class MycosynthService {
     private readonly finalization: FinalizationService,
     private readonly world: WorldFactoryService,
     private readonly pvp: PvpService,
+    private readonly pve: PveService,
+    private readonly expeditions: ExpeditionsService,
+    private readonly market: MarketService,
+    private readonly tradeRoutes: TradeRoutesService,
+    private readonly productionLines: ProductionLinesService,
+    private readonly crafting: CraftingService,
   ) {}
 
-  /** Crée les 50 bots NPC s'ils n'existent pas encore (idempotent). */
+  /** Crée les 50 bots NPC s'ils n'existent pas encore et les rattache à MYCOSYNTH. */
   async ensureAllExist(): Promise<void> {
     const universeId = await getDefaultUniverseId(this.prisma);
     const existing = await this.prisma.user.findMany({
-      where: { role: 'NPC' as never },
+      where: { role: 'NPC' as never, universeId },
       select: { username: true },
     });
     const existingNames = new Set(existing.map((u) => u.username));
@@ -162,31 +204,35 @@ export class MycosynthService {
         await this.world.initNewPlayer(user.id, undefined, cfg.race);
         created++;
       } catch {
-        // Doublon probable (race condition entre réplicas) → ignorer
+        // Doublon probable entre réplicas ; l'idempotence prime.
       }
     }
+
+    await this.prisma.user.updateMany({
+      where: { role: 'NPC' as never, universeId, race: { not: RaceType.MYCOSYNTH } },
+      data: { race: RaceType.MYCOSYNTH },
+    });
 
     if (created > 0) {
       this.logger.log(`${created} bot(s) NPC créé(s) dans l'univers ${universeId}`);
     }
   }
 
-  /** Tick principal : fait réfléchir chaque bot NPC de l'univers. */
+  /** Tick principal : snapshot → une action empire → une action économie → une mission. */
   async tick(universeId: string): Promise<void> {
     const bots = await this.prisma.user.findMany({
-      where: { role: 'NPC' as never },
+      where: { role: 'NPC' as never, universeId },
       select: { id: true, race: true, username: true },
     });
     if (bots.length === 0) return;
 
     this.logger.debug(`MYCOSYNTH tick — ${bots.length} bots — univers ${universeId}`);
 
-    // Traitement par lots pour ne pas saturer la BDD
-    for (let i = 0; i < bots.length; i += NPC_CONCURRENCY) {
-      const batch = bots.slice(i, i + NPC_CONCURRENCY);
+    for (let i = 0; i < bots.length; i += MYCOSYNTH_AI_CONFIG.tickConcurrency) {
+      const batch = bots.slice(i, i + MYCOSYNTH_AI_CONFIG.tickConcurrency);
       await Promise.all(
         batch.map((bot) =>
-          this.thinkForBot(bot.id, bot.race as RaceType).catch((e: unknown) =>
+          this.thinkForBot(bot.id, bot.race as RaceType, universeId).catch((e: unknown) =>
             this.logger.debug({ err: e }, `Tick ignoré pour ${bot.username}`),
           ),
         ),
@@ -194,226 +240,987 @@ export class MycosynthService {
     }
   }
 
-  private async thinkForBot(userId: string, race: RaceType): Promise<void> {
-    const planets = await this.prisma.planet.findMany({
-      where: { ownerId: userId },
+  private async thinkForBot(userId: string, race: RaceType, universeId: string): Promise<void> {
+    const snapshot = await this.buildSnapshot(userId, race, universeId);
+    if (!snapshot) return;
+
+    await this.runEmpireAction(snapshot).catch(() => void 0);
+    await this.runEconomicAction(snapshot).catch(() => void 0);
+    await this.runMissionAction(snapshot).catch(() => void 0);
+  }
+
+  private async buildSnapshot(
+    userId: string,
+    race: RaceType,
+    universeId: string,
+  ): Promise<BotSnapshot | null> {
+    await Promise.all([
+      this.finalization.finalizeDueResearchForUser(userId),
+      this.pvp.finalizeDueForUser(userId),
+      this.pve.finalizeDueForUser(userId),
+      this.expeditions.finalizeDueForUser(userId),
+    ]);
+
+    const planetRows = await this.prisma.planet.findMany({
+      where: { ownerId: userId, universeId },
       orderBy: [{ isHomeworld: 'desc' }, { createdAt: 'asc' }],
-      select: { id: true, isHomeworld: true, galaxy: true, system: true, position: true },
+      select: {
+        id: true,
+        isHomeworld: true,
+        galaxy: true,
+        system: true,
+        position: true,
+      },
     });
-    if (planets.length === 0) return;
+    if (planetRows.length === 0) return null;
+
+    await Promise.all(
+      planetRows.flatMap((planet) => [
+        this.finalization.finalizeDueForPlanet(planet.id),
+        this.finalization.finalizeDueShipProduction(planet.id),
+      ]),
+    );
+
+    const settled = await Promise.all(
+      planetRows.map(async (planet) => ({
+        planet,
+        settled: await this.engine.settlePlanet(planet.id),
+      })),
+    );
+    const planetIds = planetRows.map((p) => p.id);
+
+    const [
+      shipRows,
+      inventory,
+      marketOrders,
+      productionLines,
+      tradeRoutes,
+      pendingCraftingJobs,
+      activePveMissions,
+      activePvpMissions,
+      activeExpeditions,
+      spyReports,
+    ] = await Promise.all([
+      this.prisma.planetShip.findMany({
+        where: { planetId: { in: planetIds }, quantity: { gt: 0 } },
+        select: { planetId: true, type: true, quantity: true },
+      }),
+      this.prisma.playerInventorySlot.findMany({
+        where: { userId, planetId: { in: planetIds }, quantity: { gt: 0 } },
+        select: { planetId: true, itemKey: true, quantity: true },
+      }),
+      this.prisma.marketOrder.findMany({
+        where: {
+          userId,
+          universeId,
+          status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
+        },
+        select: { itemKey: true, side: true },
+      }),
+      this.prisma.productionLine.findMany({
+        where: { userId, planetId: { in: planetIds } },
+        select: { id: true, planetId: true, recipeId: true, status: true },
+      }),
+      this.prisma.tradeRoute.findMany({
+        where: {
+          userId,
+          status: { in: [TradeRouteStatus.ACTIVE, TradeRouteStatus.INSUFFICIENT_SHIPS] },
+        },
+        select: {
+          fromPlanetId: true,
+          toPlanetId: true,
+          resource: true,
+          itemKey: true,
+          status: true,
+        },
+      }),
+      this.prisma.craftingJob.count({ where: { userId, status: 'PENDING' } }),
+      this.prisma.pveMission.count({
+        where: {
+          userId,
+          phase: {
+            in: [PveMissionPhase.TRAVEL, PveMissionPhase.COMBAT, PveMissionPhase.RETURNING],
+          },
+        },
+      }),
+      this.prisma.pvpMission.count({
+        where: {
+          userId,
+          phase: { in: [PvpMissionPhase.OUTBOUND, PvpMissionPhase.RETURNING] },
+        },
+      }),
+      this.prisma.expeditionMission.count({
+        where: {
+          userId,
+          phase: { in: [ExpeditionPhase.OUTBOUND, ExpeditionPhase.RETURNING] },
+        },
+      }),
+      this.prisma.pvpMission.findMany({
+        where: {
+          userId,
+          type: PrismaPvpMissionType.SPY,
+          phase: PvpMissionPhase.COMPLETED,
+          completedAt: {
+            gte: new Date(Date.now() - MYCOSYNTH_AI_CONFIG.spyFreshnessHours * 3_600_000),
+          },
+        },
+        select: { targetPlanetId: true, result: true, completedAt: true },
+        orderBy: { completedAt: 'desc' },
+        take: 20,
+      }),
+    ]);
+
+    const shipsByPlanet = new Map<string, Partial<Record<ShipType, number>>>();
+    for (const row of shipRows) {
+      const map = shipsByPlanet.get(row.planetId) ?? {};
+      map[row.type as ShipType] = row.quantity;
+      shipsByPlanet.set(row.planetId, map);
+    }
+
+    const planets = settled.map(({ planet, settled: settledPlanet }) => {
+      const resources = this.engine.buildResourceState(settledPlanet);
+      return {
+        id: planet.id,
+        isHomeworld: planet.isHomeworld,
+        galaxy: planet.galaxy,
+        system: planet.system,
+        position: planet.position,
+        buildings: settledPlanet.buildings,
+        research: settledPlanet.research,
+        resources: {
+          amounts: resources.amounts,
+          capacity: resources.capacity,
+          perHour: resources.perHour,
+          energyRatio: resources.energyRatio,
+        },
+        ships: shipsByPlanet.get(planet.id) ?? {},
+      } satisfies PlanetSnapshot;
+    });
 
     const homeworld = planets[0];
-    if (!homeworld) return;
+    if (!homeworld) return null;
 
-    for (const planet of planets) {
-      await this.tryBuild(userId, planet.id).catch(() => void 0);
-    }
-
-    await this.tryResearch(userId, homeworld.id).catch(() => void 0);
-    await this.tryColonize(userId, homeworld.id).catch(() => void 0);
-
-    for (const planet of planets) {
-      await this.tryProduceShips(userId, planet.id, race).catch(() => void 0);
-    }
-
-    await this.tryAttack(userId, planets).catch(() => void 0);
+    return {
+      userId,
+      universeId,
+      race,
+      planets,
+      homeworld,
+      marketOrders,
+      inventory,
+      productionLines,
+      tradeRoutes,
+      pendingCraftingJobs,
+      activePveMissions,
+      activePvpMissions,
+      activeExpeditions,
+      spyReports,
+    };
   }
 
-  private async tryBuild(userId: string, planetId: string): Promise<void> {
-    const pending = await this.prisma.constructionJob.findFirst({
-      where: { planetId, status: JobStatus.PENDING },
-    });
-    if (pending) return;
+  private async runEmpireAction(snapshot: BotSnapshot): Promise<void> {
+    const candidates: Array<{ score: number; run: () => Promise<void> }> = [];
 
-    await this.finalization.finalizeDueForPlanet(planetId);
-    const settled = await this.engine.settlePlanet(planetId);
-    const resources = this.engine.buildResourceState(settled);
-
-    for (const [type, targetLevel] of BUILDING_PRIORITY) {
-      const current = settled.buildings[type] ?? 0;
-      if (current >= targetLevel) continue;
-      if (unmetBuildingRequirements(type, settled).length > 0) continue;
-      if (!canAfford(resources.amounts, buildingCost(type, current + 1))) continue;
-
-      try {
-        await this.buildings.upgrade(userId, planetId, type);
-        return;
-      } catch {
-        // prérequis ou race condition → suivant
+    for (const planet of snapshot.planets) {
+      if (await this.hasPendingConstruction(planet.id)) continue;
+      for (const decision of chooseBuildingUpgrade(planet)) {
+        const current = planet.buildings[decision.type] ?? 0;
+        if (current >= BUILDINGS[decision.type].maxLevel) continue;
+        if (unmetBuildingRequirements(decision.type, planet).length > 0) continue;
+        if (!canAfford(planet.resources.amounts, buildingCost(decision.type, current + 1))) {
+          continue;
+        }
+        candidates.push({
+          score: decision.score,
+          run: async () => {
+            await this.buildings.upgrade(snapshot.userId, planet.id, decision.type);
+          },
+        });
+        break;
       }
     }
-  }
 
-  private async tryResearch(userId: string, planetId: string): Promise<void> {
-    const pending = await this.prisma.researchJob.findFirst({
-      where: { userId, status: JobStatus.PENDING },
-    });
-    if (pending) return;
-
-    await this.finalization.finalizeDueResearchForUser(userId);
-    const settled = await this.engine.settlePlanet(planetId);
-    const resources = this.engine.buildResourceState(settled);
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { race: true },
-    });
-
-    for (const [type, maxLevel] of RESEARCH_PRIORITY) {
-      const current = settled.research[type] ?? 0;
-      if (current >= maxLevel) continue;
-      if (unmetResearchRequirements(type, settled).length > 0) continue;
-      if (!canAfford(resources.amounts, researchCost(type, current + 1, user.race as RaceType)))
-        continue;
-
-      try {
-        await this.research.start(userId, planetId, type);
-        return;
-      } catch {
-        // conflit ou prérequis → suivant
-      }
-    }
-  }
-
-  private async tryColonize(userId: string, homeworldId: string): Promise<void> {
-    const sporal = await this.prisma.researchLevel.findUnique({
-      where: { userId_type: { userId, type: ResearchType.SPORAL_PROPULSION } },
-    });
-    if (!sporal || sporal.level < 1) return;
-
-    const [planetCount, pendingCount] = await Promise.all([
-      this.prisma.planet.count({ where: { ownerId: userId } }),
-      this.prisma.colonizationJob.count({ where: { userId, status: JobStatus.PENDING } }),
-    ]);
-    if (planetCount - 1 + pendingCount >= maxColonies(sporal.level)) return;
-
-    const coords = await this.findFreeCoords();
-    if (!coords) return;
-
-    await this.colonization.colonize(userId, homeworldId, coords);
-  }
-
-  private async findFreeCoords(): Promise<Coordinates | null> {
-    const universeId = await getDefaultUniverseId(this.prisma);
-    for (let i = 0; i < 60; i++) {
-      const galaxy = Math.ceil(Math.random() * GALAXY_COUNT);
-      const system = Math.ceil(Math.random() * SYSTEMS_PER_GALAXY);
-      const position = Math.ceil(Math.random() * POSITIONS_PER_SYSTEM);
-      const occupied = await this.prisma.planet.findUnique({
-        where: { universeId_galaxy_system_position: { universeId, galaxy, system, position } },
-        select: { id: true },
+    const researchCandidate = await this.findResearchCandidate(snapshot);
+    if (researchCandidate) {
+      candidates.push({
+        score: researchCandidate.score,
+        run: async () => {
+          await this.research.start(snapshot.userId, snapshot.homeworld.id, researchCandidate.type);
+        },
       });
-      if (!occupied) return { galaxy, system, position };
+    }
+
+    const colonizationCandidate = await this.findColonizationCandidate(snapshot);
+    if (colonizationCandidate) {
+      candidates.push({
+        score: 94,
+        run: async () => {
+          await this.colonization.colonize(
+            snapshot.userId,
+            snapshot.homeworld.id,
+            colonizationCandidate,
+          );
+        },
+      });
+    }
+
+    const shipCandidate = this.findShipProductionCandidate(snapshot);
+    if (shipCandidate) {
+      candidates.push({
+        score: shipCandidate.score,
+        run: async () => {
+          await this.ships.produce(snapshot.userId, {
+            planetId: shipCandidate.planetId,
+            type: shipCandidate.type,
+            quantity: shipCandidate.quantity,
+          });
+        },
+      });
+    }
+
+    await this.runBest(candidates);
+  }
+
+  private async runEconomicAction(snapshot: BotSnapshot): Promise<void> {
+    const candidates: Array<{ score: number; run: () => Promise<void> }> = [];
+
+    const lineCandidate = this.findProductionLineCandidate(snapshot);
+    if (lineCandidate) {
+      candidates.push({
+        score: lineCandidate.status === ProductionLineStatus.INPUT_SHORTAGE ? 86 : 82,
+        run: async () => {
+          if (lineCandidate.id) {
+            await this.productionLines.updateLine(snapshot.userId, lineCandidate.id, {
+              status: ProductionLineStatus.ACTIVE,
+            });
+            return;
+          }
+          await this.productionLines.createLine(snapshot.userId, {
+            planetId: lineCandidate.planetId,
+            recipeId: lineCandidate.recipeId,
+          });
+        },
+      });
+    }
+
+    const craftCandidate = this.findCraftingCandidate(snapshot);
+    if (craftCandidate) {
+      candidates.push({
+        score: 78,
+        run: async () => {
+          await this.crafting.startCrafting(snapshot.userId, {
+            planetId: craftCandidate.planetId,
+            recipeId: craftCandidate.recipeId,
+            quantity: 1,
+          });
+        },
+      });
+    }
+
+    const routeCandidate = this.findTradeRouteCandidate(snapshot);
+    if (routeCandidate) {
+      candidates.push({
+        score: 72,
+        run: async () => {
+          await this.tradeRoutes.createRoute(snapshot.userId, {
+            fromPlanetId: routeCandidate.fromPlanetId,
+            toPlanetId: routeCandidate.toPlanetId,
+            resource: routeCandidate.resource,
+            quantityPerRun: routeCandidate.quantityPerRun,
+            shipType: routeCandidate.shipType,
+            shipCount: routeCandidate.shipCount,
+            intervalHours: MYCOSYNTH_AI_CONFIG.tradeRouteIntervalHours,
+          });
+        },
+      });
+    }
+
+    const marketCandidate = await this.findMarketCandidate(snapshot);
+    if (marketCandidate) {
+      candidates.push({
+        score: marketCandidate.side === MarketOrderSide.SELL ? 68 : 64,
+        run: async () => {
+          await this.market.placeOrder(snapshot.userId, snapshot.universeId, {
+            sourcePlanetId: marketCandidate.planetId,
+            itemKey: marketCandidate.itemKey,
+            side: marketCandidate.side,
+            pricePerUnit: marketCandidate.pricePerUnit,
+            quantity: marketCandidate.quantity,
+          });
+        },
+      });
+    }
+
+    await this.runBest(candidates);
+  }
+
+  private async runMissionAction(snapshot: BotSnapshot): Promise<void> {
+    if (snapshot.activePveMissions + snapshot.activePvpMissions + snapshot.activeExpeditions > 0) {
+      return;
+    }
+
+    const pvpAction = await this.findPvpAction(snapshot);
+    if (pvpAction) {
+      await pvpAction();
+      return;
+    }
+
+    const pveAction = await this.findPveAction(snapshot);
+    if (pveAction) {
+      await pveAction();
+      return;
+    }
+
+    const expeditionAction = await this.findExpeditionAction(snapshot);
+    if (expeditionAction) await expeditionAction();
+  }
+
+  private async findResearchCandidate(
+    snapshot: BotSnapshot,
+  ): Promise<{ type: ResearchType; score: number } | null> {
+    const pending = await this.prisma.researchJob.findFirst({
+      where: { userId: snapshot.userId, status: JobStatus.PENDING },
+      select: { id: true },
+    });
+    if (pending) return null;
+
+    for (const type of MYCOSYNTH_AI_CONFIG.preferredResearch) {
+      const level = await this.currentResearchLevel(snapshot.userId, type);
+      if (level >= RESEARCHES[type].maxLevel) continue;
+      if (unmetResearchRequirements(type, snapshot.homeworld).length > 0) continue;
+      const cost = researchCost(type, level + 1, snapshot.race);
+      if (!canAfford(snapshot.homeworld.resources.amounts, cost)) continue;
+      return {
+        type,
+        score: type === ResearchType.SPORAL_PROPULSION ? 91 : 76 - level,
+      };
     }
     return null;
   }
 
-  private async tryProduceShips(userId: string, planetId: string, race: RaceType): Promise<void> {
-    const pending = await this.prisma.shipProductionJob.findFirst({
-      where: { planetId, status: JobStatus.PENDING },
+  private async currentResearchLevel(userId: string, type: ResearchType): Promise<number> {
+    const level = await this.prisma.researchLevel.findUnique({
+      where: { userId_type: { userId, type } },
+      select: { level: true },
     });
-    if (pending) return;
+    return level?.level ?? 0;
+  }
 
-    await this.finalization.finalizeDueShipProduction(planetId);
-    const settled = await this.engine.settlePlanet(planetId);
-    const nursery = settled.buildings[BuildingType.ORBITAL_NURSERY] ?? 0;
-    if (nursery < 1) return;
+  private async findColonizationCandidate(snapshot: BotSnapshot): Promise<Coordinates | null> {
+    const sporal = await this.currentResearchLevel(snapshot.userId, ResearchType.SPORAL_PROPULSION);
+    if (sporal < 1) return null;
 
-    const resources = this.engine.buildResourceState(settled);
+    const [planetCount, pendingCount] = await Promise.all([
+      this.prisma.planet.count({
+        where: { ownerId: snapshot.userId, universeId: snapshot.universeId },
+      }),
+      this.prisma.colonizationJob.count({
+        where: { userId: snapshot.userId, status: JobStatus.PENDING },
+      }),
+    ]);
+    if (planetCount - 1 + pendingCount >= maxColonies(sporal)) return null;
 
-    for (const [type, quantity] of SHIP_PRIORITY) {
-      const cfg = SHIPS[type];
-      if (cfg.restrictedToRaces && !cfg.restrictedToRaces.includes(race)) continue;
-      if (nursery < cfg.requiresNurseryLevel) continue;
+    const protectedResources = reserveProtectedAmounts(snapshot.homeworld.resources.amounts);
+    if (!canAfford(protectedResources, COLONIZATION_BASE_COST)) return null;
 
-      const cost = { ...cfg.cost };
-      for (const [res, base] of Object.entries(cost)) {
-        cost[res as keyof typeof cost] = (base ?? 0) * quantity;
+    return this.findNearbyFreeCoords(snapshot);
+  }
+
+  private findShipProductionCandidate(
+    snapshot: BotSnapshot,
+  ): { planetId: string; type: ShipType; quantity: number; score: number } | null {
+    let best: { planetId: string; type: ShipType; quantity: number; score: number } | null = null;
+    for (const planet of snapshot.planets) {
+      const nursery = planet.buildings[BuildingType.ORBITAL_NURSERY] ?? 0;
+      if (nursery < 1) continue;
+      const buildable = SHIP_TYPES.filter((type) => {
+        const cfg = SHIPS[type];
+        if (cfg.restrictedToRaces && !cfg.restrictedToRaces.includes(snapshot.race)) return false;
+        return nursery >= cfg.requiresNurseryLevel;
+      });
+      for (const decision of chooseShipProduction(planet, buildable)) {
+        const quantity = this.affordableShipQuantity(planet, decision.type, decision.quantity);
+        if (quantity <= 0) continue;
+        const candidate = {
+          planetId: planet.id,
+          type: decision.type,
+          quantity,
+          score: decision.score,
+        };
+        if (!best || candidate.score > best.score) best = candidate;
+        break;
       }
-      if (!canAfford(resources.amounts, cost as Parameters<typeof canAfford>[1])) continue;
+    }
+    return best;
+  }
 
+  private findProductionLineCandidate(
+    snapshot: BotSnapshot,
+  ): { id?: string; planetId: string; recipeId: string; status?: string } | null {
+    const activeCountByPlanet = new Map<string, number>();
+    for (const line of snapshot.productionLines) {
+      activeCountByPlanet.set(line.planetId, (activeCountByPlanet.get(line.planetId) ?? 0) + 1);
+    }
+
+    for (const line of snapshot.productionLines) {
+      if (line.status !== ProductionLineStatus.INPUT_SHORTAGE) continue;
+      const recipe = PRODUCTION_LINE_RECIPES.find((r) => r.id === line.recipeId);
+      const planet = snapshot.planets.find((p) => p.id === line.planetId);
+      if (recipe && planet && canAfford(planet.resources.amounts, recipe.inputs)) {
+        return {
+          id: line.id,
+          planetId: line.planetId,
+          recipeId: line.recipeId,
+          status: line.status,
+        };
+      }
+    }
+
+    for (const planet of snapshot.planets) {
+      if ((activeCountByPlanet.get(planet.id) ?? 0) >= MAX_PRODUCTION_LINES_PER_PLANET) continue;
+      for (const recipeId of MYCOSYNTH_AI_CONFIG.preferredProductionLineRecipes) {
+        if (
+          snapshot.productionLines.some(
+            (line) => line.planetId === planet.id && line.recipeId === recipeId,
+          )
+        ) {
+          continue;
+        }
+        const recipe = PRODUCTION_LINE_RECIPES.find((r) => r.id === recipeId);
+        if (!recipe || !canAfford(planet.resources.amounts, recipe.inputs)) continue;
+        return { planetId: planet.id, recipeId };
+      }
+    }
+    return null;
+  }
+
+  private findCraftingCandidate(
+    snapshot: BotSnapshot,
+  ): { planetId: string; recipeId: string } | null {
+    if (snapshot.pendingCraftingJobs > 0) return null;
+    for (const recipeId of MYCOSYNTH_AI_CONFIG.preferredCraftingRecipes) {
+      const recipe = CRAFTING_RECIPES.find((r) => r.id === recipeId);
+      if (!recipe) continue;
+      for (const planet of snapshot.planets) {
+        if (this.canCraftOnPlanet(snapshot, planet, recipe)) {
+          return { planetId: planet.id, recipeId };
+        }
+      }
+    }
+    return null;
+  }
+
+  private async findMarketCandidate(snapshot: BotSnapshot): Promise<{
+    planetId: string;
+    itemKey: ItemKey;
+    side: MarketOrderSide;
+    pricePerUnit: number;
+    quantity: number;
+  } | null> {
+    for (const itemKey of preferredMarketItems()) {
+      const slot = snapshot.inventory.find(
+        (item) =>
+          item.itemKey === itemKey && item.quantity >= MYCOSYNTH_AI_CONFIG.marketSellSurplus,
+      );
+      if (slot && !this.hasOpenMarketOrder(snapshot, itemKey, MarketOrderSide.SELL)) {
+        const book = await this.market.getOrderBook(snapshot.universeId, itemKey);
+        const pricePerUnit = Math.max(
+          MYCOSYNTH_AI_CONFIG.marketPriceFloor,
+          book.bids[0]?.price ?? MYCOSYNTH_AI_CONFIG.defaultSellPrice,
+        );
+        if (
+          shouldPlaceMarketOrder({
+            openOrderCount: snapshot.marketOrders.length,
+            side: MarketOrderSide.SELL,
+            inventoryQuantity: slot.quantity,
+            pricePerUnit,
+          })
+        ) {
+          return {
+            planetId: slot.planetId,
+            itemKey,
+            side: MarketOrderSide.SELL,
+            pricePerUnit,
+            quantity: Math.min(MYCOSYNTH_AI_CONFIG.marketOrderQuantity, slot.quantity),
+          };
+        }
+      }
+    }
+
+    const buyer = snapshot.homeworld;
+    for (const itemKey of preferredMarketItems()) {
+      if (
+        this.inventoryQuantity(snapshot, buyer.id, itemKey) > MYCOSYNTH_AI_CONFIG.marketBuyShortage
+      ) {
+        continue;
+      }
+      if (this.hasOpenMarketOrder(snapshot, itemKey, MarketOrderSide.BUY)) continue;
+      const book = await this.market.getOrderBook(snapshot.universeId, itemKey);
+      const pricePerUnit = Math.max(
+        MYCOSYNTH_AI_CONFIG.marketPriceFloor,
+        book.asks[0]?.price ?? MYCOSYNTH_AI_CONFIG.defaultBuyPrice,
+      );
+      const escrow = pricePerUnit * MYCOSYNTH_AI_CONFIG.marketOrderQuantity;
+      const protectedBiomass =
+        buyer.resources.amounts[ResourceType.BIOMASS] -
+        (MYCOSYNTH_AI_CONFIG.economyReserve[ResourceType.BIOMASS] ?? 0);
+      if (protectedBiomass < escrow) continue;
+      if (
+        shouldPlaceMarketOrder({
+          openOrderCount: snapshot.marketOrders.length,
+          side: MarketOrderSide.BUY,
+          inventoryQuantity: this.totalInventoryQuantity(snapshot, itemKey),
+          pricePerUnit,
+        })
+      ) {
+        return {
+          planetId: buyer.id,
+          itemKey,
+          side: MarketOrderSide.BUY,
+          pricePerUnit,
+          quantity: MYCOSYNTH_AI_CONFIG.marketOrderQuantity,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  private findTradeRouteCandidate(snapshot: BotSnapshot): {
+    fromPlanetId: string;
+    toPlanetId: string;
+    resource: ResourceType;
+    quantityPerRun: number;
+    shipType: (typeof TRANSPORT_SHIP_TYPES)[number];
+    shipCount: number;
+  } | null {
+    if (snapshot.planets.length < 2) return null;
+    const activeRoutes = snapshot.tradeRoutes.filter(
+      (route) => route.status === TradeRouteStatus.ACTIVE,
+    );
+
+    for (const resource of Object.values(ResourceType)) {
+      const source = [...snapshot.planets].sort(
+        (a, b) => resourceRatio(b.resources, resource) - resourceRatio(a.resources, resource),
+      )[0];
+      const target = [...snapshot.planets].sort(
+        (a, b) => resourceRatio(a.resources, resource) - resourceRatio(b.resources, resource),
+      )[0];
+      if (!source || !target || source.id === target.id) continue;
+
+      const duplicateExists = snapshot.tradeRoutes.some(
+        (route) =>
+          route.fromPlanetId === source.id &&
+          route.toPlanetId === target.id &&
+          route.resource === resource,
+      );
+      if (
+        !shouldCreateTradeRoute({
+          activeRouteCount: activeRoutes.length,
+          duplicateExists,
+          sourceRatio: resourceRatio(source.resources, resource),
+          targetRatio: resourceRatio(target.resources, resource),
+        })
+      ) {
+        continue;
+      }
+      const transport = this.pickTransport(source);
+      if (!transport) continue;
+      return {
+        fromPlanetId: source.id,
+        toPlanetId: target.id,
+        resource,
+        quantityPerRun: Math.min(
+          MYCOSYNTH_AI_CONFIG.tradeRouteMaxQuantity,
+          Math.floor(source.resources.amounts[resource] * 0.15),
+        ),
+        shipType: transport.type,
+        shipCount: transport.count,
+      };
+    }
+    return null;
+  }
+
+  private async findPvpAction(snapshot: BotSnapshot): Promise<(() => Promise<void>) | null> {
+    const source = [...snapshot.planets]
+      .filter(
+        (planet) => sumCombatShips(planet.ships) >= MYCOSYNTH_AI_CONFIG.minCombatShipsForAttack,
+      )
+      .sort((a, b) => sumCombatShips(b.ships) - sumCombatShips(a.ships))[0];
+    if (!source) return null;
+
+    const target = await this.findTarget(snapshot, source);
+    if (!target) return null;
+
+    const recent = await this.countRecentAttacks(snapshot.userId, target);
+    const spyReport = this.findFreshSpyReport(snapshot, target.id);
+    const attackFleet = this.buildCombatFleet(source.ships);
+    const attackerPower = fleetCombatPower(attackFleet, snapshot.race);
+    const defenderPower =
+      spyReport?.defensePower ??
+      computeDefensePower({
+        ships: this.shipCountsFromRows(target.ships),
+        race: target.owner.race as RaceType,
+      });
+
+    if (
+      shouldLaunchAttack({
+        attackerPower,
+        defenderPower,
+        hasFreshSpy: !!spyReport,
+        recentAttacksAgainstOwner: recent.owner,
+        recentAttacksAgainstPlanet: recent.planet,
+      })
+    ) {
+      return async () => {
+        await this.pvp.attack(snapshot.userId, {
+          sourcePlanetId: source.id,
+          targetPlanetId: target.id,
+          ships: this.completeShipCounts(attackFleet),
+        });
+      };
+    }
+
+    const spyFleet = this.buildSpyFleet(source.ships);
+    if (recent.owner === 0 && Object.values(spyFleet).some((qty) => qty > 0)) {
+      return async () => {
+        await this.pvp.spy(snapshot.userId, {
+          sourcePlanetId: source.id,
+          targetPlanetId: target.id,
+          ships: this.completeShipCounts(spyFleet),
+        });
+      };
+    }
+
+    return null;
+  }
+
+  private async findPveAction(snapshot: BotSnapshot): Promise<(() => Promise<void>) | null> {
+    const source = [...snapshot.planets]
+      .filter((planet) => sumCombatShips(planet.ships) >= MYCOSYNTH_AI_CONFIG.minCombatShipsForPve)
+      .sort((a, b) => sumCombatShips(b.ships) - sumCombatShips(a.ships))[0];
+    if (!source) return null;
+
+    const fleet = this.buildCombatFleet(source.ships);
+    const fleetPower = fleetCombatPower(fleet, snapshot.race);
+    if (fleetPower <= 0) return null;
+
+    const now = new Date();
+    const encounters = await this.prisma.npcEncounter.findMany({
+      where: { universeId: snapshot.universeId, expiresAt: { gt: now } },
+      orderBy: { difficulty: 'asc' },
+      take: 50,
+    });
+    const viable = encounters
+      .map((encounter) => {
+        const npcPower = npcCombatPower(encounter.difficulty);
+        const cfg = NPC_ENCOUNTER_CONFIGS[encounter.type as NpcEncounterType];
+        const distance =
+          Math.abs(encounter.galaxy - source.galaxy) * 100 +
+          Math.abs(encounter.system - source.system);
+        const ratio = fleetPower / Math.max(1, npcPower);
+        return { encounter, score: ratio * cfg.rewardMultiplier * 100 - distance };
+      })
+      .filter(({ encounter, score }) => {
+        void score;
+        return (
+          fleetPower / Math.max(1, npcCombatPower(encounter.difficulty)) >=
+          MYCOSYNTH_AI_CONFIG.minPvePowerRatio
+        );
+      })
+      .sort((a, b) => b.score - a.score)[0];
+
+    if (!viable) return null;
+    return async () => {
+      await this.pve.attack(snapshot.userId, viable.encounter.id, {
+        planetId: source.id,
+        ships: this.completeShipCounts(fleet),
+      });
+    };
+  }
+
+  private async findExpeditionAction(snapshot: BotSnapshot): Promise<(() => Promise<void>) | null> {
+    const sporal = await this.currentResearchLevel(snapshot.userId, ResearchType.SPORAL_PROPULSION);
+    if (sporal < 1) return null;
+    const source = [...snapshot.planets]
+      .filter((planet) => this.expeditionShipCount(planet.ships) > 0)
+      .sort((a, b) => this.expeditionShipCount(b.ships) - this.expeditionShipCount(a.ships))[0];
+    if (!source) return null;
+
+    const target = {
+      galaxy: source.galaxy,
+      system: clamp(source.system + 4 + Math.floor(Math.random() * 6), 1, SYSTEMS_PER_GALAXY),
+    };
+
+    return async () => {
+      await this.expeditions.start(snapshot.userId, {
+        planetId: source.id,
+        target,
+        ships: this.expeditionFleet(source.ships),
+      });
+    };
+  }
+
+  private async runBest(
+    candidates: Array<{ score: number; run: () => Promise<unknown> }>,
+  ): Promise<void> {
+    for (const candidate of candidates.sort((a, b) => b.score - a.score)) {
       try {
-        await this.ships.produce(userId, { planetId, type, quantity });
+        await candidate.run();
         return;
       } catch {
-        // conflit ou nursery insuffisant → suivant
+        // Une décision devenue invalide entre snapshot et action ne bloque pas les suivantes.
       }
     }
   }
 
-  private async tryAttack(
-    userId: string,
-    planets: Array<{ id: string; galaxy: number; system: number; position: number }>,
-  ): Promise<void> {
-    const planetIds = planets.map((p) => p.id);
-    const combatTypes = SHIP_TYPES.filter((t) => COMBAT_ROLES.has(SHIPS[t].role));
-
-    const inventory = await this.prisma.planetShip.findMany({
-      where: { planetId: { in: planetIds }, type: { in: combatTypes }, quantity: { gt: 0 } },
+  private async hasPendingConstruction(planetId: string): Promise<boolean> {
+    const pending = await this.prisma.constructionJob.findFirst({
+      where: { planetId, status: JobStatus.PENDING },
+      select: { id: true },
     });
+    return !!pending;
+  }
 
-    const totalCombat = inventory.reduce((sum, s) => sum + s.quantity, 0);
-    if (totalCombat < ATTACK_THRESHOLD) return;
-
-    const activeMission = await this.prisma.pvpMission.findFirst({
-      where: { userId, phase: PvpMissionPhase.OUTBOUND },
-    });
-    if (activeMission) return;
-
-    const shipsByPlanet = new Map<string, number>();
-    for (const s of inventory) {
-      shipsByPlanet.set(s.planetId, (shipsByPlanet.get(s.planetId) ?? 0) + s.quantity);
+  private affordableShipQuantity(
+    planet: PlanetSnapshot,
+    type: ShipType,
+    requestedQuantity: number,
+  ): number {
+    let quantity = Math.max(1, Math.min(100, Math.floor(requestedQuantity)));
+    const protectedAmounts = reserveProtectedAmounts(planet.resources.amounts);
+    while (quantity > 0) {
+      if (canAfford(protectedAmounts, shipCost(type, quantity))) return quantity;
+      quantity = Math.floor(quantity / 2);
     }
-    const sourcePlanet = planets.reduce((best, p) =>
-      (shipsByPlanet.get(p.id) ?? 0) > (shipsByPlanet.get(best.id) ?? 0) ? p : best,
+    return 0;
+  }
+
+  private async findNearbyFreeCoords(snapshot: BotSnapshot): Promise<Coordinates | null> {
+    const occupied = new Set(
+      (
+        await this.prisma.planet.findMany({
+          where: { universeId: snapshot.universeId },
+          select: { galaxy: true, system: true, position: true },
+        })
+      ).map((p) => `${p.galaxy}:${p.system}:${p.position}`),
     );
-    if ((shipsByPlanet.get(sourcePlanet.id) ?? 0) < ATTACK_THRESHOLD) return;
 
-    const target = await this.findTarget(userId, sourcePlanet);
-    if (!target) return;
-
-    const sourceShips = inventory.filter((s) => s.planetId === sourcePlanet.id);
-    const fleet: Partial<Record<ShipType, number>> = {};
-    for (const s of sourceShips) {
-      const qty = Math.max(1, Math.floor(s.quantity * 0.75));
-      if (qty > 0) fleet[s.type as ShipType] = qty;
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const anchor = snapshot.planets[attempt % snapshot.planets.length] ?? snapshot.homeworld;
+      const system =
+        anchor.system +
+        Math.floor(Math.random() * (MYCOSYNTH_AI_CONFIG.nearbyColonizationDriftSystems * 2 + 1)) -
+        MYCOSYNTH_AI_CONFIG.nearbyColonizationDriftSystems;
+      const coords = {
+        galaxy: anchor.galaxy,
+        system: clamp(system, 1, SYSTEMS_PER_GALAXY),
+        position: Math.floor(Math.random() * POSITIONS_PER_SYSTEM) + 1,
+      };
+      if (!occupied.has(`${coords.galaxy}:${coords.system}:${coords.position}`)) return coords;
     }
 
-    const hasCombatShip = Object.entries(fleet).some(
-      ([type, qty]) => (qty ?? 0) > 0 && COMBAT_ROLES.has(SHIPS[type as ShipType].role),
-    );
-    if (!hasCombatShip) return;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const coords = {
+        galaxy: Math.floor(Math.random() * GALAXY_COUNT) + 1,
+        system: Math.floor(Math.random() * SYSTEMS_PER_GALAXY) + 1,
+        position: Math.floor(Math.random() * POSITIONS_PER_SYSTEM) + 1,
+      };
+      if (!occupied.has(`${coords.galaxy}:${coords.system}:${coords.position}`)) return coords;
+    }
+    return null;
+  }
 
-    await this.pvp.attack(userId, {
-      sourcePlanetId: sourcePlanet.id,
-      targetPlanetId: target.id,
-      ships: fleet as Record<ShipType, number>,
-    });
+  private canCraftOnPlanet(
+    snapshot: BotSnapshot,
+    planet: PlanetSnapshot,
+    recipe: (typeof CRAFTING_RECIPES)[number],
+  ): boolean {
+    const protectedAmounts = reserveProtectedAmounts(planet.resources.amounts);
+    const resourceCosts: ResourceBundle = {};
+    for (const ingredient of recipe.ingredients) {
+      if (ingredient.resource) {
+        resourceCosts[ingredient.resource] =
+          (resourceCosts[ingredient.resource] ?? 0) + ingredient.quantity;
+      }
+      if (
+        ingredient.itemKey &&
+        this.inventoryQuantity(snapshot, planet.id, ingredient.itemKey) < ingredient.quantity
+      ) {
+        return false;
+      }
+    }
+    return canAfford(protectedAmounts, resourceCosts);
+  }
+
+  private hasOpenMarketOrder(
+    snapshot: BotSnapshot,
+    itemKey: ItemKey,
+    side: MarketOrderSide,
+  ): boolean {
+    return snapshot.marketOrders.some((order) => order.itemKey === itemKey && order.side === side);
+  }
+
+  private inventoryQuantity(snapshot: BotSnapshot, planetId: string, itemKey: ItemKey): number {
+    return (
+      snapshot.inventory.find((item) => item.planetId === planetId && item.itemKey === itemKey)
+        ?.quantity ?? 0
+    );
+  }
+
+  private totalInventoryQuantity(snapshot: BotSnapshot, itemKey: ItemKey): number {
+    return snapshot.inventory
+      .filter((item) => item.itemKey === itemKey)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  }
+
+  private pickTransport(
+    planet: PlanetSnapshot,
+  ): { type: (typeof TRANSPORT_SHIP_TYPES)[number]; count: number } | null {
+    for (const type of TRANSPORT_SHIP_TYPES) {
+      const count = planet.ships[type] ?? 0;
+      if (count > 0) return { type, count: Math.min(count, 2) };
+    }
+    return null;
   }
 
   private async findTarget(
-    npcUserId: string,
-    source: { galaxy: number; system: number },
-  ): Promise<{ id: string; ownerId: string } | null> {
-    const [sameSystem, sameGalaxy] = await Promise.all([
-      this.prisma.planet.findFirst({
+    snapshot: BotSnapshot,
+    source: PlanetSnapshot,
+  ): Promise<TargetCandidate | null> {
+    const targets = await this.prisma.planet.findMany({
+      where: {
+        universeId: snapshot.universeId,
+        ownerId: { not: snapshot.userId },
+        owner: { role: 'PLAYER' },
+        galaxy: source.galaxy,
+      },
+      select: {
+        id: true,
+        ownerId: true,
+        galaxy: true,
+        system: true,
+        position: true,
+        owner: { select: { race: true } },
+        ships: { select: { type: true, quantity: true } },
+      },
+      take: 50,
+    });
+
+    const sortedTargets = targets.sort(
+      (a, b) =>
+        Math.abs(a.system - source.system) +
+        Math.abs(a.position - source.position) -
+        (Math.abs(b.system - source.system) + Math.abs(b.position - source.position)),
+    );
+    return sortedTargets[0] ?? null;
+  }
+
+  private async countRecentAttacks(
+    userId: string,
+    target: { id: string; ownerId: string },
+  ): Promise<{ planet: number; owner: number }> {
+    const [planet, owner] = await Promise.all([
+      this.prisma.pvpMission.count({
         where: {
-          galaxy: source.galaxy,
-          system: source.system,
-          ownerId: { not: npcUserId },
-          owner: { role: 'PLAYER' },
+          userId,
+          type: PrismaPvpMissionType.ATTACK,
+          targetPlanetId: target.id,
+          createdAt: {
+            gte: new Date(Date.now() - MYCOSYNTH_AI_CONFIG.attackCooldownHours * 3_600_000),
+          },
         },
-        select: { id: true, ownerId: true },
       }),
-      this.prisma.planet.findFirst({
+      this.prisma.pvpMission.count({
         where: {
-          galaxy: source.galaxy,
-          ownerId: { not: npcUserId },
-          owner: { role: 'PLAYER' },
+          userId,
+          type: PrismaPvpMissionType.ATTACK,
+          targetPlanet: { ownerId: target.ownerId },
+          createdAt: {
+            gte: new Date(Date.now() - MYCOSYNTH_AI_CONFIG.targetOwnerCooldownHours * 3_600_000),
+          },
         },
-        select: { id: true, ownerId: true },
       }),
     ]);
-
-    return sameSystem ?? sameGalaxy ?? null;
+    return { planet, owner };
   }
+
+  private findFreshSpyReport(
+    snapshot: BotSnapshot,
+    targetPlanetId: string,
+  ): { defensePower: number | null } | null {
+    const report = snapshot.spyReports.find((mission) => mission.targetPlanetId === targetPlanetId);
+    if (!report || !report.result || typeof report.result !== 'object') return null;
+    const maybeReport = (report.result as Record<string, unknown>).report;
+    if (!maybeReport || typeof maybeReport !== 'object') return null;
+    const defensePower = (maybeReport as Record<string, unknown>).defensePower;
+    return { defensePower: typeof defensePower === 'number' ? defensePower : null };
+  }
+
+  private buildCombatFleet(ships: ShipCounts): Record<ShipType, number> {
+    const fleet = this.emptyShipCounts();
+    for (const type of SHIP_TYPES) {
+      const cfg = SHIPS[type];
+      if (![ShipRole.COMBAT, ShipRole.SUPPORT, ShipRole.DEFENSE].includes(cfg.role)) continue;
+      const available = ships[type] ?? 0;
+      const send = Math.floor(available * (1 - MYCOSYNTH_AI_CONFIG.fleetReserveRatio));
+      if (send > 0) fleet[type] = send;
+    }
+    return fleet;
+  }
+
+  private buildSpyFleet(ships: ShipCounts): Record<ShipType, number> {
+    const fleet = this.emptyShipCounts();
+    for (const type of SHIP_TYPES) {
+      if (SHIPS[type].role !== ShipRole.ESPIONAGE) continue;
+      const available = ships[type] ?? 0;
+      if (available > 0) {
+        fleet[type] = 1;
+        return fleet;
+      }
+    }
+    return fleet;
+  }
+
+  private expeditionFleet(ships: ShipCounts): {
+    [ShipType.SPORAL_SCOUT]: number;
+    [ShipType.SYMBIOTIC_HARVESTER]: number;
+    [ShipType.MYCELIAL_TENDRIL]: number;
+    [ShipType.CHITIN_FREIGHTER]: number;
+    [ShipType.BIOLUMINESCENT_CRUISER]: number;
+    [ShipType.SPOROGENESIS_TITAN]: number;
+  } {
+    return {
+      [ShipType.SPORAL_SCOUT]: Math.min(ships[ShipType.SPORAL_SCOUT] ?? 0, 2),
+      [ShipType.SYMBIOTIC_HARVESTER]: Math.min(ships[ShipType.SYMBIOTIC_HARVESTER] ?? 0, 2),
+      [ShipType.MYCELIAL_TENDRIL]: Math.min(ships[ShipType.MYCELIAL_TENDRIL] ?? 0, 1),
+      [ShipType.CHITIN_FREIGHTER]: Math.min(ships[ShipType.CHITIN_FREIGHTER] ?? 0, 1),
+      [ShipType.BIOLUMINESCENT_CRUISER]: Math.min(ships[ShipType.BIOLUMINESCENT_CRUISER] ?? 0, 1),
+      [ShipType.SPOROGENESIS_TITAN]: Math.min(ships[ShipType.SPOROGENESIS_TITAN] ?? 0, 1),
+    };
+  }
+
+  private expeditionShipCount(ships: ShipCounts): number {
+    return EXPEDITION_SHIP_TYPES.reduce((sum, type) => sum + (ships[type] ?? 0), 0);
+  }
+
+  private shipCountsFromRows(
+    rows: Array<{ type: string; quantity: number }>,
+  ): Record<ShipType, number> {
+    const counts = this.emptyShipCounts();
+    for (const row of rows) counts[row.type as ShipType] = row.quantity;
+    return counts;
+  }
+
+  private completeShipCounts(ships: ShipCounts): Record<ShipType, number> {
+    return { ...this.emptyShipCounts(), ...ships };
+  }
+
+  private emptyShipCounts(): Record<ShipType, number> {
+    return Object.fromEntries(SHIP_TYPES.map((type) => [type, 0])) as Record<ShipType, number>;
+  }
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
