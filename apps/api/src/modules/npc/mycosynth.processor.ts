@@ -22,15 +22,18 @@ export class MycosynthProcessor extends WorkerHost {
   async process(job: Job): Promise<void> {
     if (job.name !== MYCOSYNTH_TICK_JOB) return;
 
-    await runWithUniverse(this.prisma, job.data.universeId, async () => {
-      await this.mycosynth.tick(job.data.universeId as string);
-    });
-
-    // Planifier le prochain tick en chaîne
-    await this.queue
-      .scheduleNextMycosynthTick()
-      .catch((e: unknown) =>
-        this.logger.warn({ err: e }, 'Impossible de planifier le prochain tick MYCOSYNTH'),
-      );
+    try {
+      await runWithUniverse(this.prisma, job.data.universeId, async () => {
+        await this.mycosynth.tick(job.data.universeId as string);
+      });
+    } finally {
+      // Planifier le prochain tick en chaîne, même si le tick courant échoue,
+      // pour éviter que l'IA MYCOSYNTH ne s'arrête après une erreur.
+      await this.queue
+        .scheduleNextMycosynthTick(undefined, true)
+        .catch((e: unknown) =>
+          this.logger.warn({ err: e }, 'Impossible de planifier le prochain tick MYCOSYNTH'),
+        );
+    }
   }
 }
