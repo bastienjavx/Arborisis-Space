@@ -70,7 +70,7 @@ export class MaintenanceModule implements OnApplicationBootstrap, OnApplicationS
         this.mycosynth.ensureAllExist(),
       )
       .catch(() => void 0);
-    await this.queues.scheduleNextMycosynthTick(0, true).catch(() => void 0);
+    await this.queues.ensureMycosynthTickScheduled(0).catch(() => void 0);
     this.timer = setInterval(() => {
       void this.reconcile().catch((error) =>
         this.logger.error(error, 'Échec du cycle de réconciliation.'),
@@ -90,6 +90,9 @@ export class MaintenanceModule implements OnApplicationBootstrap, OnApplicationS
       await this.queues.runWithDistributedLock('processors:reconcile:lock', 55_000, () =>
         this.runSweeps(),
       );
+      // Filet de sécurité : relance la boucle de tick MYCOSYNTH si elle s'est
+      // interrompue (la garde anti-duplication interne évite tout doublon).
+      await this.queues.ensureMycosynthTickScheduled(0).catch(() => void 0);
     } finally {
       this.reconciling = false;
     }

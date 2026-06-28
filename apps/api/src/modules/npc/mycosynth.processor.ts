@@ -27,10 +27,12 @@ export class MycosynthProcessor extends WorkerHost {
         await this.mycosynth.tick(job.data.universeId as string);
       });
     } finally {
-      // Planifier le prochain tick en chaîne, même si le tick courant échoue,
-      // pour éviter que l'IA MYCOSYNTH ne s'arrête après une erreur.
+      // Planifier le prochain tick en chaîne, même si le tick courant échoue, pour
+      // éviter que l'IA MYCOSYNTH ne s'arrête après une erreur. L'identifiant fenêtré
+      // garantit qu'on ne réutilise pas l'id du job courant (encore « active » ici),
+      // sinon BullMQ déduplique et la chaîne meurt après un seul tick.
       await this.queue
-        .scheduleNextMycosynthTick(undefined, true)
+        .scheduleNextMycosynthTick()
         .catch((e: unknown) =>
           this.logger.warn({ err: e }, 'Impossible de planifier le prochain tick MYCOSYNTH'),
         );
