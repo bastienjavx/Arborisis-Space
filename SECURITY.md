@@ -1,101 +1,151 @@
-# Security Policy / Politique de sécurité — Arborisis
+# Security Policy
 
-This file defines the operational security model and disclosure path for Arborisis.
+Arborisis is a persistent multiplayer strategy game. The security model is built around one principle: the server owns all meaningful gameplay state.
 
 ---
 
-## EN
+## Reporting a Vulnerability
 
-### Report a vulnerability
+Please do not open a public issue for security problems.
 
-Please do **not** open a public issue for security problems.  
-Private contact: **bastienjavaux@gmail.com**
+Private contact: `bastienjavaux@gmail.com`
 
-### Core security model
+Include, when possible:
 
-1. **Server-authoritative gameplay**: the client sends intentions, never trusted values.
-2. **Deterministic resource settlement on server** before reads/mutations.
-3. **Strict input validation** with Zod on API boundaries.
-4. **Idempotent BullMQ finalization** with lazy read-time safety and recovery sweep.
-5. **Transactional integrity** for spend-and-schedule workflows.
+- Affected route, module, or workflow.
+- Reproduction steps.
+- Expected impact.
+- Whether credentials, sessions, game state, or deployment secrets are involved.
 
-### Authentication and session security
+---
+
+## Security Model
+
+### Core Assumptions
+
+- Clients are untrusted.
+- Network requests can be replayed, delayed, or modified.
+- Timed jobs can execute late, execute more than once, or need recovery after downtime.
+- Multiple API replicas and workers can operate concurrently.
+- Production secrets can rotate and must not be coupled to build artifacts.
+
+### Non-Negotiable Controls
+
+1. Clients submit intentions only; never trusted resource totals, timers, rewards, or combat outcomes.
+2. Server services settle time-based resources before reads and mutations.
+3. All API inputs use strict validation through Zod.
+4. Spend-and-schedule workflows use transactions.
+5. BullMQ finalization paths are idempotent.
+6. Shared gameplay constants prevent hidden balance drift across app layers.
+7. Shared enums and Prisma enums stay synchronized.
+8. Mutating routes are protected by authentication, origin checks, and rate limits.
+
+---
+
+## Application Controls
+
+### Authentication and Sessions
 
 - Argon2id password hashing.
-- Short-lived access JWT + rotating opaque refresh token.
-- Cookies: httpOnly, SameSite=Lax, `Secure` in production.
-- Origin/fetch-metadata protections on mutation routes.
+- Short-lived access JWT.
+- Rotating opaque refresh token.
+- httpOnly cookies.
+- SameSite=Lax cookies.
+- Secure cookies in production.
+- Optional AES-256-GCM encryption for TOTP secrets through `TOTP_ENC_KEY`.
+- Password reset and email verification flows are backed by server-side tokens.
 
-### Platform hardening
+### API Boundary
 
-- Helmet HTTP headers.
-- Restricted CORS (`WEB_ORIGIN`) with credentials.
-- Rate limiting (`@nestjs/throttler`), stricter on auth endpoints.
-- Environment validation at startup (fail-fast for weak/invalid config).
-- Structured logs with sensitive field redaction.
+- `JwtAuthGuard` protects authenticated routes by default.
+- `OriginGuard` protects mutation routes from cross-origin abuse.
+- `UserThrottlerGuard` adds user-aware throttling.
+- `@nestjs/throttler` uses Redis storage so limits remain coherent across replicas.
+- CORS is restricted to `WEB_ORIGIN` with credentials.
+- Helmet is enabled globally.
+- Query parsing is explicitly configured.
 
-### Secrets and data handling
+### Data and Secrets
 
-- No plaintext secrets in Git.
-- Use strong JWT secrets (`openssl rand -base64 48`).
-- `.env.example` documents required variables; `.env` stays local.
-- Prisma queries are parameterized; no raw SQL from untrusted input.
+- Prisma is the database access layer.
+- No raw SQL should use untrusted input.
+- `.env.example` documents variables; `.env` remains local.
+- JWT secrets must be strong: `openssl rand -base64 48`.
+- Logs redact cookies, authorization headers, and set-cookie values.
+- Production secrets live in Railway variables, not in Git.
 
-### CI/CD security checks (GitHub Actions)
+### Gameplay Integrity
 
-- **CodeQL** (`.github/workflows/codeql.yml`) for JS/TS SAST and GitHub Security alerts.
-- **Security** (`.github/workflows/security.yml`) for:
-  - **gitleaks** secret scanning (blocking),
-  - npm runtime audit (`--omit=dev`) with HIGH/CRITICAL blocking threshold,
-  - **Trivy** repository/config scan (vulns, misconfigs, secrets; HIGH/CRITICAL blocking).
-- **Dependency Review** (`.github/workflows/dependency-review.yml`) blocks newly introduced HIGH/CRITICAL vulnerabilities in dependency changes.
-- **OSSF Scorecard** (`.github/workflows/scorecards.yml`) continuously monitors supply-chain posture and publishes SARIF results.
+- Resource settlement happens server-side.
+- Economy-changing mutations spend and schedule atomically.
+- Workers finalize persisted business jobs rather than trusting queued payloads alone.
+- Recovery sweeps handle overdue work after worker downtime.
+- Distributed locks protect global sweeps and bootstrap work.
 
 ---
 
-## FR
+## CI/CD Security
 
-### Signaler une vulnérabilité
+Expected GitHub checks:
 
-Merci de **ne pas** ouvrir d’issue publique pour une faille.  
-Contact privé : **bastienjavaux@gmail.com**
+| Check             | Purpose                                                       |
+| ----------------- | ------------------------------------------------------------- |
+| CI                | Build, lint, format, typecheck, tests, e2e                    |
+| CodeQL            | JavaScript/TypeScript static analysis                         |
+| Security          | gitleaks, npm runtime audit, Trivy repo/config scan           |
+| Dependency Review | Blocks newly introduced HIGH/CRITICAL vulnerable dependencies |
+| OSSF Scorecard    | Supply-chain posture monitoring                               |
+| Smoke             | Deployment or runtime smoke coverage when configured          |
 
-### Modèle de sécurité
+Security checks are part of the quality gate, not an afterthought.
 
-1. **Gameplay autoritaire côté serveur** : le client envoie des intentions uniquement.
-2. **Recalcul déterministe des ressources côté serveur** avant lecture/mutation.
-3. **Validation stricte** des entrées via Zod.
-4. **Finalisation BullMQ idempotente** avec garde-fous à la lecture et sweep de récupération.
-5. **Intégrité transactionnelle** sur toutes les opérations de dépense/planification.
+---
 
-### Authentification et sessions
+## Incident Playbooks
 
-- Hachage des mots de passe avec Argon2id.
-- JWT d’accès court + refresh opaque rotatif.
-- Cookies httpOnly, SameSite=Lax, `Secure` en production.
-- Contrôles Origin/fetch-metadata sur les routes de mutation.
+### Secret Leak
 
-### Durcissement applicatif
+1. Revoke or rotate the exposed secret immediately.
+2. Rotate dependent sessions or tokens when needed.
+3. Update Railway variables across API, workers, and web as applicable.
+4. Redeploy affected services.
+5. Inspect logs and audit trails for suspicious use.
+6. Remove the secret from history if it entered Git.
 
-- En-têtes de sécurité Helmet.
-- CORS restreint à `WEB_ORIGIN` avec credentials.
-- Rate limiting global + renforcé sur l’auth.
-- Validation d’environnement au démarrage (fail-fast).
-- Logs structurés avec masquage des champs sensibles.
+### Suspected Gameplay Exploit
 
-### Secrets et données
+1. Identify affected modules, routes, and data tables.
+2. Disable or rate-limit the exploit path if possible.
+3. Patch server-side validation or settlement logic.
+4. Add regression tests for the exploit.
+5. Run recovery scripts or corrective migrations only after reviewing blast radius.
 
-- Aucun secret en clair dans le dépôt.
-- Secrets JWT forts requis (`openssl rand -base64 48`).
-- `.env.example` documente, `.env` reste local.
-- Accès DB via Prisma (requêtes paramétrées).
+### Broken Auth or Session Behavior
 
-### Sécurité CI/CD (GitHub Actions)
+1. Treat as high severity.
+2. Reproduce with fresh and existing sessions.
+3. Verify cookie flags, refresh rotation, JWT validation, and origin checks.
+4. Rotate secrets if token integrity may be compromised.
+5. Add e2e coverage for the regression.
 
-- **CodeQL** (`.github/workflows/codeql.yml`) pour la SAST JavaScript/TypeScript et la remontée d’alertes dans GitHub Security.
-- **Security** (`.github/workflows/security.yml`) pour :
-  - le scan de secrets **gitleaks** (bloquant),
-  - l’audit npm runtime (`--omit=dev`) avec seuil bloquant HIGH/CRITICAL,
-  - le scan **Trivy** repo/config (vulnérabilités, mauvaises configurations, secrets; HIGH/CRITICAL bloquant).
-- **Dependency Review** (`.github/workflows/dependency-review.yml`) bloque l’introduction de nouvelles vulnérabilités HIGH/CRITICAL via les changements de dépendances.
-- **OSSF Scorecard** (`.github/workflows/scorecards.yml`) suit la posture supply-chain et publie les résultats SARIF.
+### Dependency Vulnerability
+
+1. Confirm whether the vulnerable package is runtime or dev-only.
+2. Check exploitability in Arborisis.
+3. Upgrade or override the package.
+4. Run the canonical verification sequence.
+5. Document residual risk when a fix is not immediately available.
+
+---
+
+## Security Review Checklist
+
+- Does this change trust client-provided gameplay data?
+- Are all inputs validated with Zod?
+- Can the operation be replayed safely?
+- Are resource spending and job scheduling transactional?
+- Does the change introduce a new secret or environment variable?
+- Does it widen CORS, cookies, logging, or auth scope?
+- Does it change Prisma schema or enum synchronization?
+- Does it affect workers, queues, or distributed locks?
+- Are failure and abuse cases covered by tests?

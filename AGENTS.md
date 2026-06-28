@@ -43,6 +43,8 @@ npm run dev
 3. **Enum synchronization is mandatory** between shared enums and Prisma enums.
 4. **Strict Zod validation** on API inputs.
 5. **Idempotent timed finalization** across BullMQ workflows.
+6. **Transactional spend-and-schedule flows** for resource mutations and delayed jobs.
+7. **Workers are separate runtimes** and must use their dedicated Railway config files.
 
 ---
 
@@ -63,14 +65,17 @@ npm run test:e2e -w @arborisis/api
 
 - API service config: `railway.toml`
 - Web service config: `railway.web.toml` (must be explicitly selected in Railway UI)
+- Worker configs: `railway.worker.gameplay.toml`, `railway.worker.provisioning.toml`, `railway.worker.maintenance.toml`
 - API release phase runs migrations + seed via `preDeployCommand`
 - Web calls API through `API_INTERNAL_URL` on private Railway network
+- Workers must not inherit `railway.toml`, otherwise they can run the API release phase incorrectly.
 
 ---
 
 ## Source docs
 
 - `README.md` (entry point)
+- `docs/ARCHITECTURE.md` (system map, module boundaries, gameplay and worker invariants)
 - `CONTRIBUTING.md` (developer workflow)
 - `SECURITY.md` (security model)
 - `docs/INFRASTRUCTURE.md` (operations and CI/CD)
