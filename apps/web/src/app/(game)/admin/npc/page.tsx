@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import {
   NpcActionLogStatus,
   NpcActionType,
+  NpcArchetype,
+  NpcGoal,
+  NpcMood,
   UserRole,
   type NpcActionLogQueryDto,
 } from '@arborisis/shared';
@@ -14,13 +17,14 @@ import {
   FiClock,
   FiCpu,
   FiFilter,
+  FiTarget,
   FiUsers,
   FiZap,
 } from 'react-icons/fi';
 import { createChart, ColorType, HistogramSeries } from 'lightweight-charts';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
-import { useMe, useNpcActionLogs, useNpcActionStats } from '@/lib/queries';
+import { useMe, useNpcActionLogs, useNpcActionStats, useNpcBrains } from '@/lib/queries';
 
 const STATUS_STYLES: Record<NpcActionLogStatus, string> = {
   [NpcActionLogStatus.SUCCESS]: 'border-emerald-400/25 text-emerald-200/70 bg-emerald-400/5',
@@ -41,6 +45,47 @@ const ACTION_LABELS: Record<NpcActionType, string> = {
   [NpcActionType.PVP_SPY]: 'Espionnage PvP',
   [NpcActionType.PVE_ATTACK]: 'Attaque PvE',
   [NpcActionType.EXPEDITION]: 'Expédition',
+};
+
+const ARCHETYPE_LABELS: Record<NpcArchetype, string> = {
+  [NpcArchetype.RAIDER]: 'Pillard',
+  [NpcArchetype.ECONOMIST]: 'Économiste',
+  [NpcArchetype.EXPANSIONIST]: 'Expansionniste',
+  [NpcArchetype.TURTLE]: 'Défenseur',
+  [NpcArchetype.OPPORTUNIST]: 'Opportuniste',
+};
+
+const ARCHETYPE_STYLES: Record<NpcArchetype, string> = {
+  [NpcArchetype.RAIDER]: 'border-red-400/25 text-red-200/80 bg-red-400/5',
+  [NpcArchetype.ECONOMIST]: 'border-amber-400/25 text-amber-200/80 bg-amber-400/5',
+  [NpcArchetype.EXPANSIONIST]: 'border-sky-400/25 text-sky-200/80 bg-sky-400/5',
+  [NpcArchetype.TURTLE]: 'border-emerald-400/25 text-emerald-200/80 bg-emerald-400/5',
+  [NpcArchetype.OPPORTUNIST]: 'border-canopy-400/25 text-canopy-200/80 bg-canopy-400/5',
+};
+
+const GOAL_LABELS: Record<NpcGoal, string> = {
+  [NpcGoal.BUILD_WAR_FLEET]: 'Armer une flotte',
+  [NpcGoal.EXPAND_COLONIES]: 'Coloniser',
+  [NpcGoal.MAX_ECONOMY]: 'Maximiser l’économie',
+  [NpcGoal.RAID_TARGET]: 'Frapper une cible',
+  [NpcGoal.FORTIFY]: 'Se fortifier',
+  [NpcGoal.RESEARCH_PUSH]: 'Pousser la recherche',
+};
+
+const MOOD_LABELS: Record<NpcMood, string> = {
+  [NpcMood.CALM]: 'Calme',
+  [NpcMood.AMBITIOUS]: 'Ambitieux',
+  [NpcMood.THREATENED]: 'Menacé',
+  [NpcMood.VENGEFUL]: 'Vengeur',
+  [NpcMood.CONFIDENT]: 'Confiant',
+};
+
+const MOOD_STYLES: Record<NpcMood, string> = {
+  [NpcMood.CALM]: 'text-canopy-100/50',
+  [NpcMood.AMBITIOUS]: 'text-sky-200/70',
+  [NpcMood.THREATENED]: 'text-amber-200/80',
+  [NpcMood.VENGEFUL]: 'text-red-200/80',
+  [NpcMood.CONFIDENT]: 'text-emerald-200/80',
 };
 
 function formatDate(iso: string): string {
@@ -171,6 +216,7 @@ export default function AdminNpcPage() {
   const [liveFilters, setLiveFilters] = useState(filters);
 
   const { data: stats } = useNpcActionStats(authorized);
+  const { data: brains = [] } = useNpcBrains(authorized);
   const { data: logs = [], isLoading: logsLoading } = useNpcActionLogs(filters, authorized);
 
   useEffect(() => {
@@ -275,6 +321,94 @@ export default function AdminNpcPage() {
             label="Top bots actifs"
             color="#34d399"
           />
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-canopy-700/20 bg-bark-900/70">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-canopy-700/15 p-4">
+          <div className="flex items-center gap-3">
+            <FiTarget className="h-5 w-5 text-canopy-300/60" aria-hidden="true" />
+            <div>
+              <h2 className="font-display text-xl text-canopy-50">Cerveaux des bots</h2>
+              <p className="text-xs text-canopy-100/35">
+                Personnalité, but stratégique courant, humeur et relations mémorisées.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.values(NpcArchetype).map((archetype) => {
+              const count = brains.filter((b) => b.archetype === archetype).length;
+              return (
+                <span
+                  key={archetype}
+                  className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${ARCHETYPE_STYLES[archetype]}`}
+                >
+                  {ARCHETYPE_LABELS[archetype]} · {count}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[60rem] text-left">
+            <thead className="border-b border-canopy-700/15 text-[10px] uppercase tracking-[0.14em] text-canopy-100/30">
+              <tr>
+                <th className="px-4 py-3 font-medium">Bot</th>
+                <th className="px-4 py-3 font-medium">Archétype</th>
+                <th className="px-4 py-3 font-medium">But courant</th>
+                <th className="px-4 py-3 font-medium">Humeur</th>
+                <th className="px-4 py-3 font-medium">Traits (agr/avi/pru/amb/cur)</th>
+                <th className="px-4 py-3 font-medium">Relations</th>
+              </tr>
+            </thead>
+            <tbody>
+              {brains.map((brain) => (
+                <tr key={brain.userId} className="border-b border-canopy-700/10 last:border-0">
+                  <td className="px-4 py-3 text-xs text-canopy-100/80">{brain.username}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${ARCHETYPE_STYLES[brain.archetype]}`}
+                    >
+                      {ARCHETYPE_LABELS[brain.archetype] ?? brain.archetype}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-canopy-100/65">
+                    {brain.goal ? (GOAL_LABELS[brain.goal] ?? brain.goal) : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs ${MOOD_STYLES[brain.mood] ?? 'text-canopy-100/50'}`}>
+                      {MOOD_LABELS[brain.mood] ?? brain.mood}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-[10px] text-canopy-100/45">
+                    {['aggression', 'greed', 'caution', 'ambition', 'curiosity']
+                      .map((trait) => (brain.traits[trait] ?? 0).toFixed(2))
+                      .join(' / ')}
+                  </td>
+                  <td className="px-4 py-3">
+                    {brain.topRelations.length === 0 ? (
+                      <span className="text-[10px] text-canopy-100/25">aucune</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {brain.topRelations.map((relation) => (
+                          <span
+                            key={relation.playerId}
+                            className="rounded border border-canopy-700/20 px-1.5 py-0.5 text-[10px] text-canopy-100/55"
+                            title={`menace ${relation.threat} · rancune ${relation.grudge} · ${relation.battlesWon}V/${relation.battlesLost}D`}
+                          >
+                            {relation.username} ⚔{relation.grudge}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!brains.length && (
+            <p className="p-5 text-sm text-canopy-100/35">Aucun cerveau de bot disponible.</p>
+          )}
         </div>
       </section>
 

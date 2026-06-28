@@ -1,8 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
-import { NpcActionLogStatus, NpcActionType } from '@arborisis/shared';
-import type { NpcActionLogView, NpcActionLogQueryDto, NpcActionStatsView } from '@arborisis/shared';
+import {
+  NpcActionLogStatus,
+  NpcActionType,
+  NpcArchetype,
+  NpcGoal,
+  NpcMood,
+} from '@arborisis/shared';
+import type {
+  NpcActionLogView,
+  NpcActionLogQueryDto,
+  NpcActionStatsView,
+  NpcBrainView,
+  NpcRelationView,
+} from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { parseMemory } from '../npc/npc-memory';
 import { requireModerator } from './admin-auth.helper';
 
 const TIMELINE_BUCKET_MINUTES = 10;
@@ -128,6 +141,53 @@ export class AdminNpcService {
     };
   }
 
+  /** État du « cerveau » de chaque bot : personnalité, but courant et relations. */
+  async brains(actorId: string): Promise<NpcBrainView[]> {
+    const actor = await requireModerator(this.prisma, actorId);
+    const profiles = await this.prisma.npcProfile.findMany({
+      where: { universeId: actor.universeId },
+      include: { user: { select: { username: true } } },
+      orderBy: [{ archetype: 'asc' }, { userId: 'asc' }],
+      take: 200,
+    });
+
+    const relatedIds = new Set<string>();
+    const memories = new Map<string, ReturnType<typeof parseMemory>>();
+    for (const profile of profiles) {
+      const memory = parseMemory(profile.memory);
+      memories.set(profile.userId, memory);
+      for (const playerId of Object.keys(memory.relations)) relatedIds.add(playerId);
+    }
+    const usernames = await this.usernamesByIds([...relatedIds]);
+
+    return profiles.map((profile) => {
+      const memory = memories.get(profile.userId)!;
+      const topRelations: NpcRelationView[] = Object.entries(memory.relations)
+        .map(([playerId, relation]) => ({
+          playerId,
+          username: usernames[playerId] ?? '(inconnu)',
+          threat: round(relation.threat),
+          grudge: round(relation.grudge),
+          battlesWon: relation.battlesWon,
+          battlesLost: relation.battlesLost,
+        }))
+        .sort((a, b) => b.threat + b.grudge - (a.threat + a.grudge))
+        .slice(0, 5);
+
+      return {
+        userId: profile.userId,
+        username: profile.user?.username ?? '(supprimé)',
+        archetype: profile.archetype as NpcArchetype,
+        traits: toNumberRecord(profile.traits),
+        goal: parseGoalView(profile.goal),
+        goalTargetId: profile.goalTargetId,
+        mood: parseMoodView(profile.mood),
+        lastStrategyReviewAt: profile.lastStrategyReviewAt?.toISOString() ?? null,
+        topRelations,
+      };
+    });
+  }
+
   private async timelineBuckets(
     universeId: string,
     since: Date,
@@ -177,4 +237,26 @@ export class AdminNpcService {
     });
     return Object.fromEntries(users.map((u) => [u.id, u.username]));
   }
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function toNumberRecord(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') return {};
+  const result: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'number' && Number.isFinite(value)) result[key] = value;
+  }
+  return result;
+}
+
+function parseGoalView(value: string | null): NpcGoal | null {
+  if (!value) return null;
+  return (Object.values(NpcGoal) as string[]).includes(value) ? (value as NpcGoal) : null;
+}
+
+function parseMoodView(value: string): NpcMood {
+  return (Object.values(NpcMood) as string[]).includes(value) ? (value as NpcMood) : NpcMood.CALM;
 }

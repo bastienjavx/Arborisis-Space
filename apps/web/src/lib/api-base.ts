@@ -37,6 +37,7 @@ import type {
   NpcActionLogQueryDto,
   NpcActionLogView,
   NpcActionStatsView,
+  NpcBrainView,
   NpcEncounterView,
   OhlcvCandleView,
   OrderBookView,
@@ -262,6 +263,7 @@ export function createApi(request: RequestFn) {
       return request<NpcActionLogView[]>(`/admin/npc-actions?${params.toString()}`);
     },
     npcActionStats: () => request<NpcActionStatsView>('/admin/npc-actions/stats'),
+    npcBrains: () => request<NpcBrainView[]>('/admin/npc-actions/brains'),
 
     // ── Planètes ──
     planets: () => request<PlanetSummary[]>('/planets'),
