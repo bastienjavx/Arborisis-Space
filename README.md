@@ -1,26 +1,44 @@
-# Arborisis — Organic Space Strategy MMO
+# Arborisis
 
-**FR** — Jeu de stratégie spatiale multijoueur persistant, orienté civilisation organique.  
-**EN** — Persistent multiplayer space strategy game built around an organic civilization fantasy.
+Browser-based persistent multiplayer space strategy game, built around organic civilization, asynchronous progression, and server-authoritative simulation.
 
-Arborisis combines long-term empire building, asynchronous progression, and server-authoritative gameplay rules. It is inspired by classic browser strategy games while keeping its own identity (biological tech, spore expansion, living ecosystems).
+Arborisis is a Turborepo monorepo with a NestJS API, a Next.js web client, a shared gameplay package, Prisma migrations, Redis-backed BullMQ workers, and Railway deployment manifests. The project is designed like a live strategy service: clients send intentions, the server owns the game state, and timed gameplay is finalized through replay-safe workers.
 
 ---
 
-## FR — Guide rapide
+## Highlights
 
-### 1) Ce que contient le monorepo
+- Persistent empire building with planets, fleets, research, buildings, production lines, crafting, markets, trade routes, quests, achievements, seasons, alliances, chat, PVE, PVP, events, and NPC systems.
+- Server-authoritative game engine with Zod-validated API inputs and shared gameplay constants.
+- Multi-service Railway topology: API, web, gameplay worker, provisioning worker, maintenance worker, Postgres, Redis, and auto-provisioned universe nodes.
+- Redis-backed BullMQ workflows for construction, research, ship production, expeditions, combat, crafting, production lines, trade routes, market expiry, notifications, NPC ticks, and recovery sweeps.
+- Strict security posture: Argon2id, rotating refresh tokens, httpOnly cookies, origin checks, throttling, Helmet, secret scanning, dependency review, CodeQL, Trivy, and OSSF Scorecard.
 
-| Package           | Rôle                                                                        |
-| ----------------- | --------------------------------------------------------------------------- |
-| `apps/api`        | API NestJS (auth, moteur de jeu, jobs BullMQ, sécurité)                     |
-| `apps/web`        | Front Next.js (UI, proxy `/api`, scènes 3D React Three Fiber)               |
-| `packages/shared` | Source de vérité gameplay (enums, constantes, formules, schémas Zod, types) |
-| `prisma`          | Schéma DB, migrations, seed                                                 |
+---
 
-### 2) Démarrage local
+## Repository Map
 
-Prérequis : **Node 22+**, **npm 10+**, **Docker**.
+| Path              | Purpose                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| `apps/api`        | NestJS API, auth, game modules, WebSocket events, BullMQ processors, workers, health checks |
+| `apps/web`        | Next.js App Router UI, `/api` proxy, universe routing, game surfaces, 3D scenes             |
+| `packages/shared` | Source of truth for enums, constants, formulas, Zod schemas, transport types                |
+| `prisma`          | Database schema, migrations, seed data                                                      |
+| `docs`            | Architecture, infrastructure, audits, and operational documentation                         |
+| `docker`          | Production Dockerfiles and entrypoint                                                       |
+| `railway*.toml`   | Railway config-as-code for API, web, and dedicated worker services                          |
+
+The key rule is simple: gameplay knowledge starts in `packages/shared`; persistence starts in `prisma`; application behavior lives in `apps/api`; presentation lives in `apps/web`.
+
+---
+
+## Quick Start
+
+Requirements:
+
+- Node.js 22+
+- npm 10+
+- Docker
 
 ```bash
 cp .env.example .env
@@ -31,77 +49,45 @@ npm run db:seed
 npm run dev
 ```
 
-- Web : `http://localhost:3000`
-- API : `http://localhost:4000`
-- Health API : `GET /api/health`
-- Compte démo : `demo@arborisis.test` / `arborisis-demo`
+Local services:
 
-### 3) Commandes de référence (ordre CI)
+| Service    | URL                                |
+| ---------- | ---------------------------------- |
+| Web        | `http://localhost:3000`            |
+| API        | `http://localhost:4000`            |
+| API health | `http://localhost:4000/api/health` |
 
-```bash
-npm run build
-npm run lint
-npm run format:check
-npm run typecheck
-npm run test
-npm run test:e2e -w @arborisis/api
+Demo account after seeding:
+
+```text
+demo@arborisis.test
+arborisis-demo
 ```
 
-### 4) Principes d’architecture non négociables
-
-1. **Autorité serveur** : le client envoie des intentions, jamais des valeurs de confiance.
-2. **Équilibrage centralisé** : toute mécanique chiffrée vit dans `packages/shared/src/constants.ts`.
-3. **Validation systématique** : entrées validées via schémas Zod.
-4. **Jobs idempotents** : finalisation BullMQ conçue pour être rejouable sans effet double.
-5. **Enums synchronisés** : `packages/shared/src/enums.ts` doit rester aligné avec `prisma/schema.prisma`.
-
-### 5) Déploiement Railway (vue d’ensemble)
-
-- Deux services applicatifs : **API** (`railway.toml`) et **Web** (`railway.web.toml`).
-- Le service web doit explicitement cibler `railway.web.toml` en config-as-code.
-- Migrations + seed exécutés via **release phase** (`preDeployCommand`) côté API.
-- Le web utilise `API_INTERNAL_URL` (réseau privé Railway) pour joindre l’API.
-
-### 6) Documentation détaillée
-
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — workflow de contribution
-- [`SECURITY.md`](./SECURITY.md) — modèle anti-triche et sécurité
-- [`docs/INFRASTRUCTURE.md`](./docs/INFRASTRUCTURE.md) — infra, CI/CD, runbooks
-- [`AGENTS.md`](./AGENTS.md) — guide compact pour agents
-- [`CLAUDE.md`](./CLAUDE.md) — repère agent/développeur (FR)
+PostgreSQL and Redis must be running before local dev, tests, e2e, or workers.
 
 ---
 
-## EN — Quick guide
+## Common Commands
 
-### 1) Monorepo layout
+| Command                              | Use                                               |
+| ------------------------------------ | ------------------------------------------------- |
+| `npm run dev`                        | Start all workspace dev processes through Turbo   |
+| `npm run build`                      | Build all workspaces                              |
+| `npm run lint`                       | Run lint checks                                   |
+| `npm run format`                     | Format TypeScript, JavaScript, JSON, and Markdown |
+| `npm run format:check`               | Check formatting                                  |
+| `npm run typecheck`                  | Type-check all workspaces                         |
+| `npm run test`                       | Run unit tests                                    |
+| `npm run test:e2e -w @arborisis/api` | Run API e2e tests                                 |
+| `npm run db:generate`                | Generate Prisma client                            |
+| `npm run db:migrate`                 | Run local Prisma migrations                       |
+| `npm run db:migrate:deploy`          | Apply production migrations                       |
+| `npm run db:seed`                    | Seed local or release data                        |
+| `npm run db:studio`                  | Open Prisma Studio                                |
+| `npm run db:validate`                | Validate Prisma schema                            |
 
-| Package           | Purpose                                                                             |
-| ----------------- | ----------------------------------------------------------------------------------- |
-| `apps/api`        | NestJS API (auth, game engine, BullMQ jobs, security)                               |
-| `apps/web`        | Next.js frontend (UI, `/api` proxy, React Three Fiber scenes)                       |
-| `packages/shared` | Gameplay source of truth (enums, constants, formulas, Zod schemas, transport types) |
-| `prisma`          | Database schema, migrations, seed                                                   |
-
-### 2) Local setup
-
-Requirements: **Node 22+**, **npm 10+**, **Docker**.
-
-```bash
-cp .env.example .env
-npm install
-docker compose up -d postgres redis
-npm run db:migrate
-npm run db:seed
-npm run dev
-```
-
-- Web: `http://localhost:3000`
-- API: `http://localhost:4000`
-- API health: `GET /api/health`
-- Demo account: `demo@arborisis.test` / `arborisis-demo`
-
-### 3) Canonical validation sequence (CI order)
+Canonical verification sequence:
 
 ```bash
 npm run build
@@ -112,26 +98,63 @@ npm run test
 npm run test:e2e -w @arborisis/api
 ```
 
-### 4) Architecture guardrails
+---
 
-1. **Server authority**: clients submit intentions only.
-2. **Centralized balance**: all numeric gameplay tuning lives in `packages/shared/src/constants.ts`.
-3. **Strict validation**: inputs are validated with Zod.
-4. **Idempotent jobs**: BullMQ completion paths are replay-safe.
-5. **Enum synchronization**: `packages/shared/src/enums.ts` must mirror `prisma/schema.prisma`.
+## Architecture Rules
 
-### 5) Railway deployment at a glance
+These are project invariants, not preferences:
 
-- Two app services: **API** (`railway.toml`) and **Web** (`railway.web.toml`).
-- Web service must be configured to use `/railway.web.toml`.
-- Database migrations and seed run in API release phase (`preDeployCommand`).
-- Web calls API through private network `API_INTERNAL_URL`.
-- GitHub CI is the quality gate before deploys (`CI`, `Security`, `CodeQL`, and `Dependency Review` checks).
+1. Server authority: clients submit intentions only.
+2. No hardcoded balance in app layers: numeric gameplay tuning belongs in `packages/shared/src/constants.ts`.
+3. Shared and Prisma enums must stay synchronized.
+4. API inputs must be validated with Zod.
+5. Spend-and-schedule workflows must be transactional.
+6. Timed finalization must be idempotent and safe to replay.
+7. Workers must be deployable independently from HTTP API services.
+8. Production secrets must never enter Git history.
 
-### 6) Full documentation
+See [Architecture](./docs/ARCHITECTURE.md) for module boundaries, runtime flows, and change playbooks.
 
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — contribution workflow
-- [`SECURITY.md`](./SECURITY.md) — security model and anti-cheat rules
-- [`docs/INFRASTRUCTURE.md`](./docs/INFRASTRUCTURE.md) — infrastructure, CI/CD, operations
-- [`AGENTS.md`](./AGENTS.md) — compact agent reference
-- [`CLAUDE.md`](./CLAUDE.md) — French-oriented developer/agent reference
+---
+
+## Documentation
+
+| Document                                           | Audience                   | Contents                                                                     |
+| -------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------- |
+| [Architecture](./docs/ARCHITECTURE.md)             | Engineers and agents       | System map, domain modules, data flow, workers, invariants, change playbooks |
+| [Contributing](./CONTRIBUTING.md)                  | Contributors               | Setup, branch workflow, testing expectations, PR checklist                   |
+| [Security](./SECURITY.md)                          | Maintainers and reporters  | Disclosure, threat model, controls, CI security checks, incident handling    |
+| [Infrastructure](./docs/INFRASTRUCTURE.md)         | Operators                  | Railway topology, environment variables, deploy flow, runbooks               |
+| [Agent Guide](./AGENTS.md)                         | Coding agents              | Compact operational rules                                                    |
+| [Claude Reference](./CLAUDE.md)                    | French agent/dev reference | Extended project guidance                                                    |
+| [Visual Asset Audit](./docs/VISUAL_ASSET_AUDIT.md) | Product/design             | Asset quality notes                                                          |
+
+---
+
+## Deployment Snapshot
+
+Railway services are separated by role:
+
+| Service             | Config                             |
+| ------------------- | ---------------------------------- |
+| API                 | `railway.toml`                     |
+| Web                 | `railway.web.toml`                 |
+| Gameplay worker     | `railway.worker.gameplay.toml`     |
+| Provisioning worker | `railway.worker.provisioning.toml` |
+| Maintenance worker  | `railway.worker.maintenance.toml`  |
+
+Important deployment constraints:
+
+- The API release phase runs `prisma migrate deploy` and `prisma db seed`.
+- The web service must explicitly select `/railway.web.toml` in Railway config-as-code.
+- Worker services must explicitly select their `railway.worker.*.toml` files.
+- Workers must not inherit `railway.toml`, otherwise they can run the API release phase incorrectly.
+- The web calls the API through `API_INTERNAL_URL` on Railway private networking.
+
+See [Infrastructure](./docs/INFRASTRUCTURE.md) for the full operational guide.
+
+---
+
+## License
+
+This repository is private and currently marked `UNLICENSED`.
