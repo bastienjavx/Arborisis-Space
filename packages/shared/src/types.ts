@@ -27,6 +27,8 @@ import {
   MarketOrderStatus,
   MoonBuildingType,
   NotificationType,
+  NpcActionLogStatus,
+  NpcActionType,
   NpcEncounterType,
   PlanetSpecialization,
   PlanetType,
@@ -118,6 +120,28 @@ export interface ModerationActionView {
   messageId: string | null;
   reason: string | null;
   createdAt: string;
+}
+
+export interface NpcActionLogView {
+  id: string;
+  userId: string;
+  username: string;
+  actionType: NpcActionType;
+  status: NpcActionLogStatus;
+  detail: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface NpcActionStatsView {
+  totalLast24h: number;
+  totalLast1h: number;
+  failedLast24h: number;
+  npcBotCount: number;
+  activeBotCount: number;
+  byType: Array<{ actionType: NpcActionType; count: number }>;
+  byStatus: Array<{ status: NpcActionLogStatus; count: number }>;
+  byBot: Array<{ userId: string; username: string; count: number }>;
+  timeline: Array<{ bucket: string; count: number }>;
 }
 
 export interface ResourceState {

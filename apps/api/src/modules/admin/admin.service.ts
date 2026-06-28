@@ -7,13 +7,14 @@ import type {
   ModerationActionView,
 } from '@arborisis/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { requireAdmin, requireModerator } from './admin-auth.helper';
 
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
 
   async users(actorId: string, search = ''): Promise<AdminUserView[]> {
-    const actor = await this.requireModerator(actorId);
+    const actor = await requireModerator(this.prisma, actorId);
     const users = await this.prisma.user.findMany({
       where: {
         universeId: actor.universeId,
@@ -52,7 +53,7 @@ export class AdminService {
   }
 
   async changeRole(actorId: string, targetId: string, dto: ChangeUserRoleDto): Promise<void> {
-    const actor = await this.requireAdmin(actorId);
+    const actor = await requireAdmin(this.prisma, actorId);
     const target = await this.targetInUniverse(targetId, actor.universeId);
     if (target.role === UserRole.ADMIN) {
       throw new ForbiddenException('Le rôle d’un administrateur ne peut pas être modifié ici.');
@@ -74,7 +75,7 @@ export class AdminService {
   }
 
   async moderate(actorId: string, targetId: string, dto: ModerateUserDto): Promise<void> {
-    const actor = await this.requireModerator(actorId);
+    const actor = await requireModerator(this.prisma, actorId);
     const target = await this.targetInUniverse(targetId, actor.universeId);
     if (
       target.role === UserRole.ADMIN ||
@@ -98,7 +99,7 @@ export class AdminService {
   }
 
   async actions(actorId: string): Promise<ModerationActionView[]> {
-    const actor = await this.requireModerator(actorId);
+    const actor = await requireModerator(this.prisma, actorId);
     const actions = await this.prisma.moderationAction.findMany({
       where: { universeId: actor.universeId },
       include: {
@@ -117,23 +118,6 @@ export class AdminService {
       reason: action.reason,
       createdAt: action.createdAt.toISOString(),
     }));
-  }
-
-  private async requireModerator(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('Utilisateur introuvable.');
-    if (user.role !== UserRole.ADMIN && user.role !== UserRole.MODERATOR) {
-      throw new ForbiddenException('Accès réservé à la modération.');
-    }
-    return user;
-  }
-
-  private async requireAdmin(userId: string) {
-    const user = await this.requireModerator(userId);
-    if (user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('Accès réservé aux administrateurs.');
-    }
-    return user;
   }
 
   private async targetInUniverse(userId: string, universeId: string) {

@@ -436,6 +436,7 @@ model User {
   sessionBonus              SessionBonus?
   commanders                Commander[]
   galaxyVisibility          GalaxyVisibility[]
+  npcActionLogs             NpcActionLog[]
 
   @@map("users")
 }
@@ -824,6 +825,23 @@ model ModerationAction {
   @@index([universeId, createdAt])
   @@index([moderatorId, createdAt])
   @@map("moderation_actions")
+}
+
+model NpcActionLog {
+  id         String   @id @default(uuid())
+  universeId String
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actionType String   @db.VarChar(64)
+  status     String   @db.VarChar(16)
+  detail     Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([universeId, createdAt])
+  @@index([userId, createdAt])
+  @@index([actionType, createdAt])
+  @@index([universeId, status, createdAt])
+  @@map("npc_action_logs")
 }
 
 model AllianceMember {

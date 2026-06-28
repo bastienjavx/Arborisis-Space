@@ -567,3 +567,34 @@ export enum DefenseType {
 }
 
 export const DEFENSE_TYPES = Object.values(DefenseType);
+
+// ═══════════════════════════════════════════════════════════════════
+// Journal d'actions NPC
+// ═══════════════════════════════════════════════════════════════════
+
+/** Statut d'une entrée du journal d'actions NPC. */
+export enum NpcActionLogStatus {
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  SKIPPED = 'SKIPPED',
+}
+
+export const NPC_ACTION_LOG_STATUSES = Object.values(NpcActionLogStatus);
+
+/** Types d'actions enregistrées pour les NPC Mycosynth. */
+export enum NpcActionType {
+  BUILDING_UPGRADE = 'BUILDING_UPGRADE',
+  RESEARCH = 'RESEARCH',
+  COLONIZATION = 'COLONIZATION',
+  SHIP_PRODUCTION = 'SHIP_PRODUCTION',
+  PRODUCTION_LINE = 'PRODUCTION_LINE',
+  CRAFTING = 'CRAFTING',
+  TRADE_ROUTE = 'TRADE_ROUTE',
+  MARKET_ORDER = 'MARKET_ORDER',
+  PVP_ATTACK = 'PVP_ATTACK',
+  PVP_SPY = 'PVP_SPY',
+  PVE_ATTACK = 'PVE_ATTACK',
+  EXPEDITION = 'EXPEDITION',
+}
+
+export const NPC_ACTION_TYPES = Object.values(NpcActionType);
