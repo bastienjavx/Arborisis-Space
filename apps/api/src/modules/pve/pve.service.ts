@@ -10,6 +10,7 @@ import {
   fleetCombatPower,
   NpcEncounterType,
   npcCombatPower,
+  planNpcBattle,
   PVE_DROP_TABLES,
   PveOutcome,
   PveMissionPhase as SharedPveMissionPhase,
@@ -116,7 +117,15 @@ export class PveService {
         const now = new Date();
         const travelArrivesAt = new Date(now.getTime() + travelSeconds * 1_000);
         const fleetPower = fleetCombatPower(ships, race);
-        const npcPower = npcCombatPower(encounter.difficulty);
+        const npcPlan = planNpcBattle({
+          encounterType: encounter.type as NpcEncounterType,
+          difficulty: encounter.difficulty,
+          health: encounter.health,
+          maxHealth: encounter.maxHealth,
+          ships,
+          fleetPower,
+        });
+        const npcPower = npcCombatPower(encounter.difficulty, npcPlan);
         const combatSeconds = pveCombatDurationSeconds(fleetPower, npcPower);
         const combatEndsAt = new Date(travelArrivesAt.getTime() + combatSeconds * 1_000);
         const returnsAt = new Date(combatEndsAt.getTime() + travelSeconds * 1_000);
@@ -240,19 +249,32 @@ export class PveService {
         const ships = mission.ships as Record<ShipType, number>;
         const race = mission.user.race as RaceType;
         const fleetPower = fleetCombatPower(ships, race);
-        const npcPower = npcCombatPower(mission.encounter.difficulty);
+        const npcPlan = planNpcBattle({
+          encounterType: mission.encounter.type as NpcEncounterType,
+          difficulty: mission.encounter.difficulty,
+          health: mission.encounter.health,
+          maxHealth: mission.encounter.maxHealth,
+          ships,
+          fleetPower,
+        });
+        const npcPower = npcCombatPower(mission.encounter.difficulty, npcPlan);
         const resolve = pveResolve({
           fleetPower,
           npcPower,
           ships,
           race,
           difficulty: mission.encounter.difficulty,
+          encounterType: mission.encounter.type as NpcEncounterType,
+          health: mission.encounter.health,
+          maxHealth: mission.encounter.maxHealth,
+          npcPlan,
         });
 
         const result: PveResultView = {
           outcome: resolve.outcome,
           lostShips: resolve.lostShips as Record<ShipType, number>,
           rewards: resolve.rewards,
+          npcPlan: resolve.npcPlan,
         };
 
         const newHealth = Math.max(0, mission.encounter.health - resolve.damageDealt);
@@ -423,6 +445,9 @@ export class PveService {
             ResourceType,
             number
           >,
+          npcPlan: (mission.result as Record<string, unknown>).npcPlan as
+            | PveResultView['npcPlan']
+            | undefined,
         } as PveResultView)
       : undefined;
 
