@@ -37,7 +37,8 @@ import { fadeUp, organicEase, staggerChildren } from '@/lib/motion';
 import { usePlanetSelection } from './PlanetContext';
 
 const LINKS = [
-  { href: '/play', label: 'Planète', icon: FiGrid },
+  { href: '/dashboard', label: 'Tableau', icon: FiGrid },
+  { href: '/play', label: 'Planète', icon: FiGlobe },
   { href: '/empire', label: 'Empire', icon: FiMap },
   { href: '/buildings', label: 'Structures', icon: FiLayers },
   { href: '/production', label: 'Production', icon: FiSliders },
