@@ -69,6 +69,22 @@ export function useLowPowerMode(): boolean {
   return lowPower;
 }
 
+/** Vérifie si WebGL (1 ou 2) est disponible dans le navigateur. */
+export function detectWebGL(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(
+      window.WebGLRenderingContext &&
+      (canvas.getContext('webgl2') ||
+        canvas.getContext('webgl') ||
+        canvas.getContext('experimental-webgl'))
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Choisit entre deux budgets selon le tier de l'appareil. */
 export function tier<T>(mobile: boolean, mobileValue: T, desktopValue: T): T {
   return mobile ? mobileValue : desktopValue;
