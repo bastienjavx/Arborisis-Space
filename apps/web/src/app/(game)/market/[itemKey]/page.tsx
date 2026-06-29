@@ -115,6 +115,33 @@ export default function ItemMarketPage() {
   const bestBid = orderBook?.bids.at(0)?.price ?? null;
   const bestAsk = orderBook?.asks.at(0)?.price ?? null;
   const spread = bestBid != null && bestAsk != null ? bestAsk - bestBid : null;
+  const parsedPrice = Number.parseInt(price, 10);
+  const hasValidPrice = Number.isFinite(parsedPrice) && parsedPrice > 0;
+  const activeOwnOrders = myItemOrders.map((order) => ({
+    ...order,
+    remainingQuantity: order.quantity - order.filledQuantity,
+  }));
+  const crossedBookQuantity =
+    orderBook && hasValidPrice
+      ? side === MarketOrderSide.BUY
+        ? orderBook.asks
+            .filter((ask) => ask.price <= parsedPrice)
+            .reduce((sum, ask) => sum + ask.quantity, 0)
+        : orderBook.bids
+            .filter((bid) => bid.price >= parsedPrice)
+            .reduce((sum, bid) => sum + bid.quantity, 0)
+      : 0;
+  const crossedOwnQuantity = hasValidPrice
+    ? activeOwnOrders
+        .filter((order) =>
+          side === MarketOrderSide.BUY
+            ? order.side === MarketOrderSide.SELL && order.pricePerUnit <= parsedPrice
+            : order.side === MarketOrderSide.BUY && order.pricePerUnit >= parsedPrice,
+        )
+        .reduce((sum, order) => sum + order.remainingQuantity, 0)
+    : 0;
+  const onlyCrossesOwnOrders =
+    crossedBookQuantity > 0 && Math.max(0, crossedBookQuantity - crossedOwnQuantity) === 0;
   const lastUpdatedLabel = dataUpdatedAt
     ? new Intl.DateTimeFormat('fr-FR', {
         hour: '2-digit',
@@ -369,6 +396,13 @@ export default function ItemMarketPage() {
 
               {error && (
                 <p className="rounded-lg bg-red-900/20 px-3 py-2 text-xs text-red-400">{error}</p>
+              )}
+
+              {onlyCrossesOwnOrders && (
+                <p className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/80">
+                  Ce prix croise uniquement vos propres ordres ouverts. L'ordre sera placé au
+                  carnet, sans auto-exécution.
+                </p>
               )}
 
               <button

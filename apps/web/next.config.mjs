@@ -1,9 +1,15 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   // Le package monorepo est livré en TS/CJS : Next le transpile.
   transpilePackages: ['@arborisis/shared'],
   output: 'standalone',
+  outputFileTracingRoot: path.join(__dirname, '../..'),
   images: {
     formats: ['image/avif', 'image/webp'],
   },

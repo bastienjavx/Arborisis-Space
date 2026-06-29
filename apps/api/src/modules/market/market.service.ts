@@ -325,6 +325,7 @@ export class MarketService {
 
       await this.scheduleExpiry(order.id, order.expiresAt!);
       await this.tryMatch(universeId, dto.itemKey, order.id);
+      this.emitMarketUpdated(universeId, dto.itemKey);
       this.events.emitToUser(userId, 'planet:updated', { planetId: dto.sourcePlanetId });
 
       const fresh = await this.prisma.marketOrder.findUniqueOrThrow({
@@ -376,6 +377,7 @@ export class MarketService {
 
       await this.scheduleExpiry(order.id, order.expiresAt!);
       await this.tryMatch(universeId, dto.itemKey, order.id);
+      this.emitMarketUpdated(universeId, dto.itemKey);
 
       const fresh = await this.prisma.marketOrder.findUniqueOrThrow({
         where: { id: order.id },
@@ -386,6 +388,8 @@ export class MarketService {
   }
 
   async cancelOrder(userId: string, orderId: string): Promise<void> {
+    let cancelledUniverseId: string | null = null;
+    let cancelledItemKey: ItemKey | null = null;
     await this.prisma.optimistic(async (tx) => {
       const order = await tx.marketOrder.findUnique({ where: { id: orderId } });
       if (!order) throw new NotFoundException('Ordre introuvable.');
@@ -402,6 +406,8 @@ export class MarketService {
       if (claimed.count !== 1) {
         throw new BadRequestException('Cet ordre ne peut plus être annulé.');
       }
+      cancelledUniverseId = order.universeId;
+      cancelledItemKey = order.itemKey as ItemKey;
 
       if (order.side === MarketOrderSide.BUY && order.escrowBiomass > 0) {
         const remaining = order.quantity - order.filledQuantity;
@@ -435,6 +441,9 @@ export class MarketService {
       }
     });
     await this.gameQueue.removeMarketExpiryJob(orderId).catch(() => void 0);
+    if (cancelledUniverseId && cancelledItemKey) {
+      this.emitMarketUpdated(cancelledUniverseId, cancelledItemKey);
+    }
   }
 
   /** Moteur de matching : tente d'exécuter l'ordre contre le carnet existant. */
@@ -643,6 +652,11 @@ export class MarketService {
         planetId: sellOrder.sourcePlanetId,
       });
     });
+    this.emitMarketUpdated(universeId, itemKey);
+  }
+
+  private emitMarketUpdated(universeId: string, itemKey: ItemKey): void {
+    this.events.emitToUniverse(universeId, 'market:updated', { itemKey });
   }
 
   private async updateCandles(

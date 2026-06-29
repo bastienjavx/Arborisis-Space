@@ -10,18 +10,19 @@ const SOCKET_URL =
   (typeof window !== 'undefined' ? window.location.origin : '');
 
 export type ServerEvent =
-  | { type: 'chat:message'; payload: { scope: string; peerId?: string | null } }
-  | { type: 'notification:new'; payload: Record<string, never> }
-  | { type: 'planet:updated'; payload: { planetId: string } }
-  | { type: 'research:completed'; payload: Record<string, never> }
-  | { type: 'construction:completed'; payload: { planetId: string } }
-  | { type: 'ship:produced'; payload: { planetId: string } }
-  | { type: 'mission:updated'; payload: { kind: string } }
-  | { type: 'transfer:completed'; payload: Record<string, never> }
-  | { type: 'leaderboard:updated'; payload: Record<string, never> }
-  | { type: 'reports:updated'; payload: Record<string, never> }
-  | { type: 'activeEvent:updated'; payload: Record<string, never> }
-  | { type: 'season:updated'; payload: Record<string, never> };
+  | { name: 'chat:message'; payload: { scope: string; peerId?: string | null } }
+  | { name: 'notification:new'; payload: Record<string, never> }
+  | { name: 'planet:updated'; payload: { planetId: string } }
+  | { name: 'market:updated'; payload: { itemKey: string } }
+  | { name: 'research:completed'; payload: Record<string, never> }
+  | { name: 'construction:completed'; payload: { planetId: string } }
+  | { name: 'ship:produced'; payload: { planetId: string } }
+  | { name: 'mission:updated'; payload: { kind: string } }
+  | { name: 'transfer:completed'; payload: Record<string, never> }
+  | { name: 'leaderboard:updated'; payload: Record<string, never> }
+  | { name: 'reports:updated'; payload: Record<string, never> }
+  | { name: 'activeEvent:updated'; payload: Record<string, never> }
+  | { name: 'season:updated'; payload: Record<string, never> };
 
 let globalSocket: Socket | null = null;
 
@@ -70,31 +71,41 @@ export function useRealtime(): void {
       void queryClient.invalidateQueries({ queryKey: keys.incomingAttacks });
     }
 
-    function handleChatMessage(event: ServerEvent): void {
-      if (event.type !== 'chat:message') return;
-      const { scope, peerId } = event.payload;
+    function handleChatMessage(payload: { scope: string; peerId?: string | null }): void {
+      const { scope, peerId } = payload;
       void queryClient.invalidateQueries({
         queryKey: keys.chatMessages(scope as never, peerId ?? undefined),
       });
       void queryClient.invalidateQueries({ queryKey: keys.chatContacts('') });
     }
 
-    function handlePlanetUpdated(event: ServerEvent): void {
-      if (event.type !== 'planet:updated') return;
-      const { planetId } = event.payload;
+    function handlePlanetUpdated(payload: { planetId: string }): void {
+      const { planetId } = payload;
       void queryClient.invalidateQueries({ queryKey: keys.planet(planetId) });
       void queryClient.invalidateQueries({ queryKey: keys.fleet(planetId) });
       void queryClient.invalidateQueries({ queryKey: keys.research(planetId) });
+      void queryClient.invalidateQueries({ queryKey: keys.inventory });
     }
 
-    function handleConstructionCompleted(event: ServerEvent): void {
-      if (event.type !== 'construction:completed') return;
-      void queryClient.invalidateQueries({ queryKey: keys.planet(event.payload.planetId) });
+    function handleMarketUpdated(payload: { itemKey: string }): void {
+      void queryClient.invalidateQueries({ queryKey: keys.marketSummaries });
+      void queryClient.invalidateQueries({ queryKey: keys.marketOrderBook(payload.itemKey) });
+      void queryClient.invalidateQueries({ queryKey: keys.myMarketOrders });
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[0] === 'market' &&
+          query.queryKey[1] === 'candles' &&
+          query.queryKey[2] === payload.itemKey,
+      });
     }
 
-    function handleShipProduced(event: ServerEvent): void {
-      if (event.type !== 'ship:produced') return;
-      void queryClient.invalidateQueries({ queryKey: keys.fleet(event.payload.planetId) });
+    function handleConstructionCompleted(payload: { planetId: string }): void {
+      void queryClient.invalidateQueries({ queryKey: keys.planet(payload.planetId) });
+    }
+
+    function handleShipProduced(payload: { planetId: string }): void {
+      void queryClient.invalidateQueries({ queryKey: keys.fleet(payload.planetId) });
     }
 
     socket.on('chat:message', handleChatMessage);
@@ -105,6 +116,8 @@ export function useRealtime(): void {
     });
 
     socket.on('planet:updated', handlePlanetUpdated);
+
+    socket.on('market:updated', handleMarketUpdated);
 
     socket.on('research:completed', () => {
       void queryClient.invalidateQueries({ queryKey: ['research'] });
@@ -151,6 +164,7 @@ export function useRealtime(): void {
       socket.off('chat:message', handleChatMessage);
       socket.off('notification:new');
       socket.off('planet:updated', handlePlanetUpdated);
+      socket.off('market:updated', handleMarketUpdated);
       socket.off('research:completed');
       socket.off('construction:completed', handleConstructionCompleted);
       socket.off('ship:produced', handleShipProduced);
