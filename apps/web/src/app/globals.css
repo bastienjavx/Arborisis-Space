@@ -3,10 +3,9 @@
 @tailwind utilities;
 
 :root {
-  /* Les polices réelles arrivent via next/font (Fraunces / Hanken Grotesk) ; les
-     pile de secours restent ici pour le premier rendu. */
-  --font-sans-fallback: system-ui, -apple-system, sans-serif;
-  --font-display-fallback: Georgia, 'Times New Roman', serif;
+  /* Piles typographiques locales : aucun fetch externe n'est nécessaire au build. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: Georgia, 'Times New Roman', serif;
   --surface: rgba(6, 15, 11, 0.86);
   --surface-soft: rgba(10, 24, 17, 0.72);
   --line: rgba(142, 183, 113, 0.2);
@@ -23,7 +22,7 @@
 
   body {
     @apply bg-bark-950 text-canopy-50/90 antialiased;
-    font-family: var(--font-sans), var(--font-sans-fallback);
+    font-family: var(--font-sans);
     background-color: #030906;
     background-attachment: fixed;
     padding-bottom: env(safe-area-inset-bottom);
@@ -47,7 +46,7 @@
   h2,
   h3,
   .font-display {
-    font-family: var(--font-display), var(--font-display-fallback);
+    font-family: var(--font-display);
     font-weight: 400;
     font-optical-sizing: auto;
     /* SOFT adoucit les terminaisons → lecture « organique » ; WONK gardé à 0
@@ -154,13 +153,13 @@
 
   .section-title {
     @apply text-xl normal-case tracking-[-0.015em] text-canopy-100/80;
-    font-family: var(--font-display), var(--font-display-fallback);
+    font-family: var(--font-display);
     font-weight: 400;
   }
 
   /* Titre signature : Fraunces en grand format optique, courbes adoucies. */
   .display {
-    font-family: var(--font-display), var(--font-display-fallback);
+    font-family: var(--font-display);
     font-weight: 400;
     font-optical-sizing: auto;
     font-variation-settings:
