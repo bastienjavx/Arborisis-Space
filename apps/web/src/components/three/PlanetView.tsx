@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { PlanetType, PLANET_TYPES } from '@arborisis/shared';
 import { planetProfile, seedFromCoords, type PlanetProfile } from '@/lib/procgen';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
-import { ModelAsset, preloadModel } from '@/components/three/ModelAsset';
+import { SafeModelAsset, preloadModel } from '@/components/three/ModelAsset';
 import { shouldPreload3dAssets, tier, useIsMobile } from '@/lib/device';
 import { makeGlowMaterial, specializationColor } from '@/components/three/visuals';
 
@@ -186,7 +186,11 @@ function ProceduralPlanet({
     <group ref={tiltRef} rotation={[profile.axialTilt, 0, 0]} scale={1.7}>
       {/* Surface : base de planète 3D générée (le reste reste procédural) */}
       <group ref={surfaceRef}>
-        <ModelAsset url={planetBaseUrl(planetType)} targetSize={2} />
+        <SafeModelAsset
+          url={planetBaseUrl(planetType)}
+          targetSize={2}
+          fallback={<PlanetSurfaceFallback profile={profile} />}
+        />
       </group>
 
       {/* Couche nuageuse */}
@@ -239,6 +243,27 @@ function ProceduralPlanet({
       {/* Lunes */}
       <Moons profile={profile} />
     </group>
+  );
+}
+
+/**
+ * Repli de surface si le GLB de base ne se charge pas : une sphère teintée des
+ * couleurs procédurales de la planète (rayon 1 = `targetSize` 2 normalisé). Les
+ * nuages, l'atmosphère, les anneaux et les lunes restant procéduraux, la planète
+ * reste crédible même sans son maillage.
+ */
+function PlanetSurfaceFallback({ profile }: { profile: PlanetProfile }) {
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 64]} />
+      <meshStandardMaterial
+        color={profile.colorMid}
+        emissive={profile.colorLow}
+        emissiveIntensity={0.12}
+        roughness={0.85}
+        metalness={0.05}
+      />
+    </mesh>
   );
 }
 
