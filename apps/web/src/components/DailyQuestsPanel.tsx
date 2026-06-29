@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { GameIcon } from './GameIcon';
-import { AnimatedCard } from './AnimatedCard';
 import { AnimatedButton } from './AnimatedButton';
 
 export function DailyQuestsPanel() {
@@ -26,7 +25,7 @@ export function DailyQuestsPanel() {
   if (isLoading || !data) {
     return (
       <div className="rounded-2xl border border-canopy-700/30 bg-bark-900/50 p-4">
-        <div className="h-4 w-32 animate-pulse rounded bg-bark-700" />
+        <div className="h-4 w-32 animate-pulse rounded bg-canopy-700/25" />
       </div>
     );
   }
@@ -34,7 +33,7 @@ export function DailyQuestsPanel() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-glow-gold">Missions Quotidiennes</h2>
+        <h3 className="section-title">Missions quotidiennes</h3>
         <div className="flex items-center gap-2 text-sm">
           <GameIcon name="trophy" className="h-4 w-4 text-amber-400" />
           <span className="text-amber-300">{data.engagementTokens}/7</span>
@@ -42,7 +41,7 @@ export function DailyQuestsPanel() {
       </div>
 
       {data.weeklyBonusAvailable && (
-        <AnimatedCard className="border-amber-500/30 bg-amber-900/20 p-3">
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-bold text-amber-300">Bonus hebdomadaire disponible !</p>
@@ -56,19 +55,19 @@ export function DailyQuestsPanel() {
               Réclamer
             </AnimatedButton>
           </div>
-        </AnimatedCard>
+        </div>
       )}
 
       <div className="space-y-2">
         {data.quests.map((quest) => (
-          <AnimatedCard
+          <div
             key={quest.id}
-            className={`p-3 ${
+            className={`rounded-xl border p-4 ${
               quest.completed
                 ? quest.claimed
-                  ? 'border-green-700/30 bg-green-900/10'
-                  : 'border-green-500/30 bg-green-900/20'
-                : 'border-canopy-700/30 bg-bark-900/50'
+                  ? 'border-canopy-700/25 bg-canopy-500/5'
+                  : 'border-canopy-400/35 bg-canopy-500/10'
+                : 'border-canopy-700/20 bg-bark-950/35'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -91,7 +90,7 @@ export function DailyQuestsPanel() {
                   {getQuestDescription(quest.type, quest.target)}
                 </p>
                 <div className="mt-2">
-                  <div className="h-2 overflow-hidden rounded-full bg-bark-700">
+                  <div className="h-2 overflow-hidden rounded-full bg-canopy-700/25">
                     <div
                       className={`h-full rounded-full transition-all ${
                         quest.completed ? 'bg-green-500' : 'bg-canopy-500'
@@ -138,7 +137,7 @@ export function DailyQuestsPanel() {
                 </AnimatedButton>
               )}
             </div>
-          </AnimatedCard>
+          </div>
         ))}
       </div>
     </div>
