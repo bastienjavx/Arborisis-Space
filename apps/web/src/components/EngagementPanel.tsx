@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { EngagementOverview } from '@arborisis/shared';
 import { GameIcon } from './GameIcon';
-import { AnimatedCard } from './AnimatedCard';
 
 export function EngagementPanel() {
   const { data, isLoading } = useQuery({
@@ -15,7 +14,7 @@ export function EngagementPanel() {
   if (isLoading || !data) {
     return (
       <div className="rounded-2xl border border-canopy-700/30 bg-bark-900/50 p-4">
-        <div className="h-4 w-32 animate-pulse rounded bg-bark-700" />
+        <div className="h-4 w-32 animate-pulse rounded bg-canopy-700/25" />
       </div>
     );
   }
@@ -23,14 +22,14 @@ export function EngagementPanel() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-glow-gold">Bonus d'Engagement</h2>
+        <h3 className="section-title">Bonus d'engagement</h3>
         <div className="text-sm text-canopy-400">
           Multiplicateur total:{' '}
           <span className="font-bold text-amber-400">×{data.totalMultiplier}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         <StreakCard data={data.loginStreak} />
         <SessionCard data={data.sessionBonus} />
       </div>
@@ -40,7 +39,7 @@ export function EngagementPanel() {
 
 function StreakCard({ data }: { data: EngagementOverview['loginStreak'] }) {
   return (
-    <AnimatedCard className="border-orange-500/30 bg-orange-900/20 p-3">
+    <div className="rounded-xl border border-sap-400/25 bg-sap-400/10 p-4">
       <div className="flex items-center gap-2">
         <GameIcon name="trophy" className="h-5 w-5 text-orange-400" />
         <div>
@@ -49,7 +48,7 @@ function StreakCard({ data }: { data: EngagementOverview['loginStreak'] }) {
           <p className="text-xs text-orange-400/70">×{data.multiplier} bonus</p>
         </div>
       </div>
-    </AnimatedCard>
+    </div>
   );
 }
 
@@ -60,7 +59,7 @@ function SessionCard({ data }: { data: EngagementOverview['sessionBonus'] }) {
   const timeText = hours > 0 ? `${hours}h ${remainingMinutes}min` : `${minutes}min`;
 
   return (
-    <AnimatedCard className="border-canopy-500/30 bg-canopy-900/20 p-3">
+    <div className="rounded-xl border border-canopy-500/25 bg-canopy-500/10 p-4">
       <div className="flex items-center gap-2">
         <GameIcon name="zap" className="h-5 w-5 text-canopy-400" />
         <div>
@@ -69,6 +68,6 @@ function SessionCard({ data }: { data: EngagementOverview['sessionBonus'] }) {
           <p className="text-xs text-canopy-400/70">×{data.multiplier} bonus</p>
         </div>
       </div>
-    </AnimatedCard>
+    </div>
   );
 }
