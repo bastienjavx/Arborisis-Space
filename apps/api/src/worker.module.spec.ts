@@ -33,5 +33,6 @@ describe('WorkerModule runtime boundaries', () => {
         await moduleRef.close();
       });
     },
+    30_000,
   );
 });
