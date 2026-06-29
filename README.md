@@ -157,4 +157,6 @@ See [Infrastructure](./docs/INFRASTRUCTURE.md) for the full operational guide.
 
 ## License
 
-This repository is private and currently marked `UNLICENSED`.
+© 2025 Arborisis. All rights reserved.
+
+The source code is publicly visible for transparency and community reference. No license is granted to copy, modify, distribute, or run this software for commercial or competitive purposes without explicit written permission from the maintainers.
