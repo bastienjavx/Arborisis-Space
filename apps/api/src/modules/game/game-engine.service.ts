@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import type { GalacticEvent, Planet, PlanetBuilding, Prisma, ResearchLevel } from '@prisma/client';
 import {
   BuildingType,
@@ -44,7 +44,11 @@ export class GameEngineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: RedisCacheService,
-    private readonly events?: EventsGateway,
+    // `@Optional()` : le gateway WebSocket peut être absent du graphe d'un worker
+    // (process sans serveur HTTP). Le `?` TypeScript seul ne suffit pas — sans ce
+    // décorateur, NestJS échoue à booter le worker. Tous les usages sont protégés
+    // par `this.events?.`.
+    @Optional() private readonly events?: EventsGateway,
   ) {}
 
   buildingLevelsOf(buildings: PlanetBuilding[]): Partial<Record<BuildingType, number>> {

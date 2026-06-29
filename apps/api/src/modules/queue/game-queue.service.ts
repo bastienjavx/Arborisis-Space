@@ -104,33 +104,43 @@ export class GameQueueService {
     );
   }
 
-  async scheduleNextMycosynthTick(
-    delayMs = MYCOSYNTH_TICK_INTERVAL_MS,
-    singleton = false,
-  ): Promise<void> {
+  /**
+   * Planifie le prochain tick MYCOSYNTH avec un identifiant fenêtré (une tranche par
+   * MYCOSYNTH_TICK_INTERVAL_MS). L'identifiant changeant à chaque fenêtre, il n'entre
+   * jamais en collision avec le job actuellement en cours d'exécution (qui appartient
+   * à la fenêtre précédente). C'est ce qui permet de ré-enchaîner la boucle depuis le
+   * `finally` du processor sans que BullMQ ne déduplique — et donc n'avale — le job
+   * suivant (cause de l'arrêt de la chaîne après un seul tick).
+   */
+  async scheduleNextMycosynthTick(delayMs = MYCOSYNTH_TICK_INTERVAL_MS): Promise<void> {
     const universeId = await this.resolveUniverseId();
-    const singletonId = `mycosynth-tick-${universeId}`;
-    if (singleton) {
-      const existing = await this.npcQueue.getJob(singletonId);
-      const state = existing ? await existing.getState() : null;
-      if (existing && (state === 'delayed' || state === 'waiting')) return;
-      await this.safeAddToQueue(
-        this.npcQueue,
-        MYCOSYNTH_TICK_JOB,
-        { universeId },
-        delayMs,
-        singletonId,
-      );
-      return;
-    }
     const dueSlot = Math.floor((Date.now() + delayMs) / MYCOSYNTH_TICK_INTERVAL_MS);
     await this.safeAddToQueue(
       this.npcQueue,
       MYCOSYNTH_TICK_JOB,
       { universeId },
       delayMs,
-      `${singletonId}-${dueSlot}`,
+      `mycosynth-tick-${universeId}-${dueSlot}`,
     );
+  }
+
+  /**
+   * Amorce et auto-répare la boucle de tick MYCOSYNTH : ne planifie un tick que si la
+   * file NPC ne contient aucun job actif, en attente ou différé. Idempotent, il peut
+   * être appelé au démarrage et périodiquement (réconciliation) pour relancer la
+   * chaîne si elle s'est interrompue (crash worker, blip Redis, échec de
+   * re-planification…). Les jobs `failed` ne comptent pas : ils ne doivent pas
+   * empêcher la relance.
+   */
+  async ensureMycosynthTickScheduled(delayMs = 0): Promise<void> {
+    const pending = await this.npcQueue.getJobCountByTypes(
+      'active',
+      'waiting',
+      'delayed',
+      'paused',
+    );
+    if (pending > 0) return;
+    await this.scheduleNextMycosynthTick(delayMs);
   }
 
   async scheduleNextNpcSpawn(delayMs = NPC_SPAWN_INTERVAL_MS, singleton = false): Promise<void> {

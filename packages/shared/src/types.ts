@@ -29,6 +29,9 @@ import {
   NotificationType,
   NpcActionLogStatus,
   NpcActionType,
+  NpcArchetype,
+  NpcGoal,
+  NpcMood,
   NpcEncounterType,
   PlanetSpecialization,
   PlanetType,
@@ -142,6 +145,32 @@ export interface NpcActionStatsView {
   byStatus: Array<{ status: NpcActionLogStatus; count: number }>;
   byBot: Array<{ userId: string; username: string; count: number }>;
   timeline: Array<{ bucket: string; count: number }>;
+}
+
+/** Relation mémorisée d'un bot envers un autre joueur. */
+export interface NpcRelationView {
+  playerId: string;
+  username: string;
+  /** Niveau de menace perçue (attaques subies, pondérées et décroissantes). */
+  threat: number;
+  /** Rancune accumulée (sert le ciblage de rétorsion). */
+  grudge: number;
+  battlesWon: number;
+  battlesLost: number;
+}
+
+/** État du « cerveau » d'un bot NPC, exposé à l'observation admin. */
+export interface NpcBrainView {
+  userId: string;
+  username: string;
+  archetype: NpcArchetype;
+  traits: Record<string, number>;
+  goal: NpcGoal | null;
+  goalTargetId: string | null;
+  mood: NpcMood;
+  lastStrategyReviewAt: string | null;
+  /** Relations les plus saillantes (menace/rancune), triées décroissant. */
+  topRelations: NpcRelationView[];
 }
 
 export interface ResourceState {

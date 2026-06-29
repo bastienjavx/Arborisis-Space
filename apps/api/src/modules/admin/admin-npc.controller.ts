@@ -4,6 +4,7 @@ import {
   type NpcActionLogQueryDto,
   type NpcActionLogView,
   type NpcActionStatsView,
+  type NpcBrainView,
 } from '@arborisis/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -25,5 +26,10 @@ export class AdminNpcController {
   @Get('stats')
   stats(@CurrentUser() user: AuthenticatedUser): Promise<NpcActionStatsView> {
     return this.adminNpc.stats(user.id);
+  }
+
+  @Get('brains')
+  brains(@CurrentUser() user: AuthenticatedUser): Promise<NpcBrainView[]> {
+    return this.adminNpc.brains(user.id);
   }
 }

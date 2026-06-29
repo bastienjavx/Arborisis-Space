@@ -233,11 +233,14 @@ export function chooseShipProduction(
   return decisions.sort((a, b) => b.score - a.score);
 }
 
-export function shouldLaunchAttack(input: MycosynthAttackDecisionInput): boolean {
+export function shouldLaunchAttack(
+  input: MycosynthAttackDecisionInput,
+  minRatio: number = MYCOSYNTH_AI_CONFIG.minAttackPowerRatio,
+): boolean {
   if (!input.hasFreshSpy) return false;
   if (input.recentAttacksAgainstOwner > 0 || input.recentAttacksAgainstPlanet > 0) return false;
   const ratio = input.attackerPower / Math.max(1, input.defenderPower);
-  return ratio >= MYCOSYNTH_AI_CONFIG.minAttackPowerRatio;
+  return ratio >= minRatio;
 }
 
 export function shouldPlaceMarketOrder(input: MycosynthMarketDecisionInput): boolean {

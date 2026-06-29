@@ -437,6 +437,7 @@ model User {
   commanders                Commander[]
   galaxyVisibility          GalaxyVisibility[]
   npcActionLogs             NpcActionLog[]
+  npcProfile                NpcProfile?
 
   @@map("users")
 }
@@ -842,6 +843,30 @@ model NpcActionLog {
   @@index([actionType, createdAt])
   @@index([universeId, status, createdAt])
   @@map("npc_action_logs")
+}
+
+/// Cerveau persistant d'un bot NPC : personnalité, but stratégique courant et
+/// mémoire des relations. Les colonnes textuelles portent des valeurs d'enums
+/// partagés (NpcArchetype / NpcGoal / NpcMood) — même convention que
+/// NpcActionLog.actionType, pour éviter une migration d'enum Postgres.
+model NpcProfile {
+  userId               String    @id
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  universeId           String
+  archetype            String    @db.VarChar(32)
+  traits               Json      @default("{}")
+  goal                 String?   @db.VarChar(32)
+  goalTargetId         String?
+  goalProgress         Json      @default("{}")
+  mood                 String    @default("CALM") @db.VarChar(16)
+  memory               Json      @default("{}")
+  lastStrategyReviewAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([universeId])
+  @@index([universeId, archetype])
+  @@map("npc_profiles")
 }
 
 model AllianceMember {
