@@ -601,6 +601,16 @@ export enum NpcActionType {
   PVP_SPY = 'PVP_SPY',
   PVE_ATTACK = 'PVE_ATTACK',
   EXPEDITION = 'EXPEDITION',
+  /** Amorçage d'une alliance NPC (création + rattachement des membres). */
+  ALLIANCE_BOOTSTRAP = 'ALLIANCE_BOOTSTRAP',
+  /** Proposition diplomatique émise (NAP, alliance commerciale). */
+  DIPLOMATIC_OFFER = 'DIPLOMATIC_OFFER',
+  /** Réponse à une offre diplomatique reçue (accept/reject). */
+  DIPLOMATIC_RESPONSE = 'DIPLOMATIC_RESPONSE',
+  /** Déclaration de guerre / rupture de relation. */
+  WAR_DECLARATION = 'WAR_DECLARATION',
+  /** Message de chat émis (taunt, recrutement, déclaration). */
+  CHAT_MESSAGE = 'CHAT_MESSAGE',
 }
 
 export const NPC_ACTION_TYPES = Object.values(NpcActionType);
@@ -674,6 +684,8 @@ export enum NpcActionCategory {
   ECONOMY = 'ECONOMY',
   WARFARE = 'WARFARE',
   ESPIONAGE = 'ESPIONAGE',
+  /** Actions sociales : diplomatie et chat. */
+  DIPLOMACY = 'DIPLOMACY',
 }
 
 export const NPC_ACTION_CATEGORIES = Object.values(NpcActionCategory);

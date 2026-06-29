@@ -1814,6 +1814,36 @@ export interface MycosynthBrainConfig {
   aggressionAttackRatioRelief: number;
   /** Baisse supplémentaire du ratio requis contre une cible de rancune. */
   vengeanceAttackRatioRelief: number;
+  /** Couche sociale : alliances bot, diplomatie, chat. */
+  social: MycosynthSocialConfig;
+}
+
+/**
+ * Configuration de la couche sociale des bots : combien d'alliances NPC amorcer,
+ * à quelle cadence agir, et les seuils de décision diplomatique. Centralisé ici
+ * pour rester équilibrable (invariant #2).
+ */
+export interface MycosynthSocialConfig {
+  /** Nombre d'alliances NPC amorcées dans l'univers. */
+  botAllianceCount: number;
+  /** Heures minimales entre deux actions sociales d'un même bot (anti-spam). */
+  actionIntervalHours: number;
+  /**
+   * Marge de puissance (rapport flotte alliance) requise pour accepter une offre.
+   * Une offre venant d'une alliance bien plus forte est acceptée plus volontiers
+   * (sécurité), une offre d'une alliance plus faible exige moins de marge.
+   */
+  offerAcceptPowerMargin: number;
+  /** Menace cumulée déclenchant une recherche de pacte de non-agression. */
+  napThreatThreshold: number;
+  /** Trait « greed » minimal pour proposer une alliance commerciale. */
+  tradeAllianceGreedThreshold: number;
+  /** Rancune mûre (sur une cible) autorisant une déclaration de guerre formelle. */
+  warDeclareGrudgeThreshold: number;
+  /** Probabilité (0..1) qu'un bot émette un taunt de chat sur un tick éligible. */
+  chatTauntChance: number;
+  /** Sociabilité par archétype : module la fréquence de prise de parole (0..1). */
+  sociability: Record<NpcArchetype, number>;
 }
 
 const neutralCategoryWeights = (): Record<NpcActionCategory, number> => ({
@@ -1824,6 +1854,7 @@ const neutralCategoryWeights = (): Record<NpcActionCategory, number> => ({
   [NpcActionCategory.ECONOMY]: 1,
   [NpcActionCategory.WARFARE]: 1,
   [NpcActionCategory.ESPIONAGE]: 1,
+  [NpcActionCategory.DIPLOMACY]: 1,
 });
 
 export const MYCOSYNTH_BRAIN_CONFIG: MycosynthBrainConfig = {
@@ -1844,6 +1875,7 @@ export const MYCOSYNTH_BRAIN_CONFIG: MycosynthBrainConfig = {
         [NpcActionCategory.ESPIONAGE]: 1.4,
         [NpcActionCategory.ECONOMY]: 0.7,
         [NpcActionCategory.EXPANSION]: 0.85,
+        [NpcActionCategory.DIPLOMACY]: 0.6,
       },
       preferredGoals: [NpcGoal.BUILD_WAR_FLEET, NpcGoal.RAID_TARGET, NpcGoal.RESEARCH_PUSH],
     },
@@ -1856,6 +1888,7 @@ export const MYCOSYNTH_BRAIN_CONFIG: MycosynthBrainConfig = {
         [NpcActionCategory.RESEARCH]: 1.2,
         [NpcActionCategory.FLEET]: 0.7,
         [NpcActionCategory.WARFARE]: 0.5,
+        [NpcActionCategory.DIPLOMACY]: 1.5,
       },
       preferredGoals: [NpcGoal.MAX_ECONOMY, NpcGoal.RESEARCH_PUSH, NpcGoal.EXPAND_COLONIES],
     },
@@ -1867,6 +1900,7 @@ export const MYCOSYNTH_BRAIN_CONFIG: MycosynthBrainConfig = {
         [NpcActionCategory.RESEARCH]: 1.3,
         [NpcActionCategory.CONSTRUCTION]: 1.1,
         [NpcActionCategory.WARFARE]: 0.7,
+        [NpcActionCategory.DIPLOMACY]: 1.15,
       },
       preferredGoals: [NpcGoal.EXPAND_COLONIES, NpcGoal.RESEARCH_PUSH, NpcGoal.MAX_ECONOMY],
     },
@@ -1880,6 +1914,7 @@ export const MYCOSYNTH_BRAIN_CONFIG: MycosynthBrainConfig = {
         [NpcActionCategory.ECONOMY]: 1.1,
         [NpcActionCategory.WARFARE]: 0.5,
         [NpcActionCategory.EXPANSION]: 0.8,
+        [NpcActionCategory.DIPLOMACY]: 1.4,
       },
       preferredGoals: [NpcGoal.FORTIFY, NpcGoal.MAX_ECONOMY, NpcGoal.RESEARCH_PUSH],
     },
@@ -1890,6 +1925,7 @@ export const MYCOSYNTH_BRAIN_CONFIG: MycosynthBrainConfig = {
         [NpcActionCategory.WARFARE]: 1.1,
         [NpcActionCategory.ESPIONAGE]: 1.1,
         [NpcActionCategory.EXPANSION]: 1.05,
+        [NpcActionCategory.DIPLOMACY]: 1.0,
       },
       preferredGoals: [NpcGoal.MAX_ECONOMY, NpcGoal.BUILD_WAR_FLEET, NpcGoal.EXPAND_COLONIES],
     },
@@ -1951,6 +1987,22 @@ export const MYCOSYNTH_BRAIN_CONFIG: MycosynthBrainConfig = {
   cautionAttackRatioPenalty: 0.4,
   aggressionAttackRatioRelief: 0.25,
   vengeanceAttackRatioRelief: 0.15,
+  social: {
+    botAllianceCount: 6,
+    actionIntervalHours: 1,
+    offerAcceptPowerMargin: 0.15,
+    napThreatThreshold: 2,
+    tradeAllianceGreedThreshold: 0.6,
+    warDeclareGrudgeThreshold: 2.5,
+    chatTauntChance: 0.35,
+    sociability: {
+      [NpcArchetype.RAIDER]: 0.7,
+      [NpcArchetype.ECONOMIST]: 0.6,
+      [NpcArchetype.EXPANSIONIST]: 0.5,
+      [NpcArchetype.TURTLE]: 0.4,
+      [NpcArchetype.OPPORTUNIST]: 0.55,
+    },
+  },
 };
 
 // ──────────────────────────── Spécialisation planète ─────────────────────────

@@ -45,6 +45,11 @@ const ACTION_LABELS: Record<NpcActionType, string> = {
   [NpcActionType.PVP_SPY]: 'Espionnage PvP',
   [NpcActionType.PVE_ATTACK]: 'Attaque PvE',
   [NpcActionType.EXPEDITION]: 'Expédition',
+  [NpcActionType.ALLIANCE_BOOTSTRAP]: 'Amorçage alliance',
+  [NpcActionType.DIPLOMATIC_OFFER]: 'Offre diplomatique',
+  [NpcActionType.DIPLOMATIC_RESPONSE]: 'Réponse diplomatique',
+  [NpcActionType.WAR_DECLARATION]: 'Déclaration de guerre',
+  [NpcActionType.CHAT_MESSAGE]: 'Message',
 };
 
 const ARCHETYPE_LABELS: Record<NpcArchetype, string> = {
