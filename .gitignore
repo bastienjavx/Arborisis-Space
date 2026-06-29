@@ -48,3 +48,6 @@ prisma/*.db-journal
 
 # Docker volumes (local)
 .docker-data/
+
+# Worktrees & config locale agents Claude
+.claude/

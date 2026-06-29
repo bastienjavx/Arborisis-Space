@@ -4,11 +4,17 @@ import { useRef, useMemo, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { PlanetType } from '@arborisis/shared';
+import { PlanetType, PLANET_TYPES } from '@arborisis/shared';
 import { planetProfile, seedFromCoords, type PlanetProfile } from '@/lib/procgen';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
+import { ModelAsset, preloadModel } from '@/components/three/ModelAsset';
 import { tier, useIsMobile } from '@/lib/device';
 import { makeGlowMaterial, specializationColor } from '@/components/three/visuals';
+
+/** GLB de base de surface par type de planète (`planet_base_<type>.glb`). */
+function planetBaseUrl(type: PlanetType): string {
+  return `/models/planet_base_${type.toLowerCase()}.glb`;
+}
 
 const prefersReducedMotion =
   typeof window !== 'undefined' && window.matchMedia
@@ -76,105 +82,10 @@ function noiseGlsl(octaves: number): string {
   return `#define FBM_OCTAVES ${octaves}\n${NOISE_GLSL}`;
 }
 
-interface SurfaceUniforms {
-  [key: string]: THREE.IUniform;
-}
-
 export interface PlanetActivity {
   construction?: boolean;
   specialization?: string | null;
   stability?: number;
-}
-
-function makeSurfaceMaterial(
-  profile: PlanetProfile,
-  octaves: number,
-  activityColor: string,
-): THREE.ShaderMaterial {
-  const uniforms: SurfaceUniforms = {
-    uTime: { value: 0 },
-    uActivity: { value: 0 },
-    uFreq: { value: profile.frequency },
-    uRelief: { value: profile.relief },
-    uOcean: { value: profile.oceanLevel },
-    uIce: { value: profile.iceCaps },
-    uGlow: { value: profile.glow },
-    uLight: { value: new THREE.Vector3(1, 0.4, 0.7).normalize() },
-    uLow: { value: new THREE.Color(profile.colorLow) },
-    uMid: { value: new THREE.Color(profile.colorMid) },
-    uHigh: { value: new THREE.Color(profile.colorHigh) },
-    uOceanColor: { value: new THREE.Color(profile.colorOcean) },
-    uActivityColor: { value: new THREE.Color(activityColor) },
-  };
-
-  return new THREE.ShaderMaterial({
-    uniforms,
-    vertexShader: /* glsl */ `
-      ${noiseGlsl(octaves)}
-      uniform float uFreq;
-      uniform float uRelief;
-      uniform float uOcean;
-      varying float vElev;
-      varying vec3 vNormalW;
-      varying vec3 vPos;
-      void main(){
-        vec3 p = normalize(position);
-        float e = fbm(p * uFreq) * 0.5 + 0.5;
-        // Au-dessus du niveau d'eau on déplace le relief ; sous l'eau on aplatit.
-        float land = smoothstep(uOcean, uOcean + 0.04, e);
-        float disp = mix(0.0, (e - uOcean) * uRelief, land);
-        vElev = e;
-        vPos = p;
-        vec3 displaced = position + normal * disp;
-        vNormalW = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      ${noiseGlsl(octaves)}
-      uniform float uTime;
-      uniform float uActivity;
-      uniform float uOcean;
-      uniform float uIce;
-      uniform float uGlow;
-      uniform vec3 uLight;
-      uniform vec3 uLow;
-      uniform vec3 uMid;
-      uniform vec3 uHigh;
-      uniform vec3 uOceanColor;
-      uniform vec3 uActivityColor;
-      varying float vElev;
-      varying vec3 vNormalW;
-      varying vec3 vPos;
-      void main(){
-        float e = vElev;
-        vec3 land = mix(uLow, uMid, smoothstep(uOcean, uOcean + 0.25, e));
-        land = mix(land, uHigh, smoothstep(uOcean + 0.28, 0.92, e));
-        // Calottes glaciaires aux pôles (latitude élevée).
-        float lat = abs(vPos.y);
-        float ice = smoothstep(0.78 - uIce * 0.4, 0.92, lat) * uIce;
-        land = mix(land, vec3(0.92, 0.96, 0.98), ice);
-        bool isOcean = e < uOcean;
-        vec3 base = isOcean ? uOceanColor : land;
-        // Éclairage diffus + terminateur doux, lisible côté nuit.
-        float diff = clamp(dot(normalize(vNormalW), uLight), 0.0, 1.0);
-        float terminator = smoothstep(-0.12, 0.72, diff);
-        float lit = 0.16 + terminator * 1.02;
-        // Reflet spéculaire sur l'eau.
-        float spec = isOcean ? pow(max(diff, 0.0), 18.0) * 0.42 : 0.0;
-        vec3 color = base * lit + spec;
-        // Émission propre (mondes sporulés) + lueur du côté nuit.
-        color += base * uGlow * (1.0 - terminator) * 1.55;
-        float vein = smoothstep(
-          0.73,
-          0.94,
-          fbm(vPos * 8.5 + vec3(uTime * 0.045, 0.0, 0.0)) * 0.5 + 0.5
-        );
-        color += uActivityColor * vein * uActivity * (0.08 + (1.0 - terminator) * 0.2);
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `,
-  });
 }
 
 function makeCloudMaterial(
@@ -234,13 +145,15 @@ function ProceduralPlanet({
   profile,
   quality,
   activity,
+  planetType,
 }: {
   profile: PlanetProfile;
   quality: Quality;
   activity?: PlanetActivity;
+  planetType: PlanetType;
 }) {
   const tiltRef = useRef<THREE.Group>(null);
-  const surfaceRef = useRef<THREE.Mesh>(null);
+  const surfaceRef = useRef<THREE.Group>(null);
   const cloudRef = useRef<THREE.Mesh>(null);
   const activityColor = specializationColor(activity?.specialization);
   const activityLevel = Math.max(
@@ -248,10 +161,6 @@ function ProceduralPlanet({
     activity?.specialization ? 0.28 : 0,
   );
 
-  const surfaceMat = useMemo(
-    () => makeSurfaceMaterial(profile, quality.octaves, activityColor),
-    [profile, quality.octaves, activityColor],
-  );
   const cloudMat = useMemo(
     () => makeCloudMaterial(new THREE.Color('#dff5ea'), profile.clouds, quality.octaves),
     [profile, quality.octaves],
@@ -266,8 +175,6 @@ function ProceduralPlanet({
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
-    surfaceMat.uniforms.uTime.value = t;
-    surfaceMat.uniforms.uActivity.value = activityLevel * (0.72 + Math.sin(t * 1.4) * 0.08);
     cloudMat.uniforms.uTime.value = t;
     if (surfaceRef.current) surfaceRef.current.rotation.y += delta * profile.spin;
     if (cloudRef.current) cloudRef.current.rotation.y += delta * profile.spin * 1.35;
@@ -277,11 +184,10 @@ function ProceduralPlanet({
 
   return (
     <group ref={tiltRef} rotation={[profile.axialTilt, 0, 0]} scale={1.7}>
-      {/* Surface déplacée */}
-      <mesh ref={surfaceRef}>
-        <sphereGeometry args={[1, quality.surfaceSeg, quality.surfaceSeg]} />
-        <primitive object={surfaceMat} attach="material" />
-      </mesh>
+      {/* Surface : base de planète 3D générée (le reste reste procédural) */}
+      <group ref={surfaceRef}>
+        <ModelAsset url={planetBaseUrl(planetType)} targetSize={2} />
+      </group>
 
       {/* Couche nuageuse */}
       {hasClouds && (
@@ -442,10 +348,12 @@ function Scene({
   profile,
   quality,
   activity,
+  planetType,
 }: {
   profile: PlanetProfile;
   quality: Quality;
   activity?: PlanetActivity;
+  planetType: PlanetType;
 }) {
   const stability = typeof activity?.stability === 'number' ? activity.stability : 100;
   const stabilityGlow = THREE.MathUtils.clamp(stability / 100, 0.35, 1);
@@ -464,7 +372,12 @@ function Scene({
         fade
         speed={0.4}
       />
-      <ProceduralPlanet profile={profile} quality={quality} activity={activity} />
+      <ProceduralPlanet
+        profile={profile}
+        quality={quality}
+        activity={activity}
+        planetType={planetType}
+      />
       <OrbitControls
         enablePan={false}
         enableZoom
@@ -516,11 +429,14 @@ export function PlanetView({
     <div className={className}>
       <AdaptiveCanvas camera={{ position: [0, 0.6, 6], fov: 48 }} gl={{ alpha: true }} maxDpr={1.8}>
         <Suspense fallback={null}>
-          <Scene profile={profile} quality={quality} activity={activity} />
+          <Scene profile={profile} quality={quality} activity={activity} planetType={planetType} />
         </Suspense>
       </AdaptiveCanvas>
     </div>
   );
 }
+
+// Précharge les bases de planète pour un affichage immédiat.
+PLANET_TYPES.forEach((t) => preloadModel(planetBaseUrl(t)));
 
 export default PlanetView;
