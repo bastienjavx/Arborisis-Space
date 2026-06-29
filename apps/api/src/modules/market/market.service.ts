@@ -673,7 +673,7 @@ export class MarketService {
       const candleId = randomUUID();
       await tx.$queryRaw`
         INSERT INTO ohlcv_candles (id, "universeId", "itemKey", "interval", "openTime", open, high, low, close, volume)
-        VALUES (${candleId}, ${universeId}, ${itemKey as PrismaItemKey}, ${name}, ${openTime}, ${price}, ${price}, ${price}, ${price}, ${qty})
+        VALUES (${candleId}, ${universeId}, ${itemKey}::"ItemKey", ${name}::"OhlcvInterval", ${openTime}, ${price}, ${price}, ${price}, ${price}, ${qty})
         ON CONFLICT ("universeId", "itemKey", "interval", "openTime")
         DO UPDATE SET
           high = GREATEST(ohlcv_candles.high, EXCLUDED.high),
