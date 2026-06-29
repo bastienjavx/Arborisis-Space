@@ -6,14 +6,8 @@ import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SHIP_TYPES, ShipType, type ShipCounts } from '@arborisis/shared';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
-import { SafeModelAsset, preloadModel } from '@/components/three/ModelAsset';
-import { shouldPreload3dAssets, tier, useIsMobile } from '@/lib/device';
+import { tier, useIsMobile } from '@/lib/device';
 import { seedFromString, seededBoxPoints } from '@/components/three/visuals';
-
-/** GLB par type de vaisseau — le slug correspond à l'enum (`ship_<type>.glb`). */
-function shipModelUrl(type: ShipType): string {
-  return `/models/ship_${type.toLowerCase()}.glb`;
-}
 
 /**
  * Empreinte (plus grande dimension, en unités de scène) par catégorie de
@@ -74,29 +68,90 @@ function BioShip({ type, index, total, activeMission }: BioShipProps) {
 
   return (
     <group ref={groupRef}>
-      <SafeModelAsset
-        url={shipModelUrl(type)}
-        targetSize={targetSize}
-        fallback={<ShipFallback size={targetSize} />}
-      />
+      <ProceduralShip size={targetSize} type={type} />
     </group>
   );
 }
 
-/** Repli de vaisseau si le GLB ne se charge pas : un éclat bio-luminescent. */
-function ShipFallback({ size }: { size: number }) {
+/** Vaisseaux capitaux : silhouette plus massive, teinte spore. */
+const CAPITAL_SHIPS = new Set<ShipType>([
+  ShipType.SPOROGENESIS_TITAN,
+  ShipType.BIOMASS_DREADNOUGHT,
+  ShipType.CHITIN_BULWARK,
+  ShipType.LUMINOUS_WARDEN,
+]);
+
+/**
+ * Vaisseau procédural bio-organique (remplace les GLB) : coque allongée à facettes,
+ * noyau bioluminescent additif, deux ailerons et une pointe avant. Teinte variée
+ * par type (canopée pour les éclaireurs, spore pour les capitaux), orienté +Z.
+ */
+function ProceduralShip({ size, type }: { size: number; type: ShipType }) {
+  const capital = CAPITAL_SHIPS.has(type);
+  const hue = (seedFromString(type) % 40) / 40; // 0..1, petite variation par type
+  const palette = useMemo(() => {
+    const hull = new THREE.Color(capital ? '#3a8f6f' : '#1f9d63');
+    hull.offsetHSL((hue - 0.5) * 0.06, 0, 0);
+    const core = new THREE.Color(capital ? '#a78bfa' : '#7eecae');
+    return { hull, core, emissive: new THREE.Color(capital ? '#6d28d9' : '#0c7a44') };
+  }, [capital, hue]);
+
   return (
-    <mesh scale={[size * 0.5, size * 0.28, size * 0.5]}>
-      <icosahedronGeometry args={[1, 1]} />
-      <meshStandardMaterial
-        color="#16bf6c"
-        emissive="#0c7a44"
-        emissiveIntensity={0.4}
-        roughness={0.6}
-        metalness={0.1}
-        flatShading
-      />
-    </mesh>
+    <group>
+      {/* Coque allongée à facettes */}
+      <mesh scale={[size * 0.34, size * 0.3, size * 0.66]}>
+        <icosahedronGeometry args={[1, 1]} />
+        <meshStandardMaterial
+          color={palette.hull}
+          emissive={palette.emissive}
+          emissiveIntensity={0.45}
+          roughness={0.55}
+          metalness={0.15}
+          flatShading
+        />
+      </mesh>
+      {/* Pointe avant */}
+      <mesh position={[0, 0, size * 0.62]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[size * 0.16, size * 0.4, 6]} />
+        <meshStandardMaterial
+          color={palette.hull}
+          emissive={palette.emissive}
+          emissiveIntensity={0.4}
+          roughness={0.5}
+          metalness={0.2}
+          flatShading
+        />
+      </mesh>
+      {/* Ailerons */}
+      {[-1, 1].map((s) => (
+        <mesh
+          key={s}
+          position={[s * size * 0.34, 0, -size * 0.12]}
+          rotation={[0, 0, s * 0.5]}
+          scale={[size * 0.42, size * 0.05, size * 0.34]}
+        >
+          <tetrahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial
+            color={palette.hull}
+            emissive={palette.emissive}
+            emissiveIntensity={0.3}
+            roughness={0.6}
+            flatShading
+          />
+        </mesh>
+      ))}
+      {/* Noyau bioluminescent (additif) */}
+      <mesh position={[0, 0, -size * 0.28]}>
+        <sphereGeometry args={[size * 0.16, 12, 12]} />
+        <meshBasicMaterial
+          color={palette.core}
+          transparent
+          opacity={0.9}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -194,11 +249,6 @@ function Scene({ ships, activeMission, mobile }: FleetViewProps & { mobile: bool
       <TrailParticles count={tier(mobile, 30, 60)} activeMission={activeMission} />
     </>
   );
-}
-
-// Précharge tous les GLB de vaisseaux pour éviter le pop-in à l'affichage.
-if (shouldPreload3dAssets()) {
-  SHIP_TYPES.forEach((type) => preloadModel(shipModelUrl(type)));
 }
 
 export function FleetView({ ships, activeMission, className = '' }: FleetViewProps) {

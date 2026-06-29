@@ -15,6 +15,7 @@ export function PwaEnhancer() {
   const [standalone, setStandalone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [updateReady, setUpdateReady] = useState(false);
+  const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
     try {
@@ -28,6 +29,13 @@ export function PwaEnhancer() {
       window.matchMedia('(display-mode: standalone)').matches ||
         Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone),
     );
+    // iOS Safari n'émet jamais `beforeinstallprompt` : on détecte iPhone/iPad pour
+    // afficher la marche à suivre manuelle (Partager → Sur l'écran d'accueil).
+    const ua = window.navigator.userAgent;
+    const iOS = /iphone|ipad|ipod/i.test(ua);
+    const iPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    const isSafari = /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(ua);
+    setIsIos((iOS || iPadOS) && isSafari);
   }, []);
 
   useEffect(() => {
@@ -112,35 +120,92 @@ export function PwaEnhancer() {
   }
 
   const showInstall = !standalone && !!deferredPrompt && !dismissed;
+  // Marche à suivre iOS : seulement si aucun prompt natif n'est disponible.
+  const showIosHint = !standalone && isIos && !deferredPrompt && !dismissed;
   // Update banner is independent from install dismiss state
   const showUpdate = updateReady;
 
-  if (!showInstall && !showUpdate) return null;
+  if (!showInstall && !showUpdate && !showIosHint) return null;
 
   return (
     <div className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[65] lg:bottom-4 lg:left-auto lg:right-4 lg:max-w-sm">
       <div className="rounded-2xl border border-canopy-700/35 bg-bark-950/95 p-3 shadow-2xl shadow-black/60 backdrop-blur-2xl">
-        <p className="text-xs text-canopy-100/80">
-          {showUpdate
-            ? 'Une nouvelle version est prête.'
-            : "Installer Arborisis pour l'utiliser comme une app mobile."}
-        </p>
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={showUpdate ? applyUpdate : installApp}
-            className="btn btn-primary min-h-9 px-3 py-1.5 text-xs"
-          >
-            {showUpdate ? 'Mettre à jour' : 'Installer'}
-          </button>
-          <button
-            type="button"
-            onClick={showUpdate ? () => setUpdateReady(false) : dismiss}
-            className="btn btn-ghost min-h-9 px-3 py-1.5 text-xs"
-          >
-            Plus tard
-          </button>
-        </div>
+        {showUpdate ? (
+          <>
+            <p className="text-xs text-canopy-100/80">Une nouvelle version est prête.</p>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={applyUpdate}
+                className="btn btn-primary min-h-9 px-3 py-1.5 text-xs"
+              >
+                Mettre à jour
+              </button>
+              <button
+                type="button"
+                onClick={() => setUpdateReady(false)}
+                className="btn btn-ghost min-h-9 px-3 py-1.5 text-xs"
+              >
+                Plus tard
+              </button>
+            </div>
+          </>
+        ) : showInstall ? (
+          <>
+            <p className="text-xs text-canopy-100/80">
+              Installer Arborisis pour l&apos;utiliser comme une app mobile.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={installApp}
+                className="btn btn-primary min-h-9 px-3 py-1.5 text-xs"
+              >
+                Installer
+              </button>
+              <button
+                type="button"
+                onClick={dismiss}
+                className="btn btn-ghost min-h-9 px-3 py-1.5 text-xs"
+              >
+                Plus tard
+              </button>
+            </div>
+          </>
+        ) : (
+          // iOS : pas de prompt natif → instructions manuelles.
+          <>
+            <p className="text-xs text-canopy-100/80">
+              Installer Arborisis : appuie sur{' '}
+              <span className="inline-flex items-center font-semibold text-canopy-200">
+                Partager
+                <svg
+                  viewBox="0 0 24 24"
+                  className="mx-0.5 h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 16V4M12 4l-4 4M12 4l4 4" />
+                  <path d="M5 12v7a1 1 0 001 1h12a1 1 0 001-1v-7" />
+                </svg>
+              </span>{' '}
+              puis «&nbsp;Sur l&apos;écran d&apos;accueil&nbsp;».
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={dismiss}
+                className="btn btn-ghost min-h-9 px-3 py-1.5 text-xs"
+              >
+                Compris
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

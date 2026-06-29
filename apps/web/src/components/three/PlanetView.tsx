@@ -4,17 +4,11 @@ import { useRef, useMemo, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Stars, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { PlanetType, PLANET_TYPES } from '@arborisis/shared';
+import { PlanetType } from '@arborisis/shared';
 import { planetProfile, seedFromCoords, type PlanetProfile } from '@/lib/procgen';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
-import { SafeModelAsset, preloadModel } from '@/components/three/ModelAsset';
-import { shouldPreload3dAssets, tier, useIsMobile } from '@/lib/device';
+import { tier, useIsMobile } from '@/lib/device';
 import { makeGlowMaterial, specializationColor } from '@/components/three/visuals';
-
-/** GLB de base de surface par type de planète (`planet_base_<type>.glb`). */
-function planetBaseUrl(type: PlanetType): string {
-  return `/models/planet_base_${type.toLowerCase()}.glb`;
-}
 
 const prefersReducedMotion =
   typeof window !== 'undefined' && window.matchMedia
@@ -131,6 +125,98 @@ function makeCloudMaterial(
   });
 }
 
+/**
+ * Surface planétaire entièrement procédurale (remplace l'ancien GLB de base).
+ * Un FBM 3D déplace les sommets (continents, reliefs) ; le fragment compose une
+ * rampe d'altitude océan → plaines → reliefs → sommets à partir des couleurs du
+ * biome, un relief calculé par dérivées d'écran (`dFdx/dFdy`) et un terminateur
+ * jour/nuit avec lueur bioluminescente côté nuit. Coût ajustable via `octaves`.
+ */
+function makeSurfaceMaterial(profile: PlanetProfile, octaves: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    // `dFdx/dFdy` du fragment exigent l'extension dérivées (WebGL1/GLSL1).
+    extensions: { derivatives: true } as THREE.ShaderMaterialParameters['extensions'],
+    uniforms: {
+      uTime: { value: 0 },
+      uOcean: { value: new THREE.Color(profile.colorOcean) },
+      uLow: { value: new THREE.Color(profile.colorLow) },
+      uMid: { value: new THREE.Color(profile.colorMid) },
+      uHigh: { value: new THREE.Color(profile.colorHigh) },
+      uGlow: { value: new THREE.Color(profile.colorAtmosphere) },
+      uLight: { value: new THREE.Vector3(6, 2.5, 5).normalize() },
+    },
+    vertexShader: /* glsl */ `
+      ${noiseGlsl(octaves)}
+      uniform float uTime;
+      varying float vElev;
+      varying vec3 vWorldPos;
+      varying vec3 vSphereN;
+      void main(){
+        vec3 dir = normalize(position);
+        // Élévation -1..1 ; on aplatit les océans pour un littoral net.
+        float e = fbm(dir * 1.9);
+        float land = smoothstep(-0.04, 0.10, e);
+        float relief = mix(-0.012, e * 0.085, land);
+        vElev = e;
+        vSphereN = dir;
+        vec3 displaced = position + dir * relief;
+        vec4 world = modelMatrix * vec4(displaced, 1.0);
+        vWorldPos = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uOcean;
+      uniform vec3 uLow;
+      uniform vec3 uMid;
+      uniform vec3 uHigh;
+      uniform vec3 uGlow;
+      uniform vec3 uLight;
+      varying float vElev;
+      varying vec3 vWorldPos;
+      varying vec3 vSphereN;
+      void main(){
+        // Normale de relief reconstruite à partir des dérivées d'écran.
+        vec3 n = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
+        if(dot(n, vSphereN) < 0.0) n = -n;
+        float e = vElev;
+        // Rampe d'altitude.
+        vec3 col = uOcean;
+        col = mix(col, uLow,  smoothstep(-0.02, 0.10, e));
+        col = mix(col, uMid,  smoothstep(0.10, 0.34, e));
+        col = mix(col, uHigh, smoothstep(0.34, 0.62, e));
+        float diff = clamp(dot(n, normalize(uLight)), 0.0, 1.0);
+        float night = clamp(dot(vSphereN, normalize(uLight)) * -1.0, 0.0, 1.0);
+        vec3 lit = col * (0.18 + diff * 1.05);
+        // Lueur bioluminescente côté nuit sur les terres.
+        lit += uGlow * night * smoothstep(0.05, 0.3, e) * 0.22;
+        gl_FragColor = vec4(lit, 1.0);
+      }
+    `,
+  });
+}
+
+function ProceduralSurface({
+  profile,
+  octaves,
+  seg,
+}: {
+  profile: PlanetProfile;
+  octaves: number;
+  seg: number;
+}) {
+  const material = useMemo(() => makeSurfaceMaterial(profile, octaves), [profile, octaves]);
+  useFrame((state) => {
+    material.uniforms.uTime.value = state.clock.elapsedTime;
+  });
+  return (
+    <mesh>
+      <sphereGeometry args={[1, seg, seg]} />
+      <primitive object={material} attach="material" />
+    </mesh>
+  );
+}
+
 interface Quality {
   /** Segments de la sphère de surface (relief déplacé par-sommet). */
   surfaceSeg: number;
@@ -145,12 +231,10 @@ function ProceduralPlanet({
   profile,
   quality,
   activity,
-  planetType,
 }: {
   profile: PlanetProfile;
   quality: Quality;
   activity?: PlanetActivity;
-  planetType: PlanetType;
 }) {
   const tiltRef = useRef<THREE.Group>(null);
   const surfaceRef = useRef<THREE.Group>(null);
@@ -184,13 +268,9 @@ function ProceduralPlanet({
 
   return (
     <group ref={tiltRef} rotation={[profile.axialTilt, 0, 0]} scale={1.7}>
-      {/* Surface : base de planète 3D générée (le reste reste procédural) */}
+      {/* Surface procédurale (FBM 3D : continents, relief, rampe d'altitude). */}
       <group ref={surfaceRef}>
-        <SafeModelAsset
-          url={planetBaseUrl(planetType)}
-          targetSize={2}
-          fallback={<PlanetSurfaceFallback profile={profile} />}
-        />
+        <ProceduralSurface profile={profile} octaves={quality.octaves} seg={quality.surfaceSeg} />
       </group>
 
       {/* Couche nuageuse */}
@@ -243,27 +323,6 @@ function ProceduralPlanet({
       {/* Lunes */}
       <Moons profile={profile} />
     </group>
-  );
-}
-
-/**
- * Repli de surface si le GLB de base ne se charge pas : une sphère teintée des
- * couleurs procédurales de la planète (rayon 1 = `targetSize` 2 normalisé). Les
- * nuages, l'atmosphère, les anneaux et les lunes restant procéduraux, la planète
- * reste crédible même sans son maillage.
- */
-function PlanetSurfaceFallback({ profile }: { profile: PlanetProfile }) {
-  return (
-    <mesh>
-      <sphereGeometry args={[1, 64, 64]} />
-      <meshStandardMaterial
-        color={profile.colorMid}
-        emissive={profile.colorLow}
-        emissiveIntensity={0.12}
-        roughness={0.85}
-        metalness={0.05}
-      />
-    </mesh>
   );
 }
 
@@ -373,12 +432,10 @@ function Scene({
   profile,
   quality,
   activity,
-  planetType,
 }: {
   profile: PlanetProfile;
   quality: Quality;
   activity?: PlanetActivity;
-  planetType: PlanetType;
 }) {
   const stability = typeof activity?.stability === 'number' ? activity.stability : 100;
   const stabilityGlow = THREE.MathUtils.clamp(stability / 100, 0.35, 1);
@@ -397,12 +454,7 @@ function Scene({
         fade
         speed={0.4}
       />
-      <ProceduralPlanet
-        profile={profile}
-        quality={quality}
-        activity={activity}
-        planetType={planetType}
-      />
+      <ProceduralPlanet profile={profile} quality={quality} activity={activity} />
       <OrbitControls
         enablePan={false}
         enableZoom
@@ -454,16 +506,11 @@ export function PlanetView({
     <div className={className}>
       <AdaptiveCanvas camera={{ position: [0, 0.6, 6], fov: 48 }} gl={{ alpha: true }} maxDpr={1.8}>
         <Suspense fallback={null}>
-          <Scene profile={profile} quality={quality} activity={activity} planetType={planetType} />
+          <Scene profile={profile} quality={quality} activity={activity} />
         </Suspense>
       </AdaptiveCanvas>
     </div>
   );
-}
-
-// Précharge les bases de planète pour un affichage immédiat.
-if (shouldPreload3dAssets()) {
-  PLANET_TYPES.forEach((t) => preloadModel(planetBaseUrl(t)));
 }
 
 export default PlanetView;
