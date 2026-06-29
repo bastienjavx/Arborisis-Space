@@ -6,28 +6,31 @@ import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SHIP_TYPES, ShipType, type ShipCounts } from '@arborisis/shared';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
+import { ModelAsset, preloadModel } from '@/components/three/ModelAsset';
 import { tier, useIsMobile } from '@/lib/device';
 import { seedFromString, seededBoxPoints } from '@/components/three/visuals';
 
-const SHIP_COLORS: Record<ShipType, string> = {
-  [ShipType.SPORAL_SCOUT]: '#16bf6c',
-  [ShipType.SYMBIOTIC_HARVESTER]: '#7b66f0',
-  [ShipType.MYCELIAL_TENDRIL]: '#22d3ee',
-  [ShipType.CHITIN_FREIGHTER]: '#f59e0b',
-  [ShipType.BIOLUMINESCENT_CRUISER]: '#a78bfa',
-  [ShipType.SPOROGENESIS_TITAN]: '#f97316',
-  [ShipType.SPORAL_DRONE]: '#4ade80',
-  [ShipType.ACID_BOMBER]: '#84cc16',
-  [ShipType.CHITIN_DESTROYER]: '#d946ef',
-  [ShipType.BIOMASS_DREADNOUGHT]: '#7c2d12',
-  [ShipType.SEED_POD]: '#fbbf24',
-  [ShipType.SHADOW_SPORE]: '#475569',
-  [ShipType.ORBITAL_THORN]: '#0ea5e9',
-  [ShipType.SPORAL_SWARM]: '#2dd4bf',
-  [ShipType.LUMINOUS_WARDEN]: '#fde047',
-  [ShipType.CHITIN_BULWARK]: '#991b1b',
-  [ShipType.BIO_RECYCLER]: '#34d399',
+/** GLB par type de vaisseau — le slug correspond à l'enum (`ship_<type>.glb`). */
+function shipModelUrl(type: ShipType): string {
+  return `/models/ship_${type.toLowerCase()}.glb`;
+}
+
+/**
+ * Empreinte (plus grande dimension, en unités de scène) par catégorie de
+ * vaisseau : éclaireurs/drones petits, vaisseaux capitaux plus imposants.
+ */
+const SHIP_SIZE: Partial<Record<ShipType, number>> = {
+  [ShipType.SPORAL_SCOUT]: 0.5,
+  [ShipType.SPORAL_DRONE]: 0.5,
+  [ShipType.SEED_POD]: 0.55,
+  [ShipType.SHADOW_SPORE]: 0.6,
+  [ShipType.MYCELIAL_TENDRIL]: 0.65,
+  [ShipType.SPOROGENESIS_TITAN]: 1.15,
+  [ShipType.BIOMASS_DREADNOUGHT]: 1.1,
+  [ShipType.CHITIN_BULWARK]: 1.0,
+  [ShipType.LUMINOUS_WARDEN]: 0.95,
 };
+const SHIP_SIZE_DEFAULT = 0.72;
 
 interface BioShipProps {
   type: ShipType;
@@ -48,6 +51,7 @@ function BioShip({ type, index, total, activeMission }: BioShipProps) {
       yOffset: yJitter,
       phase: ((seed >>> 16) % 628) / 100,
       scale: 0.86 + ((seed >>> 20) % 26) / 100,
+      spin: 0.2 + ((seed >>> 12) % 30) / 100,
     };
   }, [activeMission, index, total, type]);
 
@@ -58,7 +62,7 @@ function BioShip({ type, index, total, activeMission }: BioShipProps) {
       groupRef.current.position.x = Math.cos(angle) * offset.radius;
       groupRef.current.position.z = Math.sin(angle) * offset.radius;
       groupRef.current.position.y = offset.yOffset + Math.sin(t * 0.8 + index) * 0.15;
-      groupRef.current.rotation.y = -angle;
+      groupRef.current.rotation.y = -angle + Math.PI / 2;
       groupRef.current.rotation.z = Math.sin(t * 1.5 + index) * 0.1;
       groupRef.current.scale.setScalar(
         offset.scale * (1 + Math.sin(t * 1.2 + offset.phase) * 0.025),
@@ -66,36 +70,11 @@ function BioShip({ type, index, total, activeMission }: BioShipProps) {
     }
   });
 
-  const color = SHIP_COLORS[type];
+  const targetSize = SHIP_SIZE[type] ?? SHIP_SIZE_DEFAULT;
 
   return (
     <group ref={groupRef}>
-      <mesh scale={[0.16, 0.1, type === ShipType.SPORAL_SCOUT ? 0.28 : 0.42]}>
-        <sphereGeometry args={[1, 20, 20]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={0.22}
-          roughness={0.62}
-          metalness={0.08}
-        />
-      </mesh>
-      <mesh scale={type === ShipType.SPORAL_SCOUT ? 0.25 : 0.36}>
-        <sphereGeometry args={[1, 16, 16]} />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={activeMission ? 0.34 : 0.22}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <mesh key={i} position={[0, 0, 0.24 + i * 0.055]} rotation={[0.35, 0, (i - 1.5) * 0.36]}>
-          <capsuleGeometry args={[0.012, 0.25 + i * 0.025, 4, 8]} />
-          <meshBasicMaterial color={color} transparent opacity={activeMission ? 0.62 : 0.42} />
-        </mesh>
-      ))}
+      <ModelAsset url={shipModelUrl(type)} targetSize={targetSize} />
     </group>
   );
 }
@@ -170,7 +149,9 @@ function Scene({ ships, activeMission, mobile }: FleetViewProps & { mobile: bool
 
   return (
     <>
-      <ambientLight intensity={0.2} />
+      <ambientLight intensity={0.35} />
+      <directionalLight position={[3, 5, 2]} intensity={0.9} color="#cfe8ff" />
+      <directionalLight position={[-4, -2, -3]} intensity={0.3} color="#7b66f0" />
       <Stars
         radius={50}
         depth={40}
@@ -193,6 +174,9 @@ function Scene({ ships, activeMission, mobile }: FleetViewProps & { mobile: bool
     </>
   );
 }
+
+// Précharge tous les GLB de vaisseaux pour éviter le pop-in à l'affichage.
+SHIP_TYPES.forEach((type) => preloadModel(shipModelUrl(type)));
 
 export function FleetView({ ships, activeMission, className = '' }: FleetViewProps) {
   const mobile = useIsMobile();
