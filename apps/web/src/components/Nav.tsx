@@ -220,7 +220,7 @@ export function Nav({ user }: { user: AuthUser }) {
         </div>
       </motion.aside>
 
-      <header className="sticky top-0 z-40 border-b border-canopy-700/20 bg-bark-950/95 px-4 py-3 backdrop-blur-2xl lg:hidden">
+      <header className="relative z-40 border-b border-canopy-700/20 bg-bark-950/95 px-4 py-3 backdrop-blur-2xl lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <Link href="/play" className="gradient-text text-xl font-semibold tracking-[-0.04em]">
             Arborisis
