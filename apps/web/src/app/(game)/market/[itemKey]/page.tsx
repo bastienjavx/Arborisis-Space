@@ -25,7 +25,7 @@ import { TradingChart } from '@/components/market/TradingChart';
 import { OrderBook } from '@/components/market/OrderBook';
 import { usePlanetSelection } from '@/components/PlanetContext';
 import { ITEM_VISUALS } from '@/lib/gameVisualAssets';
-import { FiArrowLeft, FiRepeat, FiTool, FiX, FiZap } from 'react-icons/fi';
+import { FiArrowLeft, FiClock, FiRepeat, FiTool, FiWifi, FiX, FiZap } from 'react-icons/fi';
 
 type Interval = '1h' | '4h' | '1d';
 
@@ -44,7 +44,11 @@ export default function ItemMarketPage() {
   if (!item) return <div className="p-8 text-red-400">Objet inconnu.</div>;
 
   const { data: orderBook, isLoading: obLoading } = useMarketOrderBook(itemKey);
-  const { data: candles } = useMarketCandles(itemKey, interval);
+  const {
+    data: candles,
+    dataUpdatedAt,
+    isFetching: candlesRefreshing,
+  } = useMarketCandles(itemKey, interval);
   const { data: myOrders } = useMyMarketOrders();
   const { data: inventory } = useInventory();
 
@@ -108,6 +112,16 @@ export default function ItemMarketPage() {
 
   const lineRecipe = PRODUCTION_LINE_RECIPES.find((r) => r.outputKey === (itemKey as ItemKey));
   const craftRecipe = CRAFTING_RECIPES.find((r) => r.outputKey === (itemKey as ItemKey));
+  const bestBid = orderBook?.bids.at(0)?.price ?? null;
+  const bestAsk = orderBook?.asks.at(0)?.price ?? null;
+  const spread = bestBid != null && bestAsk != null ? bestAsk - bestBid : null;
+  const lastUpdatedLabel = dataUpdatedAt
+    ? new Intl.DateTimeFormat('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }).format(new Date(dataUpdatedAt))
+    : '—';
 
   return (
     <div className="space-y-5">
@@ -171,29 +185,54 @@ export default function ItemMarketPage() {
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <MarketStat
+          label="Meilleur achat"
+          value={bestBid != null ? `${bestBid.toLocaleString()} B` : '—'}
+          tone="buy"
+        />
+        <MarketStat
+          label="Meilleure vente"
+          value={bestAsk != null ? `${bestAsk.toLocaleString()} B` : '—'}
+          tone="sell"
+        />
+        <MarketStat label="Spread" value={spread != null ? `${spread.toLocaleString()} B` : '—'} />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         {/* Left: Chart */}
         <div className="space-y-3">
-          {/* Interval selector */}
-          <div className="flex gap-1">
-            {(['1h', '4h', '1d'] as Interval[]).map((iv) => (
-              <button
-                key={iv}
-                onClick={() => setInterval(iv)}
-                className={`rounded px-3 py-1 text-xs font-medium transition ${
-                  interval === iv
-                    ? 'bg-canopy-600/30 text-canopy-300'
-                    : 'text-canopy-100/40 hover:text-canopy-100/70'
-                }`}
-              >
-                {iv}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-canopy-700/20 bg-bark-900/50 px-3 py-2">
+            <div className="flex items-center gap-2 text-xs text-canopy-100/50">
+              <FiWifi
+                className={`h-4 w-4 ${candlesRefreshing ? 'animate-pulse text-emerald-300' : 'text-canopy-400/60'}`}
+                aria-hidden
+              />
+              Prix temps réel · dernière synchro {lastUpdatedLabel}
+            </div>
+            {/* Interval selector */}
+            <div className="flex gap-1">
+              {(['1h', '4h', '1d'] as Interval[]).map((iv) => (
+                <button
+                  key={iv}
+                  onClick={() => setInterval(iv)}
+                  className={`rounded px-3 py-1 text-xs font-medium transition ${
+                    interval === iv
+                      ? 'bg-canopy-600/30 text-canopy-300'
+                      : 'text-canopy-100/40 hover:text-canopy-100/70'
+                  }`}
+                >
+                  {iv}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-canopy-700/20 bg-bark-900/60 p-3">
-            <TradingChart candles={candles ?? []} />
-          </div>
+          <TradingChart
+            candles={candles ?? []}
+            intervalLabel={interval}
+            isLive={candlesRefreshing}
+          />
 
           {/* My open orders */}
           {myItemOrders.length > 0 && (
@@ -351,6 +390,32 @@ export default function ItemMarketPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MarketStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'buy' | 'sell';
+}) {
+  return (
+    <div className="rounded-xl border border-canopy-700/20 bg-bark-900/60 p-4">
+      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-canopy-100/40">
+        <FiClock className="h-3.5 w-3.5" aria-hidden />
+        {label}
+      </div>
+      <p
+        className={`mt-2 font-mono text-lg font-semibold ${
+          tone === 'buy' ? 'text-emerald-300' : tone === 'sell' ? 'text-red-300' : 'text-canopy-100'
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
