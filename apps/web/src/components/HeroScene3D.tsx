@@ -1,10 +1,12 @@
 'use client';
 
 import { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
+import { tier, useLowPowerMode } from '@/lib/device';
 
-const COUNT = 480;
+const DESKTOP_COUNT = 480;
 
 const PALETTE = [
   [0.086, 0.749, 0.424], // #16bf6c canopy
@@ -14,15 +16,15 @@ const PALETTE = [
   [0.831, 0.945, 0.91], // #d4f1e8 pale
 ];
 
-function SporeParticles() {
+function SporeParticles({ count }: { count: number }) {
   const ref = useRef<THREE.Points>(null);
 
   const { positions, colors, velocities } = useMemo(() => {
-    const pos = new Float32Array(COUNT * 3);
-    const col = new Float32Array(COUNT * 3);
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
     const vels: { vx: number; vy: number; phase: number }[] = [];
 
-    for (let i = 0; i < COUNT; i++) {
+    for (let i = 0; i < count; i++) {
       pos[i * 3] = (Math.random() - 0.5) * 26;
       pos[i * 3 + 1] = (Math.random() - 0.5) * 16;
       pos[i * 3 + 2] = (Math.random() - 0.5) * 6 - 1;
@@ -41,14 +43,14 @@ function SporeParticles() {
     }
 
     return { positions: pos, colors: col, velocities: vels };
-  }, []);
+  }, [count]);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
     const attr = ref.current.geometry.attributes['position'] as THREE.BufferAttribute;
     const t = clock.getElapsedTime();
 
-    for (let i = 0; i < COUNT; i++) {
+    for (let i = 0; i < count; i++) {
       let x = attr.getX(i) + velocities[i].vx + Math.sin(t * 0.18 + velocities[i].phase) * 0.003;
       let y = attr.getY(i) + velocities[i].vy;
       const z = attr.getZ(i);
@@ -83,14 +85,17 @@ function SporeParticles() {
 }
 
 export function HeroScene3D() {
+  const lowPower = useLowPowerMode();
+  const count = tier(lowPower, 96, DESKTOP_COUNT);
+
   return (
-    <Canvas
+    <AdaptiveCanvas
       camera={{ position: [0, 0, 5], fov: 58 }}
-      gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
-      dpr={[1, 1.5]}
+      gl={{ alpha: true }}
+      dpr={lowPower ? 1 : [1, 1.5]}
       style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
     >
-      <SporeParticles />
-    </Canvas>
+      <SporeParticles count={count} />
+    </AdaptiveCanvas>
   );
 }

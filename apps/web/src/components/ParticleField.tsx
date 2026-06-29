@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useLowPowerMode } from '@/lib/device';
 
 interface Particle {
   id: number;
@@ -12,7 +13,7 @@ interface Particle {
   color: string;
 }
 
-function buildParticles(): Particle[] {
+function buildParticles(count: number): Particle[] {
   const colors = [
     'rgba(22, 191, 108, 0.4)',
     'rgba(123, 102, 240, 0.3)',
@@ -20,7 +21,7 @@ function buildParticles(): Particle[] {
     'rgba(22, 191, 108, 0.2)',
     'rgba(155, 140, 255, 0.25)',
   ];
-  return Array.from({ length: 40 }, (_, i) => ({
+  return Array.from({ length: count }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     size: Math.random() * 3 + 1,
@@ -31,11 +32,12 @@ function buildParticles(): Particle[] {
 }
 
 export function ParticleField() {
+  const lowPower = useLowPowerMode();
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    setParticles(buildParticles());
-  }, []);
+    setParticles(buildParticles(lowPower ? 10 : 40));
+  }, [lowPower]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
