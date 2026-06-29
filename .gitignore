@@ -39,8 +39,22 @@ Thumbs.db
 
 # Design-sync tooling + output (run via /design-sync skill)
 .ds-sync/
+.design-sync/
 ds-bundle/
 ds-built.css
+
+# Playwright MCP session files
+.playwright-mcp/
+
+# Generated outputs / creative assets (tooling artefacts)
+outputs/
+tmp/
+
+# QA / internal dev artefacts — never commit to public repo
+qa-*.png
+qa-*.jpg
+design-qa.md
+progress.md
 
 # Prisma
 prisma/*.db
