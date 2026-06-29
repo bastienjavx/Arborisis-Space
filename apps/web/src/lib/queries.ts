@@ -424,9 +424,9 @@ export function useMarketCandles(itemKey: string | undefined, interval: string) 
     queryKey: keys.marketCandles(itemKey ?? 'none', interval),
     queryFn: () => api.marketCandles(itemKey as ItemKey, interval as '1h' | '4h' | '1d'),
     enabled: !!itemKey,
-    refetchInterval: 60_000,
+    refetchInterval: 5_000,
     refetchIntervalInBackground: false,
-    staleTime: 10_000,
+    staleTime: 1_000,
   });
 }
 
