@@ -47,15 +47,10 @@ export class EventsService {
         data: { spores: { increment: 500 } },
       });
     }
-    if (type === GalacticEventType.MYCOTOXIN_OUTBREAK) {
-      await this.prisma.planet.updateMany({
-        where: { universeId },
-        data: {
-          stability: { decrement: 20 },
-          ecologicalStability: { decrement: 20 },
-        },
-      });
-    }
+    // MYCOTOXIN_OUTBREAK : la pénalité de stabilité est transitoire et appliquée
+    // dynamiquement par le moteur de jeu (settlePlanet) tant que l'événement est
+    // actif, puis restaurée automatiquement à son expiration. On ne mute donc
+    // jamais la stabilité persistée ici (sinon la perte serait définitive).
   }
 
   private toView(event: GalacticEvent): ActiveEventView {

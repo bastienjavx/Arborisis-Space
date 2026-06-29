@@ -6,6 +6,7 @@ import {
   computeStabilityDecay,
   effectiveStability,
   GalacticEventType,
+  MYCOTOXIN_STABILITY_PENALTY,
   PlanetSpecialization,
   PlanetType,
   planetFields,
@@ -147,11 +148,18 @@ export class GameEngineService {
       stabilityMax,
       Math.max(STABILITY_MIN, planet.ecologicalStability - decayPerHour * hours),
     );
-    const newStability = effectiveStability(
+    let newStability = effectiveStability(
       ecologicalStability,
       productionBefore.energyRatio,
       stabilityMax,
     );
+    // MYCOTOXIN_OUTBREAK : pénalité de stabilité transitoire. Comme `stability`
+    // est recalculée à chaque settle depuis `ecologicalStability`, retrancher la
+    // pénalité ici la rend automatiquement réversible : dès l'expiration de
+    // l'événement, le settle suivant restaure la stabilité d'origine.
+    if (activeEvent?.type === GalacticEventType.MYCOTOXIN_OUTBREAK) {
+      newStability = Math.max(STABILITY_MIN, newStability - MYCOTOXIN_STABILITY_PENALTY);
+    }
 
     const updated = await db.planet.update({
       where: { id: planetId, version: planet.version },
