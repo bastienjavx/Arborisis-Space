@@ -404,6 +404,12 @@ export enum MarketOrderStatus {
   CANCELLED = 'CANCELLED',
 }
 
+/** Statut persistant d'une obligation NPC souscrite par un joueur. */
+export enum BondPositionStatus {
+  ACTIVE = 'ACTIVE',
+  CLAIMED = 'CLAIMED',
+}
+
 /** Statut d'une route commerciale automatisée. */
 export enum TradeRouteStatus {
   ACTIVE = 'ACTIVE',

@@ -280,6 +280,11 @@ enum MarketOrderStatus {
   CANCELLED
 }
 
+enum BondPositionStatus {
+  ACTIVE
+  CLAIMED
+}
+
 enum TradeRouteStatus {
   ACTIVE
   PAUSED
@@ -339,16 +344,21 @@ model Universe {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  users             User[]
-  planets           Planet[]
-  npcEncounters     NpcEncounter[]
-  galacticEvents    GalacticEvent[]
-  chatMessages      ChatMessage[]
-  moderationActions ModerationAction[]
-  seasons           LeaderboardSeason[]
-  marketOrders      MarketOrder[]
-  marketTrades      MarketTrade[]
-  ohlcvCandles      OhlcvCandle[]
+  users                  User[]
+  planets                Planet[]
+  npcEncounters          NpcEncounter[]
+  galacticEvents         GalacticEvent[]
+  chatMessages           ChatMessage[]
+  moderationActions      ModerationAction[]
+  seasons                LeaderboardSeason[]
+  marketOrders           MarketOrder[]
+  marketTrades           MarketTrade[]
+  ohlcvCandles           OhlcvCandle[]
+  resourceMarketOrders   ResourceMarketOrder[]
+  resourceMarketTrades   ResourceMarketTrade[]
+  resourceOhlcvCandles   ResourceOhlcvCandle[]
+  resourceExchangeTrades ResourceExchangeTrade[]
+  bondPositions          PlayerBondPosition[]
 
   @@map("universes")
 }
@@ -423,8 +433,10 @@ model User {
   accountIpLinks            AccountIpLink[]
   inventorySlots            PlayerInventorySlot[]
   marketOrders              MarketOrder[]
+  resourceMarketOrders      ResourceMarketOrder[]
   buyTrades                 MarketTrade[]             @relation("BuyerTrades")
   sellTrades                MarketTrade[]             @relation("SellerTrades")
+  bondPositions             PlayerBondPosition[]
   craftingJobs              CraftingJob[]
   tradeRoutes               TradeRoute[]
   productionLines           ProductionLine[]
@@ -443,16 +455,16 @@ model User {
 }
 
 model Session {
-  id                        String    @id @default(uuid())
-  userId                    String
-  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  refreshTokenHash          String
-  previousRefreshTokenHash  String?
+  id                            String    @id @default(uuid())
+  userId                        String
+  user                          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash              String
+  previousRefreshTokenHash      String?
   previousRefreshTokenExpiresAt DateTime?
-  expiresAt                 DateTime
-  revokedAt                 DateTime?
-  lastUsedAt                DateTime  @default(now())
-  createdAt                 DateTime  @default(now())
+  expiresAt                     DateTime
+  revokedAt                     DateTime?
+  lastUsedAt                    DateTime  @default(now())
+  createdAt                     DateTime  @default(now())
 
   @@index([userId, revokedAt])
   @@index([expiresAt])
@@ -1128,6 +1140,120 @@ model OhlcvCandle {
   @@map("ohlcv_candles")
 }
 
+/// Ordre de marché pour ressources, coté en Biomasse.
+model ResourceMarketOrder {
+  id             String            @id @default(uuid())
+  universeId     String
+  universe       Universe          @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource       ResourceType
+  side           MarketOrderSide
+  status         MarketOrderStatus @default(OPEN)
+  pricePerUnit   Int
+  quantity       Int
+  filledQuantity Int               @default(0)
+  escrowBiomass  Int               @default(0)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  expiresAt      DateTime?
+  sourcePlanetId String
+
+  buyTrades  ResourceMarketTrade[] @relation("ResourceOrderBuy")
+  sellTrades ResourceMarketTrade[] @relation("ResourceOrderSell")
+
+  @@index([universeId, resource, side, status, pricePerUnit])
+  @@index([universeId, resource, pricePerUnit, status, side])
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("resource_market_orders")
+}
+
+/// Transaction exécutée entre deux ordres de marché ressources.
+model ResourceMarketTrade {
+  id             String              @id @default(uuid())
+  universeId     String
+  universe       Universe            @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  resource       ResourceType
+  buyOrderId     String
+  buyOrder       ResourceMarketOrder @relation("ResourceOrderBuy", fields: [buyOrderId], references: [id])
+  sellOrderId    String
+  sellOrder      ResourceMarketOrder @relation("ResourceOrderSell", fields: [sellOrderId], references: [id])
+  buyerId        String
+  sellerId       String
+  price          Int
+  quantity       Int
+  executedAt     DateTime            @default(now())
+  buyerPlanetId  String
+  sellerPlanetId String
+
+  @@index([universeId, resource, executedAt])
+  @@index([buyerId, executedAt])
+  @@index([sellerId, executedAt])
+  @@map("resource_market_trades")
+}
+
+/// Bougie OHLCV pour les cours de ressources.
+model ResourceOhlcvCandle {
+  id         String        @id @default(uuid())
+  universeId String
+  universe   Universe      @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  resource   ResourceType
+  interval   OhlcvInterval
+  openTime   DateTime
+  open       Int
+  high       Int
+  low        Int
+  close      Int
+  volume     Int           @default(0)
+
+  @@unique([universeId, resource, interval, openTime])
+  @@map("resource_ohlcv_candles")
+}
+
+/// Échange instantané joueur ↔ IA NPC.
+model ResourceExchangeTrade {
+  id           String       @id @default(uuid())
+  universeId   String
+  universe     Universe     @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  userId       String
+  planetId     String
+  fromResource ResourceType
+  toResource   ResourceType
+  amountIn     Int
+  amountOut    Int
+  unitRate     Float
+  spread       Float
+  executedAt   DateTime     @default(now())
+
+  @@index([universeId, executedAt])
+  @@index([userId, executedAt])
+  @@map("resource_exchange_trades")
+}
+
+/// Obligation financière NPC souscrite par un joueur.
+model PlayerBondPosition {
+  id             String             @id @default(uuid())
+  universeId     String
+  universe       Universe           @relation(fields: [universeId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offeringId     String
+  resource       ResourceType
+  principal      Int
+  yieldRate      Float
+  payoutAmount   Int
+  status         BondPositionStatus @default(ACTIVE)
+  sourcePlanetId String
+  subscribedAt   DateTime           @default(now())
+  maturesAt      DateTime
+  claimedAt      DateTime?
+
+  @@index([userId, status, maturesAt])
+  @@index([universeId, resource, subscribedAt])
+  @@map("player_bond_positions")
+}
+
 /// Job d'artisanat : transforme des matières premières en objets.
 model CraftingJob {
   id          String    @id @default(uuid())
@@ -1275,17 +1401,17 @@ enum DailyQuestType {
 }
 
 model DailyQuest {
-  id        String        @id @default(cuid())
+  id        String         @id @default(cuid())
   userId    String
   type      DailyQuestType
   target    Int
-  progress  Int           @default(0)
-  completed Boolean       @default(false)
-  claimed   Boolean       @default(false)
-  reward    Json          // { resources: {...}, engagementTokens: number }
+  progress  Int            @default(0)
+  completed Boolean        @default(false)
+  claimed   Boolean        @default(false)
+  reward    Json // { resources: {...}, engagementTokens: number }
   expiresAt DateTime
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1386,18 +1512,18 @@ enum CommanderStatus {
 
 /// Un commandant symbiotique appartenant à un joueur.
 model Commander {
-  id          String           @id @default(uuid())
-  userId      String
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        CommanderType
-  rarity      CommanderRarity
-  level       Int              @default(1)
-  xp          Int              @default(0)
-  talentPoints Int             @default(0)
-  status      CommanderStatus  @default(IDLE)
+  id                 String          @id @default(uuid())
+  userId             String
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type               CommanderType
+  rarity             CommanderRarity
+  level              Int             @default(1)
+  xp                 Int             @default(0)
+  talentPoints       Int             @default(0)
+  status             CommanderStatus @default(IDLE)
   assignedToPlanetId String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   talentInvestments CommanderTalentInvestment[]
 
@@ -1407,13 +1533,13 @@ model Commander {
 
 /// Points investis dans un nœud de talent d'un commandant.
 model CommanderTalentInvestment {
-  id           String                @id @default(uuid())
-  commanderId  String
-  commander    Commander             @relation(fields: [commanderId], references: [id], onDelete: Cascade)
-  branch       CommanderTalentBranch
-  nodeId       String
-  pointsInvested Int                 @default(1)
-  unlockedAt   DateTime              @default(now())
+  id             String                @id @default(uuid())
+  commanderId    String
+  commander      Commander             @relation(fields: [commanderId], references: [id], onDelete: Cascade)
+  branch         CommanderTalentBranch
+  nodeId         String
+  pointsInvested Int                   @default(1)
+  unlockedAt     DateTime              @default(now())
 
   @@unique([commanderId, branch, nodeId])
   @@map("commander_talent_investments")
@@ -1433,15 +1559,15 @@ enum MoonBuildingType {
 
 /// Champ de débris généré après un combat PvP/PvE.
 model DebrisField {
-  id        String   @id @default(uuid())
+  id         String   @id @default(uuid())
   universeId String
-  galaxy    Int
-  system    Int
-  position  Int
-  biomass   Float    @default(0)
-  minerals  Float    @default(0)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  galaxy     Int
+  system     Int
+  position   Int
+  biomass    Float    @default(0)
+  minerals   Float    @default(0)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
 
   @@unique([universeId, galaxy, system, position])
   @@index([universeId, galaxy, system])
@@ -1464,12 +1590,12 @@ model Moon {
 
 /// Niveau d'un bâtiment construit sur une lune.
 model MoonBuildingLevel {
-  id           String         @id @default(uuid())
+  id           String           @id @default(uuid())
   moonId       String
-  moon         Moon           @relation(fields: [moonId], references: [id], onDelete: Cascade)
+  moon         Moon             @relation(fields: [moonId], references: [id], onDelete: Cascade)
   buildingType MoonBuildingType
-  level        Int            @default(0)
-  updatedAt    DateTime       @updatedAt
+  level        Int              @default(0)
+  updatedAt    DateTime         @updatedAt
 
   @@unique([moonId, buildingType])
   @@map("moon_building_levels")
@@ -1490,12 +1616,12 @@ enum DefenseType {
 
 /// Structures défensives fixes sur une planète.
 model OrbitalDefense {
-  id         String     @id @default(uuid())
-  planetId   String
-  planet     Planet     @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  id          String      @id @default(uuid())
+  planetId    String
+  planet      Planet      @relation(fields: [planetId], references: [id], onDelete: Cascade)
   defenseType DefenseType
-  quantity   Int        @default(0)
-  updatedAt  DateTime   @updatedAt
+  quantity    Int         @default(0)
+  updatedAt   DateTime    @updatedAt
 
   @@unique([planetId, defenseType])
   @@index([planetId])
@@ -1544,13 +1670,13 @@ model AllianceTerritory {
 
 /// Données de population d'une planète (croissance lazy).
 model PlanetPopulation {
-  id               String   @id @default(uuid())
-  planetId         String   @unique
-  planet           Planet   @relation(fields: [planetId], references: [id], onDelete: Cascade)
-  population       Int      @default(1000)
-  maxPopulation    Int      @default(5000)
-  lastGrowthAt     DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id            String   @id @default(uuid())
+  planetId      String   @unique
+  planet        Planet   @relation(fields: [planetId], references: [id], onDelete: Cascade)
+  population    Int      @default(1000)
+  maxPopulation Int      @default(5000)
+  lastGrowthAt  DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("planet_populations")
 }

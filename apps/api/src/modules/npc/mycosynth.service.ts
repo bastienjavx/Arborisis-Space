@@ -38,6 +38,7 @@ import {
   NpcEncounterType,
   POSITIONS_PER_SYSTEM,
   ProductionLineStatus,
+  RESOURCE_MARKET_CONFIG,
   PRODUCTION_LINE_RECIPES,
   RaceType,
   RESEARCHES,
@@ -70,6 +71,7 @@ import { ShipsService } from '../game/ships.service';
 import { WorldFactoryService } from '../game/world-factory.service';
 import { CraftingService } from '../crafting/crafting.service';
 import { MarketService } from '../market/market.service';
+import { ResourceMarketService } from '../market/resource-market.service';
 import { ProductionLinesService } from '../production-lines/production-lines.service';
 import { PveService } from '../pve/pve.service';
 import { PvpService } from '../pvp/pvp.service';
@@ -133,6 +135,7 @@ interface BotSnapshot {
   planets: PlanetSnapshot[];
   homeworld: PlanetSnapshot;
   marketOrders: Array<{ itemKey: string; side: string }>;
+  resourceMarketOrders: Array<{ resource: string; side: string }>;
   inventory: Array<{ planetId: string; itemKey: string; quantity: number }>;
   productionLines: Array<{
     id: string;
@@ -209,6 +212,7 @@ export class MycosynthService {
     private readonly pve: PveService,
     private readonly expeditions: ExpeditionsService,
     private readonly market: MarketService,
+    private readonly resourceMarket: ResourceMarketService,
     private readonly tradeRoutes: TradeRoutesService,
     private readonly productionLines: ProductionLinesService,
     private readonly crafting: CraftingService,
@@ -361,6 +365,7 @@ export class MycosynthService {
     await this.runEmpireAction(snapshot).catch(() => void 0);
     await this.runEconomicAction(snapshot).catch(() => void 0);
     await this.runMarketLiquidity(snapshot).catch(() => void 0);
+    await this.runResourceMarketLiquidity(snapshot).catch(() => void 0);
     await this.runMissionAction(snapshot).catch(() => void 0);
   }
 
@@ -409,6 +414,7 @@ export class MycosynthService {
       shipRows,
       inventory,
       marketOrders,
+      resourceMarketOrders,
       productionLines,
       tradeRoutes,
       pendingCraftingJobs,
@@ -432,6 +438,14 @@ export class MycosynthService {
           status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
         },
         select: { itemKey: true, side: true },
+      }),
+      this.prisma.resourceMarketOrder.findMany({
+        where: {
+          userId,
+          universeId,
+          status: { in: [MarketOrderStatus.OPEN, MarketOrderStatus.PARTIALLY_FILLED] },
+        },
+        select: { resource: true, side: true },
       }),
       this.prisma.productionLine.findMany({
         where: { userId, planetId: { in: planetIds } },
@@ -525,6 +539,7 @@ export class MycosynthService {
       planets,
       homeworld,
       marketOrders,
+      resourceMarketOrders,
       inventory,
       productionLines,
       tradeRoutes,
@@ -1066,6 +1081,109 @@ export class MycosynthService {
     }
   }
 
+  private async runResourceMarketLiquidity(snapshot: BotSnapshot): Promise<void> {
+    if (snapshot.resourceMarketOrders.length >= MYCOSYNTH_AI_CONFIG.maxOpenResourceMarketOrders) {
+      return;
+    }
+
+    const brain = snapshot.brain;
+    const isMarketMaker =
+      brain.archetype === NpcArchetype.ECONOMIST ||
+      brain.goal === NpcGoal.MAX_ECONOMY ||
+      brain.traits.greed >= MYCOSYNTH_AI_CONFIG.marketMakerGreedThreshold;
+    const margin = isMarketMaker
+      ? MYCOSYNTH_AI_CONFIG.resourceMarketMakerSpreadMargin
+      : MYCOSYNTH_AI_CONFIG.resourceMarketSpreadMargin;
+    const quantity = MYCOSYNTH_AI_CONFIG.resourceMarketOrderQuantity;
+    let openCount = snapshot.resourceMarketOrders.length;
+    let protectedBiomass =
+      snapshot.homeworld.resources.amounts[ResourceType.BIOMASS] -
+      (MYCOSYNTH_AI_CONFIG.economyReserve[ResourceType.BIOMASS] ?? 0);
+
+    for (const resource of RESOURCE_MARKET_CONFIG.tradableResources) {
+      if (openCount >= MYCOSYNTH_AI_CONFIG.maxOpenResourceMarketOrders) break;
+
+      const book = await this.resourceMarket.getOrderBook(snapshot.universeId, resource);
+      const fair = await this.resourceMarket.fairPrice(snapshot.universeId, resource);
+      const hasOpenSell = this.hasOpenResourceMarketOrder(snapshot, resource, MarketOrderSide.SELL);
+      const hasOpenBuy = this.hasOpenResourceMarketOrder(snapshot, resource, MarketOrderSide.BUY);
+
+      if (!hasOpenSell) {
+        const surplus = snapshot.planets
+          .map((planet) => ({
+            planetId: planet.id,
+            amount:
+              planet.resources.amounts[resource] -
+              (MYCOSYNTH_AI_CONFIG.economyReserve[resource] ?? 0),
+          }))
+          .sort((a, b) => b.amount - a.amount)[0];
+        if (surplus && surplus.amount >= MYCOSYNTH_AI_CONFIG.resourceMarketSellSurplus) {
+          const price = Math.max(1, Math.round(fair * (1 + margin)));
+          await this.runAndLog(
+            snapshot,
+            NpcActionType.MARKET_ORDER,
+            async () => {
+              await this.resourceMarket.placeOrder(snapshot.userId, snapshot.universeId, {
+                sourcePlanetId: surplus.planetId,
+                resource,
+                side: MarketOrderSide.SELL,
+                pricePerUnit: price,
+                quantity: Math.min(quantity, Math.floor(surplus.amount)),
+              });
+            },
+            {
+              planetId: surplus.planetId,
+              resource,
+              side: MarketOrderSide.SELL,
+              pricePerUnit: price,
+              quantity: Math.min(quantity, Math.floor(surplus.amount)),
+              reason: isMarketMaker ? 'resource_maker_ask' : 'resource_surplus_ask',
+            },
+          );
+          snapshot.resourceMarketOrders.push({ resource, side: MarketOrderSide.SELL });
+          openCount += 1;
+        }
+      }
+
+      if (openCount >= MYCOSYNTH_AI_CONFIG.maxOpenResourceMarketOrders) break;
+      if (hasOpenBuy) continue;
+
+      const ratio = resourceRatio(snapshot.homeworld.resources, resource);
+      if (ratio > MYCOSYNTH_AI_CONFIG.resourceMarketBuyShortageRatio) continue;
+
+      let price = Math.max(1, Math.round(fair * (1 - margin)));
+      if (book.asks[0]?.price != null) price = Math.min(price, book.asks[0].price - 1);
+      if (price < 1) continue;
+      const escrow = price * quantity;
+      if (protectedBiomass < escrow) continue;
+
+      await this.runAndLog(
+        snapshot,
+        NpcActionType.MARKET_ORDER,
+        async () => {
+          await this.resourceMarket.placeOrder(snapshot.userId, snapshot.universeId, {
+            sourcePlanetId: snapshot.homeworld.id,
+            resource,
+            side: MarketOrderSide.BUY,
+            pricePerUnit: price,
+            quantity,
+          });
+        },
+        {
+          planetId: snapshot.homeworld.id,
+          resource,
+          side: MarketOrderSide.BUY,
+          pricePerUnit: price,
+          quantity,
+          reason: isMarketMaker ? 'resource_maker_bid' : 'resource_shortage_bid',
+        },
+      );
+      snapshot.resourceMarketOrders.push({ resource, side: MarketOrderSide.BUY });
+      openCount += 1;
+      protectedBiomass -= escrow;
+    }
+  }
+
   private async runMissionAction(snapshot: BotSnapshot): Promise<void> {
     if (snapshot.activePveMissions + snapshot.activePvpMissions + snapshot.activeExpeditions > 0) {
       return;
@@ -1563,6 +1681,16 @@ export class MycosynthService {
     side: MarketOrderSide,
   ): boolean {
     return snapshot.marketOrders.some((order) => order.itemKey === itemKey && order.side === side);
+  }
+
+  private hasOpenResourceMarketOrder(
+    snapshot: BotSnapshot,
+    resource: ResourceType,
+    side: MarketOrderSide,
+  ): boolean {
+    return snapshot.resourceMarketOrders.some(
+      (order) => order.resource === resource && order.side === side,
+    );
   }
 
   private inventoryQuantity(snapshot: BotSnapshot, planetId: string, itemKey: ItemKey): number {

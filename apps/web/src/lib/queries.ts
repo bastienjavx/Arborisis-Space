@@ -43,6 +43,7 @@ import type {
   UpdateProfileDto,
   CreateProductionLineDto,
   UpdateProductionLineDto,
+  ResourceType,
 } from '@arborisis/shared';
 import { ChatScope } from '@arborisis/shared';
 import { api, ApiError } from './api';
@@ -98,6 +99,14 @@ export const keys = {
   marketCandles: (itemKey: string, interval: string) =>
     ['market', 'candles', itemKey, interval] as const,
   myMarketOrders: ['market', 'my-orders'] as const,
+  resourceMarketSummaries: ['market', 'resources', 'summaries'] as const,
+  resourceMarketOrderBook: (resource: string) =>
+    ['market', 'resources', 'orderbook', resource] as const,
+  resourceMarketCandles: (resource: string, interval: string) =>
+    ['market', 'resources', 'candles', resource, interval] as const,
+  myResourceMarketOrders: ['market', 'resources', 'my-orders'] as const,
+  bondOfferings: ['market', 'bonds', 'offerings'] as const,
+  myBonds: ['market', 'bonds', 'my'] as const,
   inventory: ['inventory'] as const,
 };
 
@@ -437,6 +446,69 @@ export function useMyMarketOrders() {
     refetchInterval: 10_000,
     refetchIntervalInBackground: false,
     staleTime: 3_000,
+  });
+}
+
+export function useResourceMarketSummaries() {
+  return useQuery({
+    queryKey: keys.resourceMarketSummaries,
+    queryFn: () => api.resourceMarketSummaries(),
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+    staleTime: 5_000,
+  });
+}
+
+export function useResourceMarketOrderBook(resource: ResourceType | undefined) {
+  return useQuery({
+    queryKey: keys.resourceMarketOrderBook(resource ?? 'none'),
+    queryFn: () => api.resourceMarketOrderBook(resource as ResourceType),
+    enabled: !!resource,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    staleTime: 1_000,
+  });
+}
+
+export function useResourceMarketCandles(resource: ResourceType | undefined, interval: string) {
+  return useQuery({
+    queryKey: keys.resourceMarketCandles(resource ?? 'none', interval),
+    queryFn: () =>
+      api.resourceMarketCandles(resource as ResourceType, interval as '1h' | '4h' | '1d'),
+    enabled: !!resource,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    staleTime: 1_000,
+  });
+}
+
+export function useMyResourceMarketOrders() {
+  return useQuery({
+    queryKey: keys.myResourceMarketOrders,
+    queryFn: () => api.myResourceMarketOrders(),
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
+    staleTime: 3_000,
+  });
+}
+
+export function useBondOfferings() {
+  return useQuery({
+    queryKey: keys.bondOfferings,
+    queryFn: () => api.bondOfferings(),
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
+  });
+}
+
+export function useMyBonds() {
+  return useQuery({
+    queryKey: keys.myBonds,
+    queryFn: () => api.myBonds(),
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    staleTime: 10_000,
   });
 }
 

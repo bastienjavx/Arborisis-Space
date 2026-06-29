@@ -70,6 +70,24 @@ export default function MarketPage() {
         subtitle="Échangez des objets à des prix fixés par les joueurs. Liquidités 100% organiques."
       />
 
+      <div className="flex flex-wrap gap-2">
+        <span className="rounded-lg border border-canopy-400/35 bg-canopy-500/10 px-3 py-1.5 text-xs font-semibold text-canopy-200">
+          Objets
+        </span>
+        <Link
+          href="/market/resources"
+          className="rounded-lg border border-canopy-700/20 bg-bark-900/50 px-3 py-1.5 text-xs text-canopy-100/60 transition hover:border-canopy-500/40 hover:text-canopy-100"
+        >
+          Ressources
+        </Link>
+        <Link
+          href="/market/bonds"
+          className="rounded-lg border border-canopy-700/20 bg-bark-900/50 px-3 py-1.5 text-xs text-canopy-100/60 transition hover:border-canopy-500/40 hover:text-canopy-100"
+        >
+          Obligations
+        </Link>
+      </div>
+
       {isError && (
         <p className="rounded-lg border border-sap-400/20 bg-bark-900/60 px-4 py-3 text-sm text-sap-400/80">
           Les cours du marché sont momentanément indisponibles. Le catalogue reste accessible.
