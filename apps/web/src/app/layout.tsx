@@ -1,27 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { Fraunces, Hanken_Grotesk } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import { ParticleField } from '@/components/ParticleField';
 import { siteConfig } from '@/lib/site';
 import './globals.css';
 
 /**
- * Identité typographique « organique littéraire » : Fraunces (serif optique aux
- * courbes douces, axes opsz/SOFT/WONK) pour le display, Hanken Grotesk (humaniste
- * chaleureux) pour le corps. Auto-hébergées via next/font (aucun layout-shift).
+ * La production Railway ne doit pas dépendre d'un fetch Google Fonts pendant le
+ * build Next.js : les variables CSS sont définies dans globals.css avec des
+ * piles système robustes.
  */
-const display = Fraunces({
-  subsets: ['latin'],
-  display: 'swap',
-  axes: ['opsz', 'SOFT', 'WONK'],
-  variable: '--font-display',
-});
-
-const sans = Hanken_Grotesk({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-sans',
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -91,7 +78,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr-FR" className={`${sans.variable} ${display.variable}`}>
+    <html lang="fr-FR">
       <body className="relative min-h-screen overflow-x-hidden">
         <Providers>
           <ParticleField />
