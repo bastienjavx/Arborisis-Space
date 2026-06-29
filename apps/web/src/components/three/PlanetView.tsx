@@ -8,7 +8,7 @@ import { PlanetType, PLANET_TYPES } from '@arborisis/shared';
 import { planetProfile, seedFromCoords, type PlanetProfile } from '@/lib/procgen';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
 import { ModelAsset, preloadModel } from '@/components/three/ModelAsset';
-import { tier, useIsMobile } from '@/lib/device';
+import { shouldPreload3dAssets, tier, useIsMobile } from '@/lib/device';
 import { makeGlowMaterial, specializationColor } from '@/components/three/visuals';
 
 /** GLB de base de surface par type de planète (`planet_base_<type>.glb`). */
@@ -437,6 +437,8 @@ export function PlanetView({
 }
 
 // Précharge les bases de planète pour un affichage immédiat.
-PLANET_TYPES.forEach((t) => preloadModel(planetBaseUrl(t)));
+if (shouldPreload3dAssets()) {
+  PLANET_TYPES.forEach((t) => preloadModel(planetBaseUrl(t)));
+}
 
 export default PlanetView;

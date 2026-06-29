@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { SHIP_TYPES, ShipType, type ShipCounts } from '@arborisis/shared';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
 import { ModelAsset, preloadModel } from '@/components/three/ModelAsset';
-import { tier, useIsMobile } from '@/lib/device';
+import { shouldPreload3dAssets, tier, useIsMobile } from '@/lib/device';
 import { seedFromString, seededBoxPoints } from '@/components/three/visuals';
 
 /** GLB par type de vaisseau — le slug correspond à l'enum (`ship_<type>.glb`). */
@@ -176,7 +176,9 @@ function Scene({ ships, activeMission, mobile }: FleetViewProps & { mobile: bool
 }
 
 // Précharge tous les GLB de vaisseaux pour éviter le pop-in à l'affichage.
-SHIP_TYPES.forEach((type) => preloadModel(shipModelUrl(type)));
+if (shouldPreload3dAssets()) {
+  SHIP_TYPES.forEach((type) => preloadModel(shipModelUrl(type)));
+}
 
 export function FleetView({ ships, activeMission, className = '' }: FleetViewProps) {
   const mobile = useIsMobile();
