@@ -77,13 +77,15 @@ import { TradeRoutesService } from '../trade-routes/trade-routes.service';
 import {
   chooseBuildingUpgrade,
   chooseShipProduction,
+  marketNeededItems,
+  planMarketOrders,
   preferredMarketItems,
   reserveProtectedAmounts,
   resourceRatio,
   shouldCreateTradeRoute,
   shouldLaunchAttack,
-  shouldPlaceMarketOrder,
   sumCombatShips,
+  type MarketLiquidityItemState,
   type MycosynthPlanetSnapshot,
 } from './mycosynth-planner';
 import { assignArchetype, deriveTraits, parseTraits } from './npc-personality';
@@ -358,6 +360,7 @@ export class MycosynthService {
 
     await this.runEmpireAction(snapshot).catch(() => void 0);
     await this.runEconomicAction(snapshot).catch(() => void 0);
+    await this.runMarketLiquidity(snapshot).catch(() => void 0);
     await this.runMissionAction(snapshot).catch(() => void 0);
   }
 
@@ -968,36 +971,99 @@ export class MycosynthService {
       });
     }
 
-    const marketCandidate = await this.findMarketCandidate(snapshot);
-    if (marketCandidate) {
-      candidates.push({
-        score: marketCandidate.side === MarketOrderSide.SELL ? 68 : 64,
-        run: async () => {
-          await this.runAndLog(
-            snapshot,
-            NpcActionType.MARKET_ORDER,
-            async () => {
-              await this.market.placeOrder(snapshot.userId, snapshot.universeId, {
-                sourcePlanetId: marketCandidate.planetId,
-                itemKey: marketCandidate.itemKey,
-                side: marketCandidate.side,
-                pricePerUnit: marketCandidate.pricePerUnit,
-                quantity: marketCandidate.quantity,
-              });
-            },
-            {
-              planetId: marketCandidate.planetId,
-              itemKey: marketCandidate.itemKey,
-              side: marketCandidate.side,
-              pricePerUnit: marketCandidate.pricePerUnit,
-              quantity: marketCandidate.quantity,
-            },
-          );
+    await this.runBest(candidates);
+  }
+
+  /**
+   * Étape marché dédiée : apporte de la liquidité « intelligente » en posant des ordres
+   * au repos ancrés à la juste valeur. Indépendante de `runEconomicAction` (qui ne joue
+   * qu'une seule action par tick) pour que le marché soit alimenté régulièrement.
+   */
+  private async runMarketLiquidity(snapshot: BotSnapshot): Promise<void> {
+    if (snapshot.marketOrders.length >= MYCOSYNTH_AI_CONFIG.maxOpenMarketOrders) return;
+
+    const neededItems = marketNeededItems();
+    const buyer = snapshot.homeworld;
+    const protectedBiomass =
+      buyer.resources.amounts[ResourceType.BIOMASS] -
+      (MYCOSYNTH_AI_CONFIG.economyReserve[ResourceType.BIOMASS] ?? 0);
+
+    // On considère les items qu'on aime trader (vente de surplus) ET les ingrédients
+    // qu'on consomme (achat de besoin), même s'ils ne sont pas « préférés » à la revente.
+    const itemUniverse = new Set<ItemKey>([...preferredMarketItems(), ...neededItems]);
+
+    // Ne charge le carnet que pour les items susceptibles de produire un ordre.
+    const states: MarketLiquidityItemState[] = [];
+    for (const itemKey of itemUniverse) {
+      const slots = snapshot.inventory
+        .filter((slot) => slot.itemKey === itemKey)
+        .sort((a, b) => b.quantity - a.quantity);
+      const bestSlot = slots[0];
+      const totalQuantity = this.totalInventoryQuantity(snapshot, itemKey);
+      const hasOpenSell = this.hasOpenMarketOrder(snapshot, itemKey, MarketOrderSide.SELL);
+      const hasOpenBuy = this.hasOpenMarketOrder(snapshot, itemKey, MarketOrderSide.BUY);
+
+      const canSell = !hasOpenSell && !!bestSlot;
+      const canBuy = !hasOpenBuy && neededItems.has(itemKey);
+      if (!canSell && !canBuy) continue;
+
+      const book = await this.market.getOrderBook(snapshot.universeId, itemKey);
+      states.push({
+        itemKey,
+        totalQuantity,
+        bestSurplus: bestSlot ? { planetId: bestSlot.planetId, quantity: bestSlot.quantity } : null,
+        hasOpenSell,
+        hasOpenBuy,
+        book: {
+          bestBid: book.bids[0]?.price ?? null,
+          bestAsk: book.asks[0]?.price ?? null,
+          lastPrice: book.lastPrice,
         },
       });
     }
 
-    await this.runBest(candidates);
+    if (states.length === 0) return;
+
+    const brain = snapshot.brain;
+    const isMarketMaker =
+      brain.archetype === NpcArchetype.ECONOMIST ||
+      brain.goal === NpcGoal.MAX_ECONOMY ||
+      brain.traits.greed >= MYCOSYNTH_AI_CONFIG.marketMakerGreedThreshold;
+
+    const intents = planMarketOrders({
+      isMarketMaker,
+      openOrderCount: snapshot.marketOrders.length,
+      protectedBiomass,
+      buyerPlanetId: buyer.id,
+      neededItems,
+      items: states,
+    });
+
+    for (const intent of intents) {
+      await this.runAndLog(
+        snapshot,
+        NpcActionType.MARKET_ORDER,
+        async () => {
+          await this.market.placeOrder(snapshot.userId, snapshot.universeId, {
+            sourcePlanetId: intent.planetId,
+            itemKey: intent.itemKey,
+            side: intent.side,
+            pricePerUnit: intent.pricePerUnit,
+            quantity: intent.quantity,
+          });
+        },
+        {
+          planetId: intent.planetId,
+          itemKey: intent.itemKey,
+          side: intent.side,
+          pricePerUnit: intent.pricePerUnit,
+          quantity: intent.quantity,
+          reason: intent.reason,
+        },
+      );
+      // Maintient le compteur d'ordres ouverts à jour pour les ticks suivants du même tour.
+      snapshot.marketOrders.push({ itemKey: intent.itemKey, side: intent.side });
+    }
   }
 
   private async runMissionAction(snapshot: BotSnapshot): Promise<void> {
@@ -1161,82 +1227,6 @@ export class MycosynthService {
         }
       }
     }
-    return null;
-  }
-
-  private async findMarketCandidate(snapshot: BotSnapshot): Promise<{
-    planetId: string;
-    itemKey: ItemKey;
-    side: MarketOrderSide;
-    pricePerUnit: number;
-    quantity: number;
-  } | null> {
-    for (const itemKey of preferredMarketItems()) {
-      const slot = snapshot.inventory.find(
-        (item) =>
-          item.itemKey === itemKey && item.quantity >= MYCOSYNTH_AI_CONFIG.marketSellSurplus,
-      );
-      if (slot && !this.hasOpenMarketOrder(snapshot, itemKey, MarketOrderSide.SELL)) {
-        const book = await this.market.getOrderBook(snapshot.universeId, itemKey);
-        const pricePerUnit = Math.max(
-          MYCOSYNTH_AI_CONFIG.marketPriceFloor,
-          book.bids[0]?.price ?? MYCOSYNTH_AI_CONFIG.defaultSellPrice,
-        );
-        if (
-          shouldPlaceMarketOrder({
-            openOrderCount: snapshot.marketOrders.length,
-            side: MarketOrderSide.SELL,
-            inventoryQuantity: slot.quantity,
-            pricePerUnit,
-          })
-        ) {
-          return {
-            planetId: slot.planetId,
-            itemKey,
-            side: MarketOrderSide.SELL,
-            pricePerUnit,
-            quantity: Math.min(MYCOSYNTH_AI_CONFIG.marketOrderQuantity, slot.quantity),
-          };
-        }
-      }
-    }
-
-    const buyer = snapshot.homeworld;
-    for (const itemKey of preferredMarketItems()) {
-      if (
-        this.inventoryQuantity(snapshot, buyer.id, itemKey) > MYCOSYNTH_AI_CONFIG.marketBuyShortage
-      ) {
-        continue;
-      }
-      if (this.hasOpenMarketOrder(snapshot, itemKey, MarketOrderSide.BUY)) continue;
-      const book = await this.market.getOrderBook(snapshot.universeId, itemKey);
-      const pricePerUnit = Math.max(
-        MYCOSYNTH_AI_CONFIG.marketPriceFloor,
-        book.asks[0]?.price ?? MYCOSYNTH_AI_CONFIG.defaultBuyPrice,
-      );
-      const escrow = pricePerUnit * MYCOSYNTH_AI_CONFIG.marketOrderQuantity;
-      const protectedBiomass =
-        buyer.resources.amounts[ResourceType.BIOMASS] -
-        (MYCOSYNTH_AI_CONFIG.economyReserve[ResourceType.BIOMASS] ?? 0);
-      if (protectedBiomass < escrow) continue;
-      if (
-        shouldPlaceMarketOrder({
-          openOrderCount: snapshot.marketOrders.length,
-          side: MarketOrderSide.BUY,
-          inventoryQuantity: this.totalInventoryQuantity(snapshot, itemKey),
-          pricePerUnit,
-        })
-      ) {
-        return {
-          planetId: buyer.id,
-          itemKey,
-          side: MarketOrderSide.BUY,
-          pricePerUnit,
-          quantity: MYCOSYNTH_AI_CONFIG.marketOrderQuantity,
-        };
-      }
-    }
-
     return null;
   }
 

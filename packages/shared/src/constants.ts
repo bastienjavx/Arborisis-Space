@@ -1557,8 +1557,19 @@ export interface MycosynthAiConfig {
   marketSellSurplus: number;
   marketBuyShortage: number;
   marketPriceFloor: number;
-  defaultBuyPrice: number;
-  defaultSellPrice: number;
+  /** Marge ask/bid autour de la juste valeur pour les bots non market-makers. */
+  marketSpreadMargin: number;
+  /** Marge ask/bid (plus serrée) pour les bots market-makers actifs. */
+  marketMakerSpreadMargin: number;
+  /** Bornes basses/hautes de la juste valeur, en multiples de la baseValue de l'item. */
+  marketFairValueBandMin: number;
+  marketFairValueBandMax: number;
+  /** Seuil de trait « greed » au-delà duquel un bot tient activement le marché. */
+  marketMakerGreedThreshold: number;
+  /** Stock cible d'un ingrédient de craft : on n'achète que sous ce seuil. */
+  marketBuyTargetStock: number;
+  /** Plancher de prix par item = baseValue × ce ratio (jamais brader sous ça). */
+  marketFloorRatio: number;
   tradeRouteIntervalHours: number;
   tradeRouteMaxQuantity: number;
   economyReserve: ResourceBundle;
@@ -1589,8 +1600,13 @@ export const MYCOSYNTH_AI_CONFIG: MycosynthAiConfig = {
   marketSellSurplus: 8,
   marketBuyShortage: 2,
   marketPriceFloor: 25,
-  defaultBuyPrice: 120,
-  defaultSellPrice: 180,
+  marketSpreadMargin: 0.08,
+  marketMakerSpreadMargin: 0.03,
+  marketFairValueBandMin: 0.6,
+  marketFairValueBandMax: 1.6,
+  marketMakerGreedThreshold: 0.7,
+  marketBuyTargetStock: 6,
+  marketFloorRatio: 0.5,
   tradeRouteIntervalHours: 6,
   tradeRouteMaxQuantity: 5_000,
   economyReserve: {
