@@ -23,6 +23,7 @@ import {
   GalacticEventType,
   ItemKey,
   JobKind,
+  BondPositionStatus,
   MarketOrderSide,
   MarketOrderStatus,
   MoonBuildingType,
@@ -683,6 +684,89 @@ export interface MarketSummaryView {
   volume24h: number;
   bestBid: number | null;
   bestAsk: number | null;
+}
+
+export interface ResourceQuoteView {
+  fromResource: ResourceType;
+  toResource: ResourceType;
+  amountIn: number;
+  amountOut: number;
+  unitRate: number;
+  spread: number;
+  dynamicPriceFromBiomass: number;
+  dynamicPriceToBiomass: number;
+}
+
+export interface ResourceMarketSummaryView {
+  resource: ResourceType;
+  lastPrice: number | null;
+  fairPrice: number;
+  change24h: number | null;
+  volume24h: number;
+  bestBid: number | null;
+  bestAsk: number | null;
+}
+
+export interface ResourceMarketOrderView {
+  id: string;
+  resource: ResourceType;
+  side: MarketOrderSide;
+  status: MarketOrderStatus;
+  pricePerUnit: number;
+  quantity: number;
+  filledQuantity: number;
+  createdAt: string;
+  expiresAt: string | null;
+  ownerUsername: string;
+  isOwn: boolean;
+}
+
+export interface ResourceMarketTradeView {
+  id: string;
+  resource: ResourceType;
+  price: number;
+  quantity: number;
+  executedAt: string;
+  isBuyer: boolean;
+  isSeller: boolean;
+}
+
+export interface ResourceExchangeTradeView {
+  id: string;
+  fromResource: ResourceType;
+  toResource: ResourceType;
+  amountIn: number;
+  amountOut: number;
+  unitRate: number;
+  spread: number;
+  executedAt: string;
+}
+
+export interface BondOfferingView {
+  id: string;
+  name: string;
+  resource: ResourceType;
+  durationHours: number;
+  minPrincipal: number;
+  maxPrincipal: number;
+  currentYieldRate: number;
+}
+
+export interface PlayerBondPositionView {
+  id: string;
+  offeringId: string;
+  offeringName: string;
+  resource: ResourceType;
+  principal: number;
+  yieldRate: number;
+  payoutAmount: number;
+  status: BondPositionStatus;
+  isMatured: boolean;
+  sourcePlanetId: string;
+  sourcePlanetName: string | null;
+  subscribedAt: string;
+  maturesAt: string;
+  claimedAt: string | null;
 }
 
 // ── Notifications ──────────────────────────────────────────────────────────────

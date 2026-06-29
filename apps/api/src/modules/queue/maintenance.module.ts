@@ -9,6 +9,7 @@ import { ExpeditionsService } from '../game/expeditions.service';
 import { SeasonsService } from '../game/seasons.service';
 import { MarketModule } from '../market/market.module';
 import { MarketService } from '../market/market.service';
+import { ResourceMarketService } from '../market/resource-market.service';
 import { NpcSpawnerService } from '../pve/npc-spawner.service';
 import { PveModule } from '../pve/pve.module';
 import { PveService } from '../pve/pve.service';
@@ -51,6 +52,7 @@ export class MaintenanceModule implements OnApplicationBootstrap, OnApplicationS
     private readonly productionLines: ProductionLinesService,
     private readonly tradeRoutes: TradeRoutesService,
     private readonly market: MarketService,
+    private readonly resourceMarket: ResourceMarketService,
     private readonly mycosynth: MycosynthService,
   ) {}
 
@@ -109,6 +111,7 @@ export class MaintenanceModule implements OnApplicationBootstrap, OnApplicationS
       { name: 'productionLines', fn: () => this.productionLines.sweepDueLines() },
       { name: 'tradeRoutes', fn: () => this.tradeRoutes.sweepDueRoutes() },
       { name: 'market', fn: () => this.market.sweepExpiredOrders() },
+      { name: 'resourceMarket', fn: () => this.resourceMarket.sweepExpiredOrders() },
       { name: 'reconcilePending', fn: () => this.queues.reconcilePending() },
     ];
 

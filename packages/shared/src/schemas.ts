@@ -23,6 +23,7 @@ import {
   UserRole,
   PLAYABLE_RACE_TYPES,
 } from './enums';
+import { RESOURCE_MARKET_CONFIG } from './constants';
 
 export const sendChatMessageSchema = z
   .object({
@@ -425,6 +426,57 @@ export const placeMarketOrderSchema = z
     'Le séquestre total doit tenir dans la limite entière de la base de données.',
   );
 export type PlaceMarketOrderDto = z.infer<typeof placeMarketOrderSchema>;
+
+const tradableResourceSchema = z
+  .nativeEnum(ResourceType)
+  .refine((resource) => resource !== ResourceType.BIOMASS, {
+    message: 'La Biomasse sert de devise et ne peut pas avoir de carnet dédié.',
+  });
+
+const resourceQuoteBaseSchema = z.object({
+  fromResource: z.nativeEnum(ResourceType),
+  toResource: z.nativeEnum(ResourceType),
+  amount: z.coerce.number().int().min(1).max(RESOURCE_MARKET_CONFIG.maxInstantExchangeAmount),
+});
+
+export const resourceQuoteSchema = resourceQuoteBaseSchema.refine(
+  (d) => d.fromResource !== d.toResource,
+  'Les ressources doivent être différentes.',
+);
+export type ResourceQuoteDto = z.infer<typeof resourceQuoteSchema>;
+
+export const exchangeResourcesSchema = resourceQuoteBaseSchema
+  .extend({
+    sourcePlanetId: z.string().uuid(),
+  })
+  .refine((d) => d.fromResource !== d.toResource, 'Les ressources doivent être différentes.');
+export type ExchangeResourcesDto = z.infer<typeof exchangeResourcesSchema>;
+
+export const placeResourceMarketOrderSchema = z
+  .object({
+    resource: tradableResourceSchema,
+    side: z.nativeEnum(MarketOrderSide),
+    pricePerUnit: z.number().int().min(1).max(10_000_000),
+    quantity: z.number().int().min(1).max(RESOURCE_MARKET_CONFIG.maxOrderQuantity),
+    sourcePlanetId: z.string().uuid(),
+  })
+  .refine(
+    (d) => d.pricePerUnit * d.quantity <= RESOURCE_MARKET_CONFIG.maxOrderNotional,
+    'Le séquestre total doit tenir dans la limite entière de la base de données.',
+  );
+export type PlaceResourceMarketOrderDto = z.infer<typeof placeResourceMarketOrderSchema>;
+
+export const subscribeBondSchema = z.object({
+  offeringId: z.string().min(1).max(80),
+  sourcePlanetId: z.string().uuid(),
+  principal: z.number().int().min(1).max(1_000_000_000),
+});
+export type SubscribeBondDto = z.infer<typeof subscribeBondSchema>;
+
+export const claimBondSchema = z.object({
+  targetPlanetId: z.string().uuid().optional(),
+});
+export type ClaimBondDto = z.infer<typeof claimBondSchema>;
 
 export const startCraftingSchema = z.object({
   recipeId: z.string().min(1).max(80),

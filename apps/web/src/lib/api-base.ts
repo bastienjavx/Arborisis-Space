@@ -9,6 +9,8 @@ import type {
   AuthUser,
   AdminUserView,
   BuildBuildingDto,
+  BondOfferingView,
+  ClaimBondDto,
   ColonizeDto,
   ConstructionQueueItemView,
   CreateAllianceDto,
@@ -44,6 +46,8 @@ import type {
   PlanetDetail,
   PlanetSummary,
   PlaceMarketOrderDto,
+  PlaceResourceMarketOrderDto,
+  PlayerBondPositionView,
   PublicProfile,
   PveMissionView,
   PveReportView,
@@ -52,6 +56,13 @@ import type {
   RenamePlanetDto,
   ResearchOverview,
   ResourceTransferMissionView,
+  ResourceExchangeTradeView,
+  ResourceMarketOrderView,
+  ResourceMarketSummaryView,
+  ResourceMarketTradeView,
+  ResourceQuoteDto,
+  ResourceQuoteView,
+  ResourceType,
   StartCraftingDto,
   StartResearchDto,
   ProduceShipsDto,
@@ -79,6 +90,8 @@ import type {
   DailyQuestsOverview,
   AbsenceSummaryView,
   TransferResourcesDto,
+  ExchangeResourcesDto,
+  SubscribeBondDto,
   UpdateProfileDto,
   ChatContactView,
   ChatMessageView,
@@ -391,6 +404,40 @@ export function createApi(request: RequestFn) {
     placeMarketOrder: (body: PlaceMarketOrderDto) =>
       request<MarketOrderView>('/market/orders', { method: 'POST', body }),
     cancelMarketOrder: (id: string) => request<void>(`/market/orders/${id}`, { method: 'DELETE' }),
+    resourceMarketSummaries: () =>
+      request<ResourceMarketSummaryView[]>('/market/resources/summaries'),
+    resourceQuote: (query: ResourceQuoteDto) => {
+      const params = new URLSearchParams({
+        fromResource: query.fromResource,
+        toResource: query.toResource,
+        amount: String(query.amount),
+      });
+      return request<ResourceQuoteView>(`/market/resources/quotes?${params.toString()}`);
+    },
+    exchangeResources: (body: ExchangeResourcesDto) =>
+      request<ResourceExchangeTradeView>('/market/resources/exchange', { method: 'POST', body }),
+    resourceMarketOrderBook: (resource: ResourceType) =>
+      request<OrderBookView>(`/market/resources/${resource}/orderbook`),
+    resourceMarketCandles: (
+      resource: ResourceType,
+      interval: '1h' | '4h' | '1d' = '1h',
+      limit = 200,
+    ) =>
+      request<OhlcvCandleView[]>(
+        `/market/resources/${resource}/candles?interval=${interval}&limit=${limit}`,
+      ),
+    myResourceMarketOrders: () => request<ResourceMarketOrderView[]>('/market/resources/my/orders'),
+    myResourceMarketTrades: () => request<ResourceMarketTradeView[]>('/market/resources/my/trades'),
+    placeResourceMarketOrder: (body: PlaceResourceMarketOrderDto) =>
+      request<ResourceMarketOrderView>('/market/resources/orders', { method: 'POST', body }),
+    cancelResourceMarketOrder: (id: string) =>
+      request<void>(`/market/resources/orders/${id}`, { method: 'DELETE' }),
+    bondOfferings: () => request<BondOfferingView[]>('/market/bonds/offerings'),
+    myBonds: () => request<PlayerBondPositionView[]>('/market/bonds/my'),
+    subscribeBond: (body: SubscribeBondDto) =>
+      request<PlayerBondPositionView>('/market/bonds/subscribe', { method: 'POST', body }),
+    claimBond: (id: string, body: ClaimBondDto = {}) =>
+      request<PlayerBondPositionView>(`/market/bonds/${id}/claim`, { method: 'POST', body }),
 
     // ── Artisanat ──
     craftingRecipes: () => request<CraftingRecipeConfig[]>('/crafting/recipes'),

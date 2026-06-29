@@ -34,6 +34,7 @@ import { TradeRoutesModule } from '../trade-routes/trade-routes.module';
 import { TradeRoutesService } from '../trade-routes/trade-routes.service';
 import { MarketModule } from '../market/market.module';
 import { MarketService } from '../market/market.service';
+import { ResourceMarketService } from '../market/resource-market.service';
 
 /**
  * Workers BullMQ. Importe GameModule (logique de finalisation) et QueueModule
@@ -87,6 +88,7 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
     private readonly productionLines: ProductionLinesService,
     private readonly tradeRoutes: TradeRoutesService,
     private readonly market: MarketService,
+    private readonly resourceMarket: ResourceMarketService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -135,6 +137,7 @@ export class ProcessorsModule implements OnApplicationBootstrap, OnApplicationSh
       { name: 'productionLines', fn: () => this.productionLines.sweepDueLines() },
       { name: 'tradeRoutes', fn: () => this.tradeRoutes.sweepDueRoutes() },
       { name: 'market', fn: () => this.market.sweepExpiredOrders() },
+      { name: 'resourceMarket', fn: () => this.resourceMarket.sweepExpiredOrders() },
       { name: 'reconcilePending', fn: () => this.queues.reconcilePending() },
     ];
 

@@ -1536,12 +1536,110 @@ export const NPC_SPAWN_WEIGHTS: Record<'easy' | 'medium' | 'hard' | 'elite', num
   elite: 10,
 };
 
+// ───────────────────────── Marché des ressources & obligations ──────────────
+
+export const RESOURCE_MARKET_TRADABLE_RESOURCES = [
+  ResourceType.SAP,
+  ResourceType.MINERALS,
+  ResourceType.SPORES,
+] as const;
+
+export type ResourceMarketTradable = (typeof RESOURCE_MARKET_TRADABLE_RESOURCES)[number];
+
+export interface ResourceMarketConfig {
+  quoteCurrency: ResourceType.BIOMASS;
+  tradableResources: readonly ResourceMarketTradable[];
+  baseValueBiomass: Record<ResourceType, number>;
+  npcBaseSpread: number;
+  npcVolatilitySpreadFactor: number;
+  minDynamicMultiplier: number;
+  maxDynamicMultiplier: number;
+  maxInstantExchangeAmount: number;
+  maxOrderQuantity: number;
+  maxOrderNotional: number;
+  orderExpiryDays: number;
+}
+
+export const RESOURCE_MARKET_CONFIG: ResourceMarketConfig = {
+  quoteCurrency: ResourceType.BIOMASS,
+  tradableResources: RESOURCE_MARKET_TRADABLE_RESOURCES,
+  baseValueBiomass: {
+    [ResourceType.BIOMASS]: 1,
+    [ResourceType.SAP]: 2,
+    [ResourceType.MINERALS]: 3,
+    [ResourceType.SPORES]: 8,
+  },
+  npcBaseSpread: 0.08,
+  npcVolatilitySpreadFactor: 0.6,
+  minDynamicMultiplier: 0.5,
+  maxDynamicMultiplier: 1.8,
+  maxInstantExchangeAmount: 250_000,
+  maxOrderQuantity: 500_000,
+  maxOrderNotional: 2_147_483_647,
+  orderExpiryDays: 7,
+};
+
+export interface NpcBondOfferingConfig {
+  id: string;
+  name: string;
+  resource: ResourceType;
+  durationHours: number;
+  minPrincipal: number;
+  maxPrincipal: number;
+  baseYieldRate: number;
+  pressureYieldMultiplier: number;
+}
+
+export const NPC_BOND_OFFERINGS: NpcBondOfferingConfig[] = [
+  {
+    id: 'biomass_24h',
+    name: 'Obligation Mycosynth Biomasse 24h',
+    resource: ResourceType.BIOMASS,
+    durationHours: 24,
+    minPrincipal: 500,
+    maxPrincipal: 100_000,
+    baseYieldRate: 0.035,
+    pressureYieldMultiplier: 0.35,
+  },
+  {
+    id: 'sap_24h',
+    name: 'Obligation Mycosynth Sève 24h',
+    resource: ResourceType.SAP,
+    durationHours: 24,
+    minPrincipal: 250,
+    maxPrincipal: 80_000,
+    baseYieldRate: 0.045,
+    pressureYieldMultiplier: 0.45,
+  },
+  {
+    id: 'minerals_36h',
+    name: 'Obligation Mycosynth Minéraux 36h',
+    resource: ResourceType.MINERALS,
+    durationHours: 36,
+    minPrincipal: 250,
+    maxPrincipal: 70_000,
+    baseYieldRate: 0.055,
+    pressureYieldMultiplier: 0.5,
+  },
+  {
+    id: 'spores_48h',
+    name: 'Obligation Mycosynth Spores 48h',
+    resource: ResourceType.SPORES,
+    durationHours: 48,
+    minPrincipal: 100,
+    maxPrincipal: 25_000,
+    baseYieldRate: 0.08,
+    pressureYieldMultiplier: 0.65,
+  },
+];
+
 // ──────────────────────────── IA Mycosynth autonome ──────────────────────────
 
 export interface MycosynthAiConfig {
   botCount: number;
   tickConcurrency: number;
   maxOpenMarketOrders: number;
+  maxOpenResourceMarketOrders: number;
   maxActiveTradeRoutes: number;
   attackCooldownHours: number;
   targetOwnerCooldownHours: number;
@@ -1570,6 +1668,11 @@ export interface MycosynthAiConfig {
   marketBuyTargetStock: number;
   /** Plancher de prix par item = baseValue × ce ratio (jamais brader sous ça). */
   marketFloorRatio: number;
+  resourceMarketOrderQuantity: number;
+  resourceMarketSellSurplus: number;
+  resourceMarketBuyShortageRatio: number;
+  resourceMarketSpreadMargin: number;
+  resourceMarketMakerSpreadMargin: number;
   tradeRouteIntervalHours: number;
   tradeRouteMaxQuantity: number;
   economyReserve: ResourceBundle;
@@ -1585,6 +1688,7 @@ export const MYCOSYNTH_AI_CONFIG: MycosynthAiConfig = {
   botCount: 50,
   tickConcurrency: 5,
   maxOpenMarketOrders: 6,
+  maxOpenResourceMarketOrders: 6,
   maxActiveTradeRoutes: 6,
   attackCooldownHours: 12,
   targetOwnerCooldownHours: 24,
@@ -1607,6 +1711,11 @@ export const MYCOSYNTH_AI_CONFIG: MycosynthAiConfig = {
   marketMakerGreedThreshold: 0.7,
   marketBuyTargetStock: 6,
   marketFloorRatio: 0.5,
+  resourceMarketOrderQuantity: 600,
+  resourceMarketSellSurplus: 4_000,
+  resourceMarketBuyShortageRatio: 0.35,
+  resourceMarketSpreadMargin: 0.07,
+  resourceMarketMakerSpreadMargin: 0.025,
   tradeRouteIntervalHours: 6,
   tradeRouteMaxQuantity: 5_000,
   economyReserve: {

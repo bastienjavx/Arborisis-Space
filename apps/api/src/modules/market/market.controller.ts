@@ -1,17 +1,34 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
+  claimBondSchema,
+  exchangeResourcesSchema,
   ItemKey,
+  placeResourceMarketOrderSchema,
   placeMarketOrderSchema,
+  resourceQuoteSchema,
+  ResourceType,
+  subscribeBondSchema,
   type AuthUser,
+  type ClaimBondDto,
+  type ExchangeResourcesDto,
   type PlaceMarketOrderDto,
+  type PlaceResourceMarketOrderDto,
+  type ResourceQuoteDto,
+  type SubscribeBondDto,
 } from '@arborisis/shared';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { BondService } from './bond.service';
 import { MarketService } from './market.service';
+import { ResourceMarketService } from './resource-market.service';
 
 @Controller('market')
 export class MarketController {
-  constructor(private readonly market: MarketService) {}
+  constructor(
+    private readonly market: MarketService,
+    private readonly resourceMarket: ResourceMarketService,
+    private readonly bonds: BondService,
+  ) {}
 
   @Get('summaries')
   getSummaries(@CurrentUser() user: AuthUser) {
@@ -26,6 +43,97 @@ export class MarketController {
   @Get('my/trades')
   getMyTrades(@CurrentUser() user: AuthUser) {
     return this.market.getMyTrades(user.id, user.universeId!);
+  }
+
+  @Get('resources/summaries')
+  getResourceSummaries(@CurrentUser() user: AuthUser) {
+    return this.resourceMarket.getSummaries(user.universeId!);
+  }
+
+  @Get('resources/quotes')
+  getResourceQuote(
+    @CurrentUser() user: AuthUser,
+    @Query(new ZodValidationPipe(resourceQuoteSchema)) dto: ResourceQuoteDto,
+  ) {
+    return this.resourceMarket.getQuote(user.universeId!, dto);
+  }
+
+  @Post('resources/exchange')
+  exchangeResources(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(exchangeResourcesSchema)) dto: ExchangeResourcesDto,
+  ) {
+    return this.resourceMarket.exchange(user.id, user.universeId!, dto);
+  }
+
+  @Get('resources/my/orders')
+  getMyResourceOrders(@CurrentUser() user: AuthUser) {
+    return this.resourceMarket.getMyOrders(user.id, user.universeId!);
+  }
+
+  @Get('resources/my/trades')
+  getMyResourceTrades(@CurrentUser() user: AuthUser) {
+    return this.resourceMarket.getMyTrades(user.id, user.universeId!);
+  }
+
+  @Get('resources/:resource/orderbook')
+  getResourceOrderBook(@CurrentUser() user: AuthUser, @Param('resource') resource: ResourceType) {
+    return this.resourceMarket.getOrderBook(user.universeId!, resource);
+  }
+
+  @Get('resources/:resource/candles')
+  getResourceCandles(
+    @CurrentUser() user: AuthUser,
+    @Param('resource') resource: ResourceType,
+    @Query('interval') interval: '1h' | '4h' | '1d' = '1h',
+    @Query('limit') limit?: string,
+  ) {
+    return this.resourceMarket.getCandles(
+      user.universeId!,
+      resource,
+      interval,
+      limit ? Number(limit) : 200,
+    );
+  }
+
+  @Post('resources/orders')
+  placeResourceOrder(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(placeResourceMarketOrderSchema)) dto: PlaceResourceMarketOrderDto,
+  ) {
+    return this.resourceMarket.placeOrder(user.id, user.universeId!, dto);
+  }
+
+  @Delete('resources/orders/:id')
+  cancelResourceOrder(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.resourceMarket.cancelOrder(user.id, id);
+  }
+
+  @Get('bonds/offerings')
+  getBondOfferings(@CurrentUser() user: AuthUser) {
+    return this.bonds.getOfferings(user.universeId!);
+  }
+
+  @Get('bonds/my')
+  getMyBonds(@CurrentUser() user: AuthUser) {
+    return this.bonds.getMyPositions(user.id, user.universeId!);
+  }
+
+  @Post('bonds/subscribe')
+  subscribeBond(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(subscribeBondSchema)) dto: SubscribeBondDto,
+  ) {
+    return this.bonds.subscribe(user.id, user.universeId!, dto);
+  }
+
+  @Post('bonds/:id/claim')
+  claimBond(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(claimBondSchema)) dto: ClaimBondDto,
+  ) {
+    return this.bonds.claim(user.id, id, dto);
   }
 
   @Get(':itemKey/orderbook')
