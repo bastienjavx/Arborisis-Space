@@ -421,6 +421,13 @@ export const STABILITY_DECAY_RATE = 2;
 export const STABILITY_SPORANGE_REGEN = 0.5;
 export const STABILITY_SYMBIOSIS_BONUS = 5;
 
+/**
+ * Pénalité de stabilité appliquée par l'événement MYCOTOXIN_OUTBREAK.
+ * Transitoire : retranchée de la stabilité effective uniquement tant que
+ * l'événement est actif, puis restaurée automatiquement à son expiration.
+ */
+export const MYCOTOXIN_STABILITY_PENALTY = 20;
+
 export interface PlanetTypeConfig {
   type: PlanetType;
   name: string;
