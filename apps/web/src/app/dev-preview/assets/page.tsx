@@ -15,7 +15,7 @@ import { Html, OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SHIP_TYPES, BUILDING_TYPES, PLANET_TYPES } from '@arborisis/shared';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
-import { ModelAsset } from '@/components/three/ModelAsset';
+import { SafeModelAsset } from '@/components/three/ModelAsset';
 
 type Category = 'vaisseaux' | 'bâtiments' | 'planètes';
 
@@ -58,9 +58,16 @@ function Turntable({
   return (
     <group position={position}>
       <group ref={ref}>
-        <Suspense fallback={null}>
-          <ModelAsset url={url} targetSize={1.7} />
-        </Suspense>
+        <SafeModelAsset
+          url={url}
+          targetSize={1.7}
+          fallback={
+            <mesh>
+              <icosahedronGeometry args={[0.85, 0]} />
+              <meshStandardMaterial color="#16bf6c" wireframe />
+            </mesh>
+          }
+        />
       </group>
       <Html position={[0, -1.3, 0]} center style={{ pointerEvents: 'none' }}>
         <span

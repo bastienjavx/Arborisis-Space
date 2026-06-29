@@ -6,7 +6,7 @@ import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SHIP_TYPES, ShipType, type ShipCounts } from '@arborisis/shared';
 import { AdaptiveCanvas } from '@/components/three/AdaptiveCanvas';
-import { ModelAsset, preloadModel } from '@/components/three/ModelAsset';
+import { SafeModelAsset, preloadModel } from '@/components/three/ModelAsset';
 import { shouldPreload3dAssets, tier, useIsMobile } from '@/lib/device';
 import { seedFromString, seededBoxPoints } from '@/components/three/visuals';
 
@@ -74,8 +74,29 @@ function BioShip({ type, index, total, activeMission }: BioShipProps) {
 
   return (
     <group ref={groupRef}>
-      <ModelAsset url={shipModelUrl(type)} targetSize={targetSize} />
+      <SafeModelAsset
+        url={shipModelUrl(type)}
+        targetSize={targetSize}
+        fallback={<ShipFallback size={targetSize} />}
+      />
     </group>
+  );
+}
+
+/** Repli de vaisseau si le GLB ne se charge pas : un éclat bio-luminescent. */
+function ShipFallback({ size }: { size: number }) {
+  return (
+    <mesh scale={[size * 0.5, size * 0.28, size * 0.5]}>
+      <icosahedronGeometry args={[1, 1]} />
+      <meshStandardMaterial
+        color="#16bf6c"
+        emissive="#0c7a44"
+        emissiveIntensity={0.4}
+        roughness={0.6}
+        metalness={0.1}
+        flatShading
+      />
+    </mesh>
   );
 }
 
