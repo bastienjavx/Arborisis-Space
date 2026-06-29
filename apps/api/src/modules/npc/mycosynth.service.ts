@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  AllianceRole,
+  DiplomaticStatus as PrismaDiplomaticStatus,
   ExpeditionPhase,
   JobStatus,
   Prisma,
@@ -103,6 +105,7 @@ import {
 } from './npc-memory';
 import { deriveMood, selectGoal, type NpcGoalContext } from './npc-goals';
 import { actionUtility, effectiveAttackRatio } from './npc-utility';
+import { MycosynthSocialService, type SocialContext } from './mycosynth-social.service';
 
 interface NpcBotConfig {
   username: string;
@@ -216,6 +219,7 @@ export class MycosynthService {
     private readonly tradeRoutes: TradeRoutesService,
     private readonly productionLines: ProductionLinesService,
     private readonly crafting: CraftingService,
+    private readonly social: MycosynthSocialService,
   ) {}
 
   private logAction(
@@ -296,10 +300,96 @@ export class MycosynthService {
     });
 
     await this.ensureProfiles(universeId);
+    await this.ensureBotAlliances(universeId);
 
     if (created > 0) {
       this.logger.log(`${created} bot(s) NPC créé(s) dans l'univers ${universeId}`);
     }
+  }
+
+  /**
+   * Amorce les alliances NPC (idempotent) : prérequis de la diplomatie, qui est
+   * alliance↔alliance. On répartit les bots sans alliance en
+   * `social.botAllianceCount` réseaux nommés, le premier de chaque groupe en
+   * devient le LEADER. On crée la relation/membre directement en base (opération
+   * d'amorçage, pas une action de jeu — on ne facture pas le coût de fondation).
+   */
+  private async ensureBotAlliances(universeId: string): Promise<void> {
+    const count = MYCOSYNTH_BRAIN_CONFIG.social.botAllianceCount;
+    if (count <= 0) return;
+
+    const [bots, memberships] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { role: UserRole.NPC, universeId },
+        select: { id: true, username: true },
+        orderBy: { username: 'asc' },
+      }),
+      this.prisma.allianceMember.findMany({
+        where: { user: { role: UserRole.NPC, universeId } },
+        select: { userId: true },
+      }),
+    ]);
+    const assigned = new Set(memberships.map((m) => m.userId));
+    const unassigned = bots.filter((bot) => !assigned.has(bot.id));
+    if (unassigned.length === 0) return;
+
+    for (let group = 0; group < count; group++) {
+      const tag = `MYC${group + 1}`;
+      const members = unassigned.filter((_, index) => index % count === group);
+      if (members.length === 0) continue;
+
+      let alliance = await this.prisma.alliance.findUnique({
+        where: { tag },
+        select: { id: true },
+      });
+      if (!alliance) {
+        const leader = members[0]!;
+        alliance = await this.prisma.alliance
+          .create({
+            data: {
+              tag,
+              name: `Réseau Mycélien ${group + 1}`,
+              description: 'Colonie symbiotique MYCOSYNTH.',
+              leaderId: leader.id,
+            },
+            select: { id: true },
+          })
+          .catch(() => null);
+        if (!alliance) continue;
+        await this.prisma.allianceMember
+          .create({
+            data: { allianceId: alliance.id, userId: leader.id, role: AllianceRole.LEADER },
+          })
+          .catch(() => void 0);
+      }
+
+      const allianceId = alliance.id;
+      await this.prisma.allianceMember.createMany({
+        data: members.map((member) => ({
+          allianceId,
+          userId: member.id,
+          role: AllianceRole.MEMBER,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    await this.logBootstrap(universeId, count);
+  }
+
+  private async logBootstrap(universeId: string, allianceCount: number): Promise<void> {
+    await this.prisma.npcActionLog
+      .create({
+        data: {
+          universeId,
+          userId: null,
+          actionType: NpcActionType.ALLIANCE_BOOTSTRAP,
+          status: NpcActionLogStatus.SUCCESS,
+          detail: { allianceCount } as Prisma.InputJsonValue,
+        },
+      })
+      .then(() => void 0)
+      .catch((err: unknown) => this.logger.debug({ err }, 'Log bootstrap alliances NPC échoué'));
   }
 
   /** Attribue un cerveau (archétype + traits) à chaque bot qui n'en a pas encore. */
@@ -367,6 +457,20 @@ export class MycosynthService {
     await this.runMarketLiquidity(snapshot).catch(() => void 0);
     await this.runResourceMarketLiquidity(snapshot).catch(() => void 0);
     await this.runMissionAction(snapshot).catch(() => void 0);
+    await this.social.maybeAct(this.socialContext(snapshot)).catch(() => void 0);
+  }
+
+  /** Projette le snapshot vers le contexte minimal de la couche sociale. */
+  private socialContext(snapshot: BotSnapshot): SocialContext {
+    return {
+      userId: snapshot.userId,
+      username: snapshot.username,
+      universeId: snapshot.universeId,
+      archetype: snapshot.brain.archetype,
+      traits: snapshot.brain.traits,
+      mood: snapshot.brain.mood,
+      memory: snapshot.brain.memory,
+    };
   }
 
   private async buildSnapshot(
@@ -1721,29 +1825,36 @@ export class MycosynthService {
     source: PlanetSnapshot,
     preferredOwnerId: string | null = null,
   ): Promise<TargetCandidate | null> {
-    const targets = await this.prisma.planet.findMany({
-      where: {
-        universeId: snapshot.universeId,
-        ownerId: { not: snapshot.userId },
-        owner: { role: 'PLAYER' },
-        galaxy: source.galaxy,
-      },
-      select: {
-        id: true,
-        ownerId: true,
-        galaxy: true,
-        system: true,
-        position: true,
-        owner: { select: { race: true } },
-        ships: { select: { type: true, quantity: true } },
-      },
-      take: 50,
-    });
+    const [rawTargets, protectedOwners] = await Promise.all([
+      this.prisma.planet.findMany({
+        where: {
+          universeId: snapshot.universeId,
+          ownerId: { not: snapshot.userId },
+          owner: { role: 'PLAYER' },
+          galaxy: source.galaxy,
+        },
+        select: {
+          id: true,
+          ownerId: true,
+          galaxy: true,
+          system: true,
+          position: true,
+          owner: { select: { race: true } },
+          ships: { select: { type: true, quantity: true } },
+        },
+        take: 50,
+      }),
+      this.protectedOwnerIds(snapshot.userId),
+    ]);
+
+    // La diplomatie prime : on n'attaque jamais un partenaire NAP/commercial ni un
+    // membre de notre propre alliance.
+    const targets = rawTargets.filter((target) => !protectedOwners.has(target.ownerId));
 
     const distance = (target: TargetCandidate): number =>
       Math.abs(target.system - source.system) + Math.abs(target.position - source.position);
 
-    // Une cible de rancune accessible passe avant la simple proximité.
+    // Une cible de rancune accessible (et non protégée) passe avant la proximité.
     if (preferredOwnerId) {
       const grudgeTargets = targets
         .filter((target) => target.ownerId === preferredOwnerId)
@@ -1752,6 +1863,43 @@ export class MycosynthService {
     }
 
     return [...targets].sort((a, b) => distance(a) - distance(b))[0] ?? null;
+  }
+
+  /**
+   * Propriétaires que le bot ne doit pas attaquer : ses propres co-équipiers
+   * d'alliance et les membres des alliances avec lesquelles la sienne a un pacte
+   * de non-agression ou une alliance commerciale. Renvoie un ensemble vide si le
+   * bot n'est dans aucune alliance.
+   */
+  private async protectedOwnerIds(userId: string): Promise<Set<string>> {
+    const membership = await this.prisma.allianceMember.findUnique({
+      where: { userId },
+      select: { allianceId: true },
+    });
+    if (!membership) return new Set();
+    const myAllianceId = membership.allianceId;
+
+    const relations = await this.prisma.diplomaticRelation.findMany({
+      where: {
+        OR: [{ alliance1Id: myAllianceId }, { alliance2Id: myAllianceId }],
+        status: {
+          in: [PrismaDiplomaticStatus.NON_AGGRESSION_PACT, PrismaDiplomaticStatus.TRADE_ALLIANCE],
+        },
+      },
+      select: { alliance1Id: true, alliance2Id: true },
+    });
+    const friendlyAllianceIds = new Set<string>([myAllianceId]);
+    for (const relation of relations) {
+      friendlyAllianceIds.add(
+        relation.alliance1Id === myAllianceId ? relation.alliance2Id : relation.alliance1Id,
+      );
+    }
+
+    const members = await this.prisma.allianceMember.findMany({
+      where: { allianceId: { in: [...friendlyAllianceIds] } },
+      select: { userId: true },
+    });
+    return new Set(members.map((member) => member.userId));
   }
 
   private async countRecentAttacks(
