@@ -2,7 +2,7 @@
 
 import { Canvas, type CanvasProps } from '@react-three/fiber';
 import { useEffect, useState } from 'react';
-import { isMobileDevice } from '@/lib/device';
+import { detectWebGL, isMobileDevice } from '@/lib/device';
 
 export interface AdaptiveCanvasProps extends CanvasProps {
   /** Plafond du DPR sur desktop (réduit automatiquement sur mobile). */
@@ -65,6 +65,7 @@ export function AdaptiveCanvas({
   }, [canvasEl]);
 
   if (!mounted) return null;
+  if (!detectWebGL()) return null;
 
   const mobile = isMobileDevice();
   const resolvedDpr =
