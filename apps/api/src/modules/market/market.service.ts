@@ -675,7 +675,7 @@ export class MarketService {
     await this.expiryQueue.add(
       EXPIRE_MARKET_ORDER_JOB,
       { orderId },
-      { jobId: `expire:${orderId}`, delay, removeOnComplete: true, removeOnFail: 10 },
+      { jobId: `expire-${orderId}`, delay, removeOnComplete: true, removeOnFail: 10 },
     );
   }
 
