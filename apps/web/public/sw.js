@@ -1,10 +1,13 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = `arborisis-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `arborisis-runtime-${CACHE_VERSION}`;
+
+const OFFLINE_URL = '/offline';
 
 const APP_SHELL = [
   '/',
   '/play',
+  OFFLINE_URL,
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-512-maskable.png',
@@ -66,8 +69,9 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => {
           const cached = await caches.match(request);
           if (cached) return cached;
-          const fallback = await caches.match('/play');
-          if (fallback) return fallback;
+          // Page hors-ligne dédiée, puis repli sur l'app shell mis en cache.
+          const offline = (await caches.match(OFFLINE_URL)) || (await caches.match('/play'));
+          if (offline) return offline;
           return new Response('Offline', {
             status: 503,
             statusText: 'Service Unavailable',

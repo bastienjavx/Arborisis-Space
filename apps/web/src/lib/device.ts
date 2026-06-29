@@ -31,10 +31,6 @@ export function shouldUseLowPowerMode(): boolean {
   return isMobileDevice() || prefersReducedMotion() || prefersDataSaver();
 }
 
-export function shouldPreload3dAssets(): boolean {
-  return typeof window !== 'undefined' && !shouldUseLowPowerMode();
-}
-
 /** Hook réactif : `true` sur mobile/tactile, recalculé au redimensionnement. */
 export function useIsMobile(): boolean {
   const [mobile, setMobile] = useState(false);

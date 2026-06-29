@@ -36,8 +36,13 @@ export function ParticleField() {
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    setParticles(buildParticles(lowPower ? 10 : 40));
+    // Sur mobile/low-power, l'ambiance est déjà assurée par OrganicBackground
+    // (dégradé CSS). On supprime ici les particules animées (repaint continu) et
+    // les halos `blur-[100px]` plein écran, coûteux à composer sur Safari iOS.
+    setParticles(buildParticles(lowPower ? 0 : 40));
   }, [lowPower]);
+
+  if (lowPower) return null;
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
