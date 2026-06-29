@@ -1,5 +1,7 @@
 import {
   BuildingType,
+  CRAFTING_RECIPES,
+  ITEMS,
   ItemKey,
   MarketOrderSide,
   MYCOSYNTH_AI_CONFIG,
@@ -303,6 +305,174 @@ export function preferredMarketItems(): ItemKey[] {
     ItemKey.MYCELIAL_FIBER,
     ItemKey.BIOLUMINESCENT_GEL,
   ];
+}
+
+// ───────────────────────── Liquidité « intelligente » du marché ─────────────────────────
+//
+// Les bots posent des ordres au repos ancrés à la juste valeur de chaque item
+// (`ITEMS[item].baseValue`), pour CRÉER de la profondeur et un spread sain plutôt que
+// de traverser le carnet. On ne vend que du vrai surplus et on n'achète que les
+// ingrédients réellement consommés par les recettes de craft préférées (« pas bêtement »).
+
+export interface MarketBook {
+  bestBid: number | null;
+  bestAsk: number | null;
+  lastPrice: number | null;
+}
+
+/** État marché d'un item, pré-agrégé par le service pour rester déterministe et testable. */
+export interface MarketLiquidityItemState {
+  itemKey: ItemKey;
+  /** Quantité totale détenue (toutes planètes confondues). */
+  totalQuantity: number;
+  /** Planète détenant le plus gros stock vendable, si surplus il y a. */
+  bestSurplus: { planetId: string; quantity: number } | null;
+  hasOpenSell: boolean;
+  hasOpenBuy: boolean;
+  book: MarketBook;
+}
+
+export interface MarketLiquidityInput {
+  /** Bot tenant activement le marché (cotations plus serrées et buffers plus profonds). */
+  isMarketMaker: boolean;
+  openOrderCount: number;
+  /** Biomasse disponible pour l'escrow (déjà nette de la réserve économique). */
+  protectedBiomass: number;
+  /** Planète qui porte les ordres d'achat (escrow biomasse). */
+  buyerPlanetId: string;
+  /** Items réellement consommés par le bot (ingrédients de craft). */
+  neededItems: Set<ItemKey>;
+  items: MarketLiquidityItemState[];
+}
+
+export interface MarketOrderIntent {
+  planetId: string;
+  itemKey: ItemKey;
+  side: MarketOrderSide;
+  pricePerUnit: number;
+  quantity: number;
+  reason: string;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Juste valeur d'un item : ancrée sur sa baseValue, légèrement tirée vers le dernier
+ * prix observé, puis bornée dans une bande autour de la baseValue pour ne jamais courir
+ * après un prix manipulé.
+ */
+export function marketFairValue(itemKey: ItemKey, lastPrice: number | null): number {
+  const base = ITEMS[itemKey].baseValue;
+  const blended = lastPrice != null && lastPrice > 0 ? base * 0.6 + lastPrice * 0.4 : base;
+  const min = base * MYCOSYNTH_AI_CONFIG.marketFairValueBandMin;
+  const max = base * MYCOSYNTH_AI_CONFIG.marketFairValueBandMax;
+  return Math.round(clamp(blended, min, max));
+}
+
+/** Plancher de prix d'un item : on ne vend/achète jamais sous baseValue × ratio. */
+export function marketItemFloor(itemKey: ItemKey): number {
+  return Math.max(
+    MYCOSYNTH_AI_CONFIG.marketPriceFloor,
+    Math.round(ITEMS[itemKey].baseValue * MYCOSYNTH_AI_CONFIG.marketFloorRatio),
+  );
+}
+
+/** Items dont le bot a réellement besoin = ingrédients de ses recettes de craft préférées. */
+export function marketNeededItems(): Set<ItemKey> {
+  const needed = new Set<ItemKey>();
+  for (const recipeId of MYCOSYNTH_AI_CONFIG.preferredCraftingRecipes) {
+    const recipe = CRAFTING_RECIPES.find((r) => r.id === recipeId);
+    if (!recipe) continue;
+    for (const ingredient of recipe.ingredients) {
+      if (ingredient.itemKey) needed.add(ingredient.itemKey);
+    }
+  }
+  return needed;
+}
+
+/**
+ * Décide des ordres de liquidité à poser ce tick. Renvoie 0..N intentions, toujours dans
+ * la limite de `maxOpenMarketOrders` et de la biomasse protégée disponible.
+ */
+export function planMarketOrders(input: MarketLiquidityInput): MarketOrderIntent[] {
+  const intents: MarketOrderIntent[] = [];
+  const maxOrders = MYCOSYNTH_AI_CONFIG.maxOpenMarketOrders;
+  const qty = MYCOSYNTH_AI_CONFIG.marketOrderQuantity;
+  const margin = input.isMarketMaker
+    ? MYCOSYNTH_AI_CONFIG.marketMakerSpreadMargin
+    : MYCOSYNTH_AI_CONFIG.marketSpreadMargin;
+  // Les market-makers tiennent des buffers plus profonds : ils vendent dès un surplus
+  // plus modeste et rachètent jusqu'à un stock cible plus élevé.
+  const sellThreshold = input.isMarketMaker
+    ? Math.max(1, Math.ceil(MYCOSYNTH_AI_CONFIG.marketSellSurplus / 2))
+    : MYCOSYNTH_AI_CONFIG.marketSellSurplus;
+  const buyTarget = input.isMarketMaker
+    ? MYCOSYNTH_AI_CONFIG.marketBuyTargetStock * 2
+    : MYCOSYNTH_AI_CONFIG.marketBuyTargetStock;
+
+  let openCount = input.openOrderCount;
+  let biomass = input.protectedBiomass;
+
+  // ── Côté vente : on apporte de la profondeur en posant des asks AU-DESSUS du mid,
+  //    uniquement sur du vrai surplus, jamais sous le plancher de l'item.
+  for (const item of input.items) {
+    if (openCount >= maxOrders) break;
+    if (item.hasOpenSell) continue;
+    const surplus = item.bestSurplus;
+    if (!surplus || surplus.quantity < sellThreshold) continue;
+
+    const fair = marketFairValue(item.itemKey, item.book.lastPrice);
+    const floor = marketItemFloor(item.itemKey);
+    const price = Math.max(floor, Math.round(fair * (1 + margin)));
+    if (price < floor) continue;
+
+    intents.push({
+      planetId: surplus.planetId,
+      itemKey: item.itemKey,
+      side: MarketOrderSide.SELL,
+      pricePerUnit: price,
+      quantity: Math.min(qty, surplus.quantity),
+      reason: input.isMarketMaker ? 'maker_ask' : 'surplus_ask',
+    });
+    openCount += 1;
+  }
+
+  // ── Côté achat : on apporte de la liquidité en posant des bids SOUS le mid, mais
+  //    seulement sur les items réellement consommés et sous le stock cible, plafonnés à
+  //    la juste valeur (jamais surpayer, jamais traverser le carnet).
+  for (const item of input.items) {
+    if (openCount >= maxOrders) break;
+    if (!input.neededItems.has(item.itemKey)) continue;
+    if (item.hasOpenBuy) continue;
+    if (item.totalQuantity >= buyTarget) continue;
+
+    const fair = marketFairValue(item.itemKey, item.book.lastPrice);
+    let price = Math.round(fair * (1 - margin));
+    if (item.book.bestAsk != null) {
+      // Rester acheteur passif : ne jamais croiser le meilleur ask.
+      price = Math.min(price, item.book.bestAsk - 1);
+    }
+    price = Math.max(price, MYCOSYNTH_AI_CONFIG.marketPriceFloor);
+    if (price < 1) continue;
+
+    const escrow = price * qty;
+    if (biomass < escrow) continue;
+
+    intents.push({
+      planetId: input.buyerPlanetId,
+      itemKey: item.itemKey,
+      side: MarketOrderSide.BUY,
+      pricePerUnit: price,
+      quantity: qty,
+      reason: input.isMarketMaker ? 'maker_bid' : 'need_bid',
+    });
+    openCount += 1;
+    biomass -= escrow;
+  }
+
+  return intents;
 }
 
 function sumSelectedShips(ships: Partial<Record<ShipType, number>>, types: ShipType[]): number {
