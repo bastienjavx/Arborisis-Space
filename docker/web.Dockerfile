@@ -7,6 +7,14 @@ ENV CI=true
 
 # ── Dépendances + build ──
 FROM base AS builder
+# URL publique canonique. Next fige les métadonnées (SEO, Open Graph, canonical)
+# des pages rendues statiquement au build : sans ces args, une installation
+# auto-hébergée annonce le domaine par défaut. Laisser vide retombe sur le
+# fallback de `apps/web/src/lib/site.ts`.
+ARG SITE_URL=""
+ARG NEXT_PUBLIC_SITE_URL=""
+ENV SITE_URL=${SITE_URL}
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 COPY package.json package-lock.json turbo.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/

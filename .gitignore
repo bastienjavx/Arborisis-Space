@@ -63,5 +63,9 @@ prisma/*.db-journal
 # Docker volumes (local)
 .docker-data/
 
+# Serveur dédié auto-hébergé (secrets + dumps) — jamais commiter
+deploy/.env
+backups/
+
 # Worktrees & config locale agents Claude
 .claude/

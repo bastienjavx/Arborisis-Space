@@ -1,0 +1,10 @@
+[Unit]
+Description=Arborisis — sauvegarde PostgreSQL
+Requires=docker.service
+After=docker.service arborisis.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@INSTALL_DIR@
+ExecStart=@INSTALL_DIR@/deploy/scripts/backup.sh
+# La rétention est pilotée par BACKUP_RETENTION_DAYS dans deploy/.env.

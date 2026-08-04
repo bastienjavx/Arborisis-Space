@@ -2,7 +2,7 @@
 
 Browser-based persistent multiplayer space strategy game, built around organic civilization, asynchronous progression, and server-authoritative simulation.
 
-Arborisis is a Turborepo monorepo with a NestJS API, a Next.js web client, a shared gameplay package, Prisma migrations, Redis-backed BullMQ workers, and Railway deployment manifests. The project is designed like a live strategy service: clients send intentions, the server owns the game state, and timed gameplay is finalized through replay-safe workers.
+Arborisis is a Turborepo monorepo with a NestJS API, a Next.js web client, a shared gameplay package, Prisma migrations, Redis-backed BullMQ workers, and deployment manifests for both Railway and self-hosted dedicated servers. The project is designed like a live strategy service: clients send intentions, the server owns the game state, and timed gameplay is finalized through replay-safe workers.
 
 ---
 
@@ -11,6 +11,7 @@ Arborisis is a Turborepo monorepo with a NestJS API, a Next.js web client, a sha
 - Persistent empire building with planets, fleets, research, buildings, production lines, crafting, markets, trade routes, quests, achievements, seasons, alliances, chat, PVE, PVP, events, and NPC systems.
 - Server-authoritative game engine with Zod-validated API inputs and shared gameplay constants.
 - Multi-service Railway topology: API, web, gameplay worker, provisioning worker, maintenance worker, Postgres, Redis, and auto-provisioned universe nodes.
+- One-click dedicated-server install: a single script provisions the whole stack — Docker, secrets, database, workers, and automatic HTTPS — on a fresh VPS.
 - Redis-backed BullMQ workflows for construction, research, ship production, expeditions, combat, crafting, production lines, trade routes, market expiry, notifications, NPC ticks, and recovery sweeps.
 - Strict security posture: Argon2id, rotating refresh tokens, httpOnly cookies, origin checks, throttling, Helmet, secret scanning, dependency review, CodeQL, Trivy, and OSSF Scorecard.
 
@@ -26,6 +27,8 @@ Arborisis is a Turborepo monorepo with a NestJS API, a Next.js web client, a sha
 | `prisma`          | Database schema, migrations, seed data                                                      |
 | `docs`            | Architecture, infrastructure, audits, and operational documentation                         |
 | `docker`          | Production Dockerfiles and entrypoint                                                       |
+| `deploy`          | Dedicated-server stack: Compose, Caddy, ops CLI, backups, systemd units                     |
+| `install.sh`      | One-click installer for a self-hosted dedicated server                                      |
 | `railway*.toml`   | Railway config-as-code for API, web, and dedicated worker services                          |
 
 The key rule is simple: gameplay knowledge starts in `packages/shared`; persistence starts in `prisma`; application behavior lives in `apps/api`; presentation lives in `apps/web`.
@@ -125,6 +128,7 @@ See [Architecture](./docs/ARCHITECTURE.md) for module boundaries, runtime flows,
 | [Contributing](./CONTRIBUTING.md)                  | Contributors               | Setup, branch workflow, testing expectations, PR checklist                   |
 | [Security](./SECURITY.md)                          | Maintainers and reporters  | Disclosure, threat model, controls, CI security checks, incident handling    |
 | [Infrastructure](./docs/INFRASTRUCTURE.md)         | Operators                  | Railway topology, environment variables, deploy flow, runbooks               |
+| [Self-Hosting](./docs/SELF_HOSTING.md)             | Operators                  | Dedicated-server install, ops CLI, backups, scaling, troubleshooting         |
 | [Agent Guide](./AGENTS.md)                         | Coding agents              | Compact operational rules                                                    |
 | [Claude Reference](./CLAUDE.md)                    | French agent/dev reference | Extended project guidance                                                    |
 | [Visual Asset Audit](./docs/VISUAL_ASSET_AUDIT.md) | Product/design             | Asset quality notes                                                          |
@@ -132,6 +136,21 @@ See [Architecture](./docs/ARCHITECTURE.md) for module boundaries, runtime flows,
 ---
 
 ## Deployment Snapshot
+
+Arborisis supports two deployment targets from the same code and the same Dockerfiles.
+
+### Dedicated Server (self-hosted)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bastienjavx/arborisis-space/main/install.sh \
+  | sudo bash -s -- --domain game.example.com --email admin@example.com
+```
+
+One Compose project runs Postgres, Redis, the API, all workers, the web app, and Caddy with automatic HTTPS. The installer generates every secret, applies migrations, and registers a systemd unit plus a daily backup timer. Operations go through the `arborisis` CLI it installs.
+
+See [Self-Hosting](./docs/SELF_HOSTING.md) for requirements, options, and runbooks.
+
+### Railway (managed)
 
 Railway services are separated by role:
 
