@@ -6,7 +6,16 @@ Operational reference for Arborisis hosting, deployment, runtime services, and i
 
 ## Platform
 
-Arborisis is designed for Railway with separate services per runtime responsibility.
+Arborisis supports two deployment targets, built from the same Dockerfiles and the same code:
+
+| Target                         | Reference                         | Shape                                                           |
+| ------------------------------ | --------------------------------- | --------------------------------------------------------------- |
+| Railway (managed)              | this document                     | One service per runtime responsibility, plugins for data stores |
+| Dedicated server (self-hosted) | [Self-Hosting](./SELF_HOSTING.md) | One Compose project on a single machine, installed in one click |
+
+The rest of this document describes the Railway topology. The self-hosted stack maps the same roles onto containers and preserves the same invariants — in particular, migrations and seed still run exactly once per deployment, before any API or worker starts, through a one-shot `migrate` container instead of a Railway release phase.
+
+Railway is designed with separate services per runtime responsibility.
 
 | Service               | Role                                               | Config file                        | Replicas                    |
 | --------------------- | -------------------------------------------------- | ---------------------------------- | --------------------------- |
@@ -245,6 +254,10 @@ Impact: queues, throttling, distributed locks, and some cache paths degrade.
 6. Rely on recovery sweeps for overdue persisted jobs.
 7. Add a regression test if the backlog came from a finalization bug.
 
+### Dedicated Server Incidents
+
+Self-hosted installations use the same application runbooks above. Host-level diagnosis, backups, restores, and rollback are covered in [Self-Hosting](./SELF_HOSTING.md#troubleshooting); `arborisis doctor` is the first command to run.
+
 ### Universe Saturation
 
 1. Confirm active universe player counts.
@@ -276,3 +289,5 @@ Impact: queues, throttling, distributed locks, and some cache paths degrade.
 - Workers start with the expected `WORKER_ROLE`.
 - No worker service runs the API release phase.
 - Recovery sweeps complete without repeated errors.
+
+For a dedicated server, the equivalent checklist is `arborisis update` followed by `arborisis doctor`, plus confirmation that the pre-update backup was written.

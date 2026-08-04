@@ -61,7 +61,18 @@ npm run test:e2e -w @arborisis/api
 
 ---
 
-## Railway (essentiel)
+## Déploiement — deux cibles
+
+### Serveur dédié (auto-hébergé)
+
+- Installation one-click : `sudo ./install.sh --domain jeu.example.com --email admin@example.com`
+- Stack : `deploy/docker-compose.prod.yml` (Caddy + web + api + workers + Postgres + Redis)
+- Config générée : `deploy/.env` (secrets, mode 600, jamais commité)
+- Exploitation : `arborisis status | logs | update | backup | doctor`
+- Migrations/seed : conteneur one-shot `migrate`, avant l'API (`service_completed_successfully`)
+- Guide complet : `docs/SELF_HOSTING.md`
+
+### Railway (essentiel)
 
 - API : `railway.toml`
 - Web : `railway.web.toml` (à sélectionner explicitement dans Railway)

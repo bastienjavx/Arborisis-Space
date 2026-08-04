@@ -1,0 +1,11 @@
+[Unit]
+Description=Arborisis — sauvegarde PostgreSQL quotidienne
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# Rattrape la sauvegarde si la machine était éteinte à l'heure prévue.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

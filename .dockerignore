@@ -13,3 +13,7 @@ node_modules
 *.log
 .docker-data
 docker-compose.yml
+# Outillage serveur dédié : jamais nécessaire dans un contexte de build.
+deploy
+backups
+install.sh

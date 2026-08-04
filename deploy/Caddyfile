@@ -1,0 +1,44 @@
+# Arborisis — entrée publique du serveur dédié.
+#
+# SITE_ADDRESS pilote le mode :
+#   arborisis.example.com  → HTTPS automatique (Let's Encrypt / ZeroSSL)
+#   :80                    → HTTP simple (IP nue, LAN, ou TLS géré en amont)
+#
+# Le front Next.js proxifie déjà `/api/*` vers le bon node d'univers (cookie
+# d'univers signé) : tout le trafic HTTP va donc au web. Seul Socket.IO doit
+# atteindre l'API directement — Next.js ne relaie pas les WebSockets.
+
+{
+	email {$ACME_EMAIL}
+	admin off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# Temps réel : le client se connecte à `origin/events` via le chemin /socket.io.
+	@realtime path /socket.io/*
+	handle @realtime {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		# Ignoré par les navigateurs en HTTP simple, actif dès que TLS est en place.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
