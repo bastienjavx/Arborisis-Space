@@ -1,7 +1,7 @@
 # Dockerfile multi-stage du front Arborisis (Next.js standalone).
 # Construit depuis la RACINE du monorepo :  docker build -f docker/web.Dockerfile .
 
-FROM node:22-bookworm-slim@sha256:813a7480f28fdadac1f7f5c824bcdad435b5bc1322a5968bbbdef8d058f9dff4 AS base
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS base
 WORKDIR /app
 ENV CI=true
 
